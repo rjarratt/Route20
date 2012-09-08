@@ -38,7 +38,7 @@ void InitAreaForwardingDatabase(void)
 	}
 }
 
-int IsReachable(int area)
+int IsAreaReachable(int area)
 {
 	return AReach[area];
 }

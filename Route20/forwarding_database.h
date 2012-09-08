@@ -31,5 +31,7 @@
 int OA[NC+NBRA+NBEA+1];
 int Reach[NN+1];
 
+int IsNodeReachable(int node);
+
 #define FORWARDING_DATABASE_H
 #endif

@@ -28,3 +28,8 @@
 
 #include "constants.h"
 #include "forwarding_database.h"
+
+int IsNodeReachable(int node)
+{
+	return Reach[node];
+}
