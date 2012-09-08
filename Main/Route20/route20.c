@@ -460,14 +460,18 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 			{
 				//LogMessage(circuit, packet, "Hello and Test");
 			}
-			else if (IsLevel1RoutingMessage(packet))
+			else if (IsLevel1RoutingMessage(packet) && (nodeInfo.level == 1 || nodeInfo.level == 2))
 			{
 				routing_msg_t *msg;
 				//LogMessage(circuit, packet, "Level 1 Routing");
 				msg = ParseRoutingMessage(packet);
 				if (msg != NULL)
 				{
-					ProcessLevel1RoutingMessage(msg);
+					if (msg->srcnode.area == nodeInfo.address.area)
+					{
+					    ProcessLevel1RoutingMessage(msg);
+					}
+
 					FreeRoutingMessage(msg);
 				}
 			}

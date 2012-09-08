@@ -31,6 +31,7 @@
 #include "messages.h"
 #include "adjacency.h"
 #include "decnet.h"
+#include "routing_database.h"
 #include "area_routing_database.h"
 #include "platform.h"
 
@@ -182,9 +183,38 @@ packet_t *CreateEthernetHello(decnet_address_t address)
 	return &ans;
 }
 
+packet_t *CreateLevel1RoutingMessage(int from, int count)
+{
+	static single_segment_level1_routing_t msg;
+	static packet_t ans;
+	int i;
+
+	memset(&msg, 0, sizeof(msg));
+
+	msg.flags = 0x07;
+	msg.srcNode = Uint16ToLittleEndian(GetDecnetId(nodeInfo.address));
+	msg.res = 0;
+	msg.count = Uint16ToLittleEndian(count);
+	msg.start = Uint16ToLittleEndian(from);
+
+	for(i = from; i < from + count; i++)
+	{
+		msg.rtginfo[i] = Uint16ToLittleEndian((uint16)((Minhop[i] << 10) | Mincost[i]));
+	}
+
+	msg.checksum = Uint16ToLittleEndian(Checksum(1, &msg.count, count + 2));
+
+	ans.payload = (byte *)&msg;
+	ans.payloadLen = sizeof(msg);
+	ans.rawData = ans.payload;
+	ans.rawLen = ans.payloadLen;
+
+	return &ans;
+}
+
 packet_t *CreateLevel2RoutingMessage(void)
 {
-	static single_segment_routing_t msg;
+	static single_segment_level2_routing_t msg;
 	static packet_t ans;
 	int i;
 

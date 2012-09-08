@@ -47,6 +47,8 @@
 #define BCT1     180
 #define T2         1
 
+#define LEVEL1_BATCH_SIZE 32 /* must be integral factor of NN + 1 */
+
 #define MAX_DATA_MESSAGE_BODY_SIZE 8192
 #define MAX_LOG_LINE_LEN 800
 #define CONFIG_FILE_NAME "route20.ini"
