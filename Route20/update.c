@@ -37,20 +37,25 @@
 #include "timer.h"
 #include "platform.h"
 
-static void ProcessLevel2UpdateTimer(rtimer_t *timer, char *name, void *context);
+static void ProcessUpdateTimer(rtimer_t *timer, char *name, void *context);
+static void ProcessCircuitLevel1Update(circuit_t *circuit);
 static void ProcessCircuitLevel2Update(circuit_t *circuit);
+static int Level1UpdateRequired(int slot, int from, int count);
 static int Level2UpdateRequired(int slot);
 
-// TODO: Level 1 not done, it also needs to spread things out for Ethernet (applies to Level 1 routing where packets would be too big to send all in 1 message).
 void InitialiseUpdateProcess(void)
 {
 	time_t now;
 
 	time(&now);
-	CreateTimer("level 2 update", now + T2, T2, NULL, ProcessLevel2UpdateTimer);
+
+	if (nodeInfo.level == 1 || nodeInfo.level == 2)
+	{
+	    CreateTimer("Update", now + T2, T2, NULL, ProcessUpdateTimer);
+	}
 }
 
-static void ProcessLevel2UpdateTimer(rtimer_t *timer, char *name, void *context)
+static void ProcessUpdateTimer(rtimer_t *timer, char *name, void *context)
 {
 	int i;
 	for (i = 1; i <= NC; i++)
@@ -58,10 +63,46 @@ static void ProcessLevel2UpdateTimer(rtimer_t *timer, char *name, void *context)
 		circuit_t *circuit = &Circuits[i];
 		if (circuit->state == CircuitUp)
 		{
-		    ProcessCircuitLevel2Update(circuit);
+			if (nodeInfo.level == 1 || nodeInfo.level == 2)
+			{
+		        ProcessCircuitLevel1Update(circuit);
+			}
+
+			if (nodeInfo.level == 2)
+			{
+		        ProcessCircuitLevel2Update(circuit);
+			}
 		}
 	}
+}
 
+static void ProcessCircuitLevel1Update(circuit_t *circuit)
+{
+	packet_t *packet;
+	int startNode = circuit->nextLevel1Node;
+		
+	do
+	{
+	    if (Level1UpdateRequired(circuit->slot, circuit->nextLevel1Node, LEVEL1_BATCH_SIZE))
+		{
+		    //Log(LogInfo, "Sending level 1 routing to %s starting from node %d\n", circuit->name, circuit->nextLevel1Node);
+		    packet = CreateLevel1RoutingMessage(circuit->nextLevel1Node, LEVEL1_BATCH_SIZE);
+			if (IsBroadcastCircuit(circuit))
+			{
+				circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet);
+			}
+			else
+			{
+				//TODO: circuit->WritePacket(circuit, &nodeInfo.address, &adjacency->id, packet);
+			}
+		}
+
+		circuit->nextLevel1Node = (circuit->nextLevel1Node + LEVEL1_BATCH_SIZE) % (NN + 1);
+	}
+	while (circuit->nextLevel1Node != startNode);
+
+	/* ensure next time round we start from a different point in the table, satisfies 4.8.1 requirement to mitigate packet loss */
+	circuit->nextLevel1Node = (circuit->nextLevel1Node + LEVEL1_BATCH_SIZE) % (NN + 1);
 }
 
 static void ProcessCircuitLevel2Update(circuit_t *circuit)
@@ -81,6 +122,22 @@ static void ProcessCircuitLevel2Update(circuit_t *circuit)
 			//TODO: circuit->WritePacket(circuit, &nodeInfo.address, &adjacency->id, packet);
 		}
 	}
+}
+
+static int Level1UpdateRequired(int slot, int from, int count)
+{
+	int i;
+	int ans = 0;
+	for (i = from; i < from + count; i++)
+	{
+		if (Srm[i][slot])
+		{
+			ans = 1;
+			Srm[i][slot] = 0;
+		}
+	}
+
+	return ans;
 }
 
 static int Level2UpdateRequired(int slot)

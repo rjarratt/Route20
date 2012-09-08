@@ -61,9 +61,20 @@ typedef struct
 	byte   res;
 	uint16 count;
 	uint16 start;
+	uint16 rtginfo[LEVEL1_BATCH_SIZE];
+	uint16 checksum;
+} single_segment_level1_routing_t;
+
+typedef struct
+{
+	byte   flags;
+	uint16 srcNode;
+	byte   res;
+	uint16 count;
+	uint16 start;
 	uint16 rtginfo[NA];
 	uint16 checksum;
-} single_segment_routing_t;
+} single_segment_level2_routing_t;
 
 typedef struct
 {
@@ -157,6 +168,7 @@ int GetMessageBody(packet_t *packet);
 int GetRouterLevel(int iinfo);
 
 packet_t *CreateEthernetHello(decnet_address_t address);
+packet_t *CreateLevel1RoutingMessage(int from, int count);
 packet_t *CreateLevel2RoutingMessage(void);
 
 int IsValidRouterHelloMessage(packet_t *packet);

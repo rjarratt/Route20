@@ -22,8 +22,8 @@ Limitations
 
 1. Only tested on Windows Server 2003 and Raspberry Pi running Debian.
 2. Does not support Phase III nodes.
-3. Although it can be configured as a Level 1 node, Level 1 is not fully
-   supported. It has only been tested as a Level 2 (area router) node.
+3. Although it can be configured as a Level 1 node, it has only been tested
+   as a Level 2 (area router) node.
 4. Limited testing on Raspberry Pi.
 5. Performance not tested.
 6. Not tested with multiple ethernets.

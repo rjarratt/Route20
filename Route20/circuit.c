@@ -30,6 +30,7 @@
 #include <string.h>
 #include <pcap.h>
 #include <pcap-bpf.h>
+#include "constants.h"
 #include "platform.h"
 #include "circuit.h"
 #include "eth_circuit.h"
@@ -61,6 +62,7 @@ void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost)
 	circuit->circuitType = EthernetCircuit;
 	circuit->state = CircuitOff;
 	circuit->cost = cost;
+	circuit->nextLevel1Node = 0;
 
 	circuit->Open = EthCircuitOpen;
 	circuit->Start = EthCircuitStart;
@@ -79,6 +81,7 @@ void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receive
 	circuit->circuitType = EthernetCircuit;
 	circuit->state = CircuitOff;
 	circuit->cost = cost;
+	circuit->nextLevel1Node = 0;
 
     circuit->Open = EthCircuitOpen;
 	circuit->Start = EthCircuitStart;
