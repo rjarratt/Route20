@@ -32,7 +32,7 @@ int AOA[NC+NBRA+NBEA+1];
 int AReach[NA+1];
 
 void InitAreaForwardingDatabase(void);
-int IsReachable(int area);
+int IsAreaReachable(int area);
 
 #define AREA_FORWARDING_DATABASE_H
 #endif

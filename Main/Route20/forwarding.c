@@ -36,6 +36,7 @@
 #include "adjacency.h"
 
 static adjacency_t *GetAdjacencyForNode(decnet_address_t *node);
+static int IsReachable(decnet_address_t *address);
 
 void ForwardPacket(packet_t *packet)
 {
@@ -55,9 +56,8 @@ void ForwardPacket(packet_t *packet)
 	//LogDecnetAddress(LogInfo, &srcNode);
 	//Log(LogInfo, " to ");
 	//LogDecnetAddress(LogInfo, &dstNode);
-	//Log(LogInfo, ". ");
-	////Log(LogInfo, ". Visits=%d", visits);
-	////Log(LogError, " OA(0)=%d, AOA(area)=%d, Att=%d, Reachable=%d.", OA[0], AOA[dstNode.area], AttachedFlg, IsReachable(dstNode.area));
+	//Log(LogInfo, ". Visits=%d", visits);
+	//Log(LogError, " OA(0)=%d, AOA(area)=%d, Att=%d, Reachable=%d.", OA[0], AOA[dstNode.area], AttachedFlg, IsReachable(&dstNode));
 
 	visits++;
 
@@ -90,7 +90,7 @@ void ForwardPacket(packet_t *packet)
 			}
 		}
 
-		if (!IsReachable(dstNode.area))
+		if (!IsReachable(&dstNode))
 		{
 			if (IsReturnToSenderRequest(flags))
 			{
@@ -98,12 +98,12 @@ void ForwardPacket(packet_t *packet)
 				memcpy(&temp, &srcNode, sizeof(decnet_address_t));
 				memcpy(&srcNode, &dstNode, sizeof(decnet_address_t));
 				memcpy(&dstNode, &temp, sizeof(decnet_address_t));
-				Log(LogInfo, "Returning packet to sender as node unreachable\n");
+				//Log(LogInfo, "Returning packet to sender as node unreachable\n");
 				forwardFlags = 0x16;
 			}
 			else
 			{
-				Log(LogInfo, "Dropping packet to unreachable node because return not requested\n");
+				//Log(LogInfo, "Dropping packet to unreachable node because return not requested\n");
 				forward = 0;
 			}
 		}
@@ -161,6 +161,22 @@ static adjacency_t *GetAdjacencyForNode(decnet_address_t *node)
 	else
 	{
 		ans = GetAdjacency(adjacencyNum);
+	}
+
+	return ans;
+}
+
+static int IsReachable(decnet_address_t *address)
+{
+	int ans = 0;
+
+	if (nodeInfo.address.area != address->area)
+	{
+		ans = IsAreaReachable(address->area);
+	}
+	else
+	{
+		ans = IsNodeReachable(address->node);
 	}
 
 	return ans;
