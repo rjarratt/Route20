@@ -1,0 +1,179 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="route20.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="linux.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="windows.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="packet.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="eth_pcap.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="eth_sock.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="timer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="messages.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="adjacency.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="node.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="decnet.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="eth_decnet.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="eth_init_layer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="init_layer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="decision.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="routing_database.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="forwarding_database.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="area_routing_database.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="area_forwarding_database.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="forwarding.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="circuit.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="eth_circuit.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dns.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="socket.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="update.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="makefile" />
+    <None Include="readme.txt" />
+    <None Include="route20.ini" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="platform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="route20.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="packet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="eth_init_layer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="init_layer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="eth_pcap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="eth_sock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="timer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="messages.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="basictypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="adjacency.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="node.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="constants.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="decnet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="eth_decnet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="routing_database.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="forwarding_database.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="area_routing_database.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="area_forwarding_database.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="decision.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="forwarding.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="circuit.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="eth_circuit.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dns.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="socket.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="update.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
