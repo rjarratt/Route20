@@ -57,6 +57,7 @@ typedef struct circuit
 	CircuitType   circuitType;
 	CircuitState  state;
 	int           cost;
+	int           nextLevel1Node;
 
 	int (*Open)(circuit_ptr circuit);
 	int (*Start)(circuit_ptr circuit);
