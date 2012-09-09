@@ -211,7 +211,7 @@ static void Dump(int from, int to)
 static void DumpHeading(FILE *dumpFile, char * prefix, int from, int to)
 {
 	int j;
-	fprintf(dumpFile, prefix);
+	fprintf(dumpFile, "%s", prefix);
 	for (j = from; j <= to; j++)
 	{
 		fprintf(dumpFile, "%d", j / 10);
@@ -219,7 +219,7 @@ static void DumpHeading(FILE *dumpFile, char * prefix, int from, int to)
 
 	fprintf(dumpFile, "\n");
 
-	fprintf(dumpFile, prefix);
+	fprintf(dumpFile, "%s", prefix);
 	for (j = from; j <= to; j++)
 	{
 		fprintf(dumpFile, "%d", j % 10);
@@ -227,7 +227,7 @@ static void DumpHeading(FILE *dumpFile, char * prefix, int from, int to)
 
 	fprintf(dumpFile, "\n");
 
-	fprintf(dumpFile, prefix);
+	fprintf(dumpFile, "%s", prefix);
 	for (j = from; j <= to; j++)
 	{
 		fprintf(dumpFile, "-");

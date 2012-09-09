@@ -154,7 +154,7 @@ void Log(LogLevel level, char *format, ...)
 
 	if (onNewLine)
 	{
-	    syslog(sysLevel, line);
+	    syslog(sysLevel, "%s", line);
 		currentLen = 0;
 	}
 
