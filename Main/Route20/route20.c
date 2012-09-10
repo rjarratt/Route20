@@ -412,6 +412,11 @@ static char *ReadConfigLine(FILE *f)
 		buf[strlen(buf) - 1] = '\0';
 	}
 
+	if (buf[strlen(buf) - 1] == '\r')
+	{
+		buf[strlen(buf) - 1] = '\0';
+	}
+
 	return ans;
 }
 
