@@ -199,7 +199,7 @@ packet_t *CreateLevel1RoutingMessage(int from, int count)
 
 	for(i = from; i < from + count; i++)
 	{
-		msg.rtginfo[i] = Uint16ToLittleEndian((uint16)((Minhop[i] << 10) | Mincost[i]));
+		msg.rtginfo[i - from] = Uint16ToLittleEndian((uint16)((Minhop[i] << 10) | Mincost[i]));
 	}
 
 	msg.checksum = Uint16ToLittleEndian(Checksum(1, &msg.count, count + 2));
