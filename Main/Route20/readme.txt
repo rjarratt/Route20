@@ -4,6 +4,21 @@ User Mode DECnet Router Readme
 This program is a DECnet router that implements version 2.0 of the DECnet routing specification
 found here: http://linux-decnet.sourceforge.net/docs/route20.txt
 
+Second Alpha Release 15th Sep 2012
+----------------------------------
+
+This second release has been successfully tested with another person in another area. It
+fixes the following bugs and limitations:
+
+1. Implements Level 1 Routing messages and interoperates correctly with Level 1 routers
+   (ie routing nodes that are not area routers).
+2. Packets routed from outside into the local area are no longer dropped.
+3. More tolerant of different line end formats on the configuration file (ie DOS or non-DOS format).
+4. Fixed some compiler warnings related to format strings.
+
+I have also realised that for every bridge connection you use you need a separate UDP port.
+I am not sure if this is a flaw or a feature.
+
 Features
 --------
 
@@ -12,7 +27,8 @@ Features
 3. Full routing capability, so it avoids broadcasting all routing messages to
    entire network and kills looping packets.
 4. Supports Ethernet (using pcap/winpcap).
-5. Supports Johnny's bridge.
+5. Supports Johnny's bridge. You can now have multiple bridge connections to
+   Johnny and direct to other people without creating loops.
 6. Can be extended to support other kinds of circuit (Cisco and Multinet might
    be examples, not tried).
 7. Does dynamic DNS updates without blocking.
@@ -25,9 +41,9 @@ Limitations
 3. Although it can be configured as a Level 1 node, it has only been tested
    as a Level 2 (area router) node.
 4. Limited testing on Raspberry Pi.
-5. Performance not tested.
+5. Performance not tested. Does not implement throttling, so traffic sent to
+   a machine with a slow network interface may experience problems.
 6. Not tested with multiple ethernets.
-7. Limited testing with multiple bridges.
 
 Configuration
 -------------
@@ -41,10 +57,10 @@ interfaces.
 
 A [bridge] section is used to define an interface compatible with Johnny's
 bridge. You can have as many [bridge] sections as you have direct links to
-other people's bridge or router. Use a DNS name rather than an IP address,
-the IP address is checked and updated according the [dns] section. Note also
-that the router will not accept packets from bridges not configured in the 
-[bridge] section.
+other people's bridge or router (each requires a separate port). Use a DNS
+name rather than an IP address, the IP address is checked and updated
+according the [dns] section. Note also that the router will not accept packets
+from bridges not configured in the [bridge] section.
 
 The [dns] section is used to specify the IP address of your DNS server. This
 must be a numeric IP address. The poll period determines the period (in
