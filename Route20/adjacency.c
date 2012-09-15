@@ -195,7 +195,7 @@ static void AdjacencyUp(adjacency_t *adjacency)
 {
 	adjacency->state = Up;
 	stateChangeCallback(adjacency);
-	Log(LogInfo, "Adjacency up "); LogDecnetAddress(LogInfo, &adjacency->id); Log(LogInfo, " (Slot %d)\n", adjacency->slot);
+	Log(LogInfo, "Adjacency up "); LogDecnetAddress(LogInfo, &adjacency->id); Log(LogInfo, " (Slot %d) on %s\n", adjacency->slot, adjacency->circuit->name);
 }
 
 void AdjacencyDown(adjacency_t *adjacency)
