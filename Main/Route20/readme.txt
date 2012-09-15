@@ -44,6 +44,8 @@ Limitations
 5. Performance not tested. Does not implement throttling, so traffic sent to
    a machine with a slow network interface may experience problems.
 6. Not tested with multiple ethernets.
+7. It does not handle LAT and MOP, if you need these protocols then you still
+   need to use Johnny's bridge.
 
 Configuration
 -------------
