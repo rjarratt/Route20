@@ -35,7 +35,11 @@
 static int started;
 static int SockStartup(void);
 static void SockError(char *msg);
+static void SockErrorAndClear(char *msg);
+static void SockErrorClear();
 static void SetNonBlocking(socket_t *socket);
+
+static int lastSocketError = 0;
 
 int OpenUdpSocket(socket_t *sock, char *eventName, uint16 receivePort)
 {
@@ -54,7 +58,7 @@ int OpenUdpSocket(socket_t *sock, char *eventName, uint16 receivePort)
 		sock->socket = socket(PF_INET, SOCK_DGRAM, 0);
 		if (sock->socket == INVALID_SOCKET)
 		{
-			SockError("socket");
+			SockErrorAndClear("socket");
 		}
 		else
 		{
@@ -65,7 +69,7 @@ int OpenUdpSocket(socket_t *sock, char *eventName, uint16 receivePort)
 			if (bind(sock->socket, (sockaddr_t*)&sa, sizeof(sa)) == -1)
 			{
 				CloseSocket(sock);
-				SockError("bind");
+				SockErrorAndClear("bind");
 			}
 			else
 			{
@@ -73,7 +77,7 @@ int OpenUdpSocket(socket_t *sock, char *eventName, uint16 receivePort)
 				sock->waitHandle = (int)CreateEvent(NULL, 0, 0, eventName);
 				if (WSAEventSelect(sock->socket, (HANDLE)sock->waitHandle, FD_READ) == SOCKET_ERROR)
 				{
-					SockError("WSAEventSelect");
+					SockErrorAndClear("WSAEventSelect");
 				}
 #else
 				sock->waitHandle = sock->socket;
@@ -127,6 +131,7 @@ int SendToSocket(socket_t *sock, sockaddr_t *destination, packet_t *packet)
 			}
 			else
 			{
+				retry = 0;
 				SockError("sendto");
 			}
 #else
@@ -140,6 +145,8 @@ int SendToSocket(socket_t *sock, sockaddr_t *destination, packet_t *packet)
 		}
 	}
 	while (retry);
+
+	SockErrorClear();
 
 	return ans;
 }
@@ -177,7 +184,7 @@ sockaddr_t *GetSocketAddressFromName(char *hostName, uint16 port)
 	}
 	else
 	{
-		SockError("gethostbyname");
+		SockErrorAndClear("gethostbyname");
 		ans = NULL;
 	}
 
@@ -205,10 +212,12 @@ static int SockStartup(void)
 	int err;
 	wVersionRequested = MAKEWORD (1, 1); 
 
+	SockErrorClear();
+
 	err = WSAStartup (wVersionRequested, &wsaData);
 	if (err != 0)
 	{
-		SockError("startup");
+		SockErrorAndClear("startup");
 	}
 	else
 	{
@@ -229,7 +238,22 @@ static void SockError(char *msg)
 	int err = errno;
 #endif
 
-	Log(LogError, "Sockets: %s error %d\n", msg, err);
+	if (lastSocketError != err)
+	{
+	    Log(LogError, "Sockets: %s error %d\n", msg, err);
+		lastSocketError = err;
+	}
+}
+
+static void SockErrorAndClear(char *msg)
+{
+	SockError(msg);
+	SockErrorClear();
+}
+
+static void SockErrorClear()
+{
+	lastSocketError = 0;
 }
 
 static void SetNonBlocking(socket_t *socket)
@@ -245,14 +269,14 @@ static void SetNonBlocking(socket_t *socket)
     flags = fcntl(socket->socket, F_GETFL, 0);
     if (flags == -1)
 	{
-		SockError("fcntl");
+		SockErrorAndClear("fcntl");
 	}
 	else
 	{
 		status = fcntl(socket->socket, F_SETFL, flags | O_NONBLOCK);
 		if (status == -1)
 		{
-		    SockError("fcntl");
+		    SockErrorAndClear("fcntl");
 		}
 	}
 #endif
