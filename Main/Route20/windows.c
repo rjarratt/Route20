@@ -168,6 +168,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 		{
 			DWORD err = GetLastError();
 			LogWin32Error("WaitForMultipleObjects error: %s\n", err);
+			break;
 		}
 		else
 		{
