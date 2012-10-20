@@ -91,9 +91,16 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 		if (err == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT)
 		{
 			logFile = stdout;
-			if (Initialise(CONFIG_FILE_NAME))
+			__try
 			{
-				MainLoop();
+				if (Initialise(CONFIG_FILE_NAME))
+				{
+					MainLoop();
+				}
+			}
+			__except(EXCEPTION_EXECUTE_HANDLER)
+			{
+				Log(LogError, "Exception: %d\n", GetExceptionCode());
 			}
 		}
 		else if (!err)
@@ -140,7 +147,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 {
 	int i;
 	int handleCount = 0;
-	HANDLE *handles = (HANDLE *)malloc((numCircuits + 1) * sizeof(HANDLE));
+	HANDLE *handles = (HANDLE *)malloc((numCircuits + 2) * sizeof(HANDLE));
 	//Log(LogInfo, "Process events %d\n", numCircuits);
 	for(i = 1; i <= numCircuits; i++)
 	{
@@ -340,9 +347,16 @@ static VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
 	ReportSvcStatus( SERVICE_RUNNING, NO_ERROR, 0 );
 
 	OpenLog();
-	if (Initialise(CONFIG_FILE_NAME))
+	__try
 	{
-		MainLoop();
+		if (Initialise(CONFIG_FILE_NAME))
+		{
+			MainLoop();
+		}
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER)
+	{
+		Log(LogError, "Exception: %08X\n", GetExceptionCode());
 	}
 
 	CloseLog();
