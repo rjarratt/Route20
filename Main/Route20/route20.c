@@ -81,11 +81,11 @@ int Initialise(char *configFileName)
 		InitialiseUpdateProcess();
 		SetAdjacencyStateChangeCallback(ProcessAdjacencyStateChange);
 		SetCircuitStateChangeCallback(ProcessCircuitStateChange);
-	    nodeInfo.state = Running;
+		nodeInfo.state = Running;
 		for (i = 1; i <= numCircuits; i++)
 		{
-		    ans &= (*(Circuits[i].Open))(&Circuits[i]);
-		    (*(Circuits[i].Start))(&Circuits[i]);
+			ans &= (*(Circuits[i].Open))(&Circuits[i]);
+			(*(Circuits[i].Start))(&Circuits[i]);
 		}
 		time(&now);
 		CreateTimer("PurgeAdjacencies", now + 1, 1, NULL, PurgeAdjacenciesCallback);
@@ -204,9 +204,9 @@ static char *ReadNodeConfig(FILE *f, int *ans)
 				char *node;
 				if (SplitString(value, '.', &area, &node))
 				{
-				    nodeInfo.address.area = atoi(area);
-				    nodeInfo.address.node = atoi(node);
-				    addressPresent = 1;
+					nodeInfo.address.area = atoi(area);
+					nodeInfo.address.node = atoi(node);
+					addressPresent = 1;
 				}
 				else
 				{
@@ -220,7 +220,7 @@ static char *ReadNodeConfig(FILE *f, int *ans)
 
 		}
 	}
-	
+
 	if (!addressPresent)
 	{
 		*ans = 0;
@@ -465,30 +465,36 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 			{
 				//LogMessage(circuit, packet, "Hello and Test");
 			}
-			else if (IsLevel1RoutingMessage(packet) && (nodeInfo.level == 1 || nodeInfo.level == 2))
+			else if (IsLevel1RoutingMessage(packet))
 			{
-				routing_msg_t *msg;
-				//LogMessage(circuit, packet, "Level 1 Routing");
-				msg = ParseRoutingMessage(packet);
-				if (msg != NULL)
+				if ((nodeInfo.level == 1 || nodeInfo.level == 2))
 				{
-					if (msg->srcnode.area == nodeInfo.address.area)
+					routing_msg_t *msg;
+					//LogMessage(circuit, packet, "Level 1 Routing");
+					msg = ParseRoutingMessage(packet);
+					if (msg != NULL)
 					{
-					    ProcessLevel1RoutingMessage(msg);
-					}
+						if (msg->srcnode.area == nodeInfo.address.area)
+						{
+							ProcessLevel1RoutingMessage(msg);
+						}
 
-					FreeRoutingMessage(msg);
+						FreeRoutingMessage(msg);
+					}
 				}
 			}
-			else if (IsLevel2RoutingMessage(packet) && nodeInfo.level == 2)
+			else if (IsLevel2RoutingMessage(packet))
 			{
-				routing_msg_t *msg;
-				//LogMessage(circuit, packet, "Level 2 Routing");
-				msg = ParseRoutingMessage(packet);
-				if (msg != NULL)
+				if (nodeInfo.level == 2)
 				{
-					ProcessLevel2RoutingMessage(msg);
-					FreeRoutingMessage(msg);
+					routing_msg_t *msg;
+					//LogMessage(circuit, packet, "Level 2 Routing");
+					msg = ParseRoutingMessage(packet);
+					if (msg != NULL)
+					{
+						ProcessLevel2RoutingMessage(msg);
+						FreeRoutingMessage(msg);
+					}
 				}
 			}
 			else if (IsEthernetRouterHelloMessage(packet))
@@ -531,7 +537,7 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 				//LogMessage(circuit, packet, "Data message");
 				if (IsValidDataPacket(packet))
 				{
-	    			ForwardPacket(packet);
+					ForwardPacket(packet);
 				}
 			}
 			else
