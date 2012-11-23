@@ -90,8 +90,17 @@ packet_t *EthSockReadPacket(eth_circuit_t *ethCircuit)
 				GetDecnetAddress((decnet_eth_address_t *)&sockPacket.rawData[0], &sockPacket.to);
 				GetDecnetAddress((decnet_eth_address_t *)&sockPacket.rawData[6], &sockPacket.from);
 				sockPacket.IsDecnet = EthSockIsDecnet;
-				EthSetPayload(&sockPacket);
-				packet = &sockPacket;
+				if (CompareDecnetAddress(&nodeInfo.address, &sockPacket.from))
+				{
+					/*Log(LogInfo, "Discarding loopback from %s\n", ethCircuit->circuit->name);*/
+					packet = NULL;
+				}
+				else
+				{
+					/*Log(LogInfo, "Not sock loopback on %s\n", ethCircuit->circuit->name);*/
+					EthSetPayload(&sockPacket);
+					packet = &sockPacket;
+				}
 			}
 		}
 	}

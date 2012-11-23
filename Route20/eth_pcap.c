@@ -145,14 +145,19 @@ packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
 			GetDecnetAddress((decnet_eth_address_t *)&packet.rawData[6], &packet.from);
 			if (CompareDecnetAddress(&nodeInfo.address, &packet.from))
 			{
-				/*Log(LogInfo, "Discarding loopback\n");*/
+				/*Log(LogInfo, "Discarding loopback from %s\n", ethCircuit->circuit->name);*/
 				ans = NULL;
 			}
 			else
 			{
-				/*Log(LogInfo, "Not loopback\n");*/
+				/*Log(LogInfo, "Not loopback on %s \n", ethCircuit->circuit->name);*/
 				EthSetPayload(&packet);
 			}
+		}
+		else
+		{
+			/*Log(LogInfo, "Discarding invalid from %s\n", ethCircuit->circuit->name);*/
+			ans = NULL;
 		}
 	}
 	else if (pcapRes == 0) /* timeout */
