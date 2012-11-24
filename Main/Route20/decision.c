@@ -567,7 +567,7 @@ static void Routes(int FirstDest, int LastDest)
 }
 
 /* This routine determines the reachability and output adjacency
-   for each area in the range FirstArea to lastArea.
+   for each area in the range FirstArea to LastArea.
 */
 static void ARoutes(int FirstArea, int LastArea)
 {
