@@ -137,6 +137,14 @@ void ForwardPacket(packet_t *packet)
 				dstAdjacency->circuit->WritePacket(dstAdjacency->circuit, &nodeInfo.address, &dstAdjacency->id, packetToForward);
 			}
 		}
+		else
+		{
+			//Log(LogError, "Destination adjacency not found.\n");
+		}
+	}
+	else
+	{
+		//Log(LogError, "Source adjacency not found.\n");
 	}
 }
 
@@ -145,7 +153,11 @@ static adjacency_t *GetAdjacencyForNode(decnet_address_t *node)
 	int adjacencyNum = 0;
 	adjacency_t *ans;
 
-	if (node->area != nodeInfo.address.area && (nodeInfo.level == 1 || (nodeInfo.level == 2 && !AttachedFlg)))
+	if (node->area == nodeInfo.address.area)
+	{
+		adjacencyNum = OA[node->node];
+	}
+	else if (node->area != nodeInfo.address.area && (nodeInfo.level == 1 || (nodeInfo.level == 2 && !AttachedFlg)))
 	{
 		adjacencyNum = OA[0];
 	}
