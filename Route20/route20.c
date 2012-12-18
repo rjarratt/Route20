@@ -586,10 +586,10 @@ static int VersionSupported(byte tiver[3])
 		ans = 1;
 	}
 
-	if (ans == 0)
-	{
-		Log(LogInfo, "Received message for unsupported routing specification version %d.%d.%d\n", tiver[0], tiver[1], tiver[2]);
-	}
+	//if (ans == 0)
+	//{
+	//	Log(LogInfo, "Received message for unsupported routing specification version %d.%d.%d\n", tiver[0], tiver[1], tiver[2]);
+	//}
 
 	return ans;
 }
