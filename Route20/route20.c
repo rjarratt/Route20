@@ -581,15 +581,15 @@ static int EndnodeHelloIsForThisNode(decnet_address_t *from, int iinfo)
 static int VersionSupported(byte tiver[3])
 {
 	int ans = 0;
-	if (tiver[0] == 2 && tiver[1] == 0 && tiver[2] == 0)
+	if (tiver[0] >= 2) /* greater than or equal to 2.0.0 */
 	{
 		ans = 1;
 	}
 
-	//if (ans == 0)
-	//{
-	//	Log(LogInfo, "Received message for unsupported routing specification version %d.%d.%d\n", tiver[0], tiver[1], tiver[2]);
-	//}
+	if (ans == 0)
+	{
+		Log(LogInfo, "Received message for unsupported routing specification version %d.%d.%d\n", tiver[0], tiver[1], tiver[2]);
+	}
 
 	return ans;
 }
