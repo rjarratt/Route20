@@ -93,6 +93,7 @@ packet_t *EthSockReadPacket(eth_circuit_t *ethCircuit)
 				if (CompareDecnetAddress(&nodeInfo.address, &sockPacket.from))
 				{
 					/*Log(LogInfo, "Discarding loopback from %s\n", ethCircuit->circuit->name);*/
+					ethCircuit->circuit->stats.loopbackPacketsReceived++;
 					packet = NULL;
 				}
 				else
@@ -101,6 +102,11 @@ packet_t *EthSockReadPacket(eth_circuit_t *ethCircuit)
 					EthSetPayload(&sockPacket);
 					packet = &sockPacket;
 				}
+			}
+			else
+			{
+    			ethCircuit->circuit->stats.invalidPacketsReceived++;
+				packet = NULL;
 			}
 		}
 	}
