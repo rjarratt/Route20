@@ -146,6 +146,7 @@ packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
 			if (CompareDecnetAddress(&nodeInfo.address, &packet.from))
 			{
 				/*Log(LogInfo, "Discarding loopback from %s\n", ethCircuit->circuit->name);*/
+					ethCircuit->circuit->stats.loopbackPacketsReceived++;
 				ans = NULL;
 			}
 			else
@@ -157,6 +158,7 @@ packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
 		else
 		{
 			/*Log(LogInfo, "Discarding invalid from %s\n", ethCircuit->circuit->name);*/
+			ethCircuit->circuit->stats.invalidPacketsReceived++;
 			ans = NULL;
 		}
 	}

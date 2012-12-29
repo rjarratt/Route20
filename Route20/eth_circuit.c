@@ -101,13 +101,22 @@ packet_t *EthCircuitReadPacket(circuit_t *circuit)
 	ans = context->ReadPacket(context);
 	if (ans != NULL)
 	{
+		circuit->stats.validRawPacketsReceived++;
 		if (!ans->IsDecnet(ans))
 		{
 			ans = NULL;
 		}
-		else if (!IsAddressedToThisNode(ans))
+		else
 		{
-			ans = NULL;
+			circuit->stats.decnetPacketsReceived++;
+			if (!IsAddressedToThisNode(ans))
+			{
+				ans = NULL;
+			}
+			else
+			{
+				circuit->stats.decnetToThisNodePacketsReceived++;
+			}
 		}
 	}
 
@@ -135,6 +144,7 @@ int EthCircuitWritePacket(circuit_t *circuit, decnet_address_t *from, decnet_add
 	memcpy(toSend.payload, packet->payload, packet->payloadLen);
 	ans = context->WritePacket(context, &toSend);
 	free(toSend.rawData);
+	circuit->stats.packetsSent++;
 	return ans;
 }
 

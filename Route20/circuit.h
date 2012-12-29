@@ -48,16 +48,27 @@ typedef enum
 
 // TODO: Designated router is per-circuit - see Circuit(i) point 10.3 in routing database
 
+typedef struct circuit_stats
+{
+	long          validRawPacketsReceived;
+	long          decnetPacketsReceived;
+	long          decnetToThisNodePacketsReceived;
+	long          packetsSent;
+	long          loopbackPacketsReceived;
+	long          invalidPacketsReceived;
+} circuit_stats_t;
+
 typedef struct circuit
 {
-	int           slot;
-	char         *name;
-	void         *context;
-	int           waitHandle;
-	CircuitType   circuitType;
-	CircuitState  state;
-	int           cost;
-	int           nextLevel1Node;
+	int             slot;
+	char           *name;
+	void           *context;
+	int             waitHandle;
+	CircuitType     circuitType;
+	CircuitState    state;
+	int             cost;
+	int             nextLevel1Node;
+	circuit_stats_t stats;
 
 	int (*Open)(circuit_ptr circuit);
 	int (*Start)(circuit_ptr circuit);
