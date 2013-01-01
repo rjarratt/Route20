@@ -57,7 +57,6 @@ static adjacency_t *AddEndnodeAdjacency(decnet_address_t *id, circuit_t *circuit
 static void DeleteAdjacency(adjacency_t *adjacency);
 static AdjacencyState GetNewAdjacencyState(rslist_t *routers, int routersCount);
 static void PurgeLowestPriorityAdjacency(void);
-static int ThisIsDesignatedRouter(adjacency_t *adjacency);
 static void ProcessAllAdjacencies(int (*process)(adjacency_t *adjacency, void *context), void *context);
 static int FindAdjacencyCallback(adjacency_t *adjacency, void *context);
 static int StopAdjacencyCallback(adjacency_t *adjacency, void *context);
@@ -348,17 +347,6 @@ static void PurgeLowestPriorityAdjacency(void)
 		routerAdjacencyCount++; /* delete brings it back down again, but in effect we do have an extra one for the moment */
 		DeleteAdjacency(&adjacencies[NC + NBRA]);
 	}
-}
-
-static int ThisIsDesignatedRouter(adjacency_t *adjacency)
-{
-	int ans = nodeInfo.priority > adjacency->priority;
-	if (nodeInfo.priority == adjacency->priority)
-	{
-		ans = GetDecnetId(nodeInfo.address) > GetDecnetId(adjacency->id);
-	}
-
-	return ans;
 }
 
 static void ProcessAllAdjacencies(int (*process)(adjacency_t *adjacency, void *context), void *context)

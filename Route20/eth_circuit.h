@@ -41,7 +41,8 @@ typedef struct eth_circuit *eth_circuit_ptr;
 typedef struct eth_circuit
 {
 	circuit_t *circuit;
-	void   *context;
+	void      *context;
+	int        isDesignatedRouter;
 
 	int (*Open)(eth_circuit_ptr circuit);
 	int (*Start)(eth_circuit_ptr circuit);
