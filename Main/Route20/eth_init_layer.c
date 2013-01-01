@@ -33,6 +33,7 @@ in this Software without prior written authorization from the author.
 #include "adjacency.h"
 #include "platform.h"
 #include "circuit.h"
+#include "eth_circuit.h"
 #include "messages.h"
 
 static circuit_t * ethCircuits[NC];
@@ -40,16 +41,16 @@ static int ethCircuitCount;
 
 typedef struct
 {
+	circuit_t *circuit;
 	time_t lastUpdate;
 	int couldBeDesignatedRouter;
-} checkdr_t;
+} check_designated_router_t;
 
 static int drDelayExpired;
-static int isDesignatedRouter;
 static time_t startTime;
 static void HandleDesignatedRouterTimer(rtimer_t *timer, char *name, void *context);
 static void HandleDesignatedRouterHelloTimer(rtimer_t *timer, char *name, void *context);
-static int CheckDrCallback(adjacency_t *adjacency, void *context);
+static int CheckDesignatedRouterCallback(adjacency_t *adjacency, void *context);
 
 void EthInitLayerStart(circuit_t circuits[], int circuitCount)
 {
@@ -86,31 +87,36 @@ void EthInitLayerStop(void)
 void EthInitCheckDesignatedRouter(void)
 {
 	int i;
-	checkdr_t checkdr;
-	checkdr.lastUpdate = 0;
-	checkdr.couldBeDesignatedRouter = 1;
+	check_designated_router_t checkdr;
+	eth_circuit_t *ethCircuit;
 
-	ProcessRouterAdjacencies(CheckDrCallback, &checkdr);
-
-	if (drDelayExpired && isDesignatedRouter != checkdr.couldBeDesignatedRouter)
+	for(i = 0; i < ethCircuitCount; i++)
 	{
-		isDesignatedRouter = checkdr.couldBeDesignatedRouter;
+		checkdr.circuit = ethCircuits[i];
+		checkdr.lastUpdate = 0;
+		checkdr.couldBeDesignatedRouter = 1;
 
-		if (isDesignatedRouter)
+		ethCircuit = (eth_circuit_t *)checkdr.circuit->context;
+
+		ProcessRouterAdjacencies(CheckDesignatedRouterCallback, &checkdr);
+
+		if (drDelayExpired && ethCircuit->isDesignatedRouter != checkdr.couldBeDesignatedRouter)
 		{
-			time_t now;
+			ethCircuit->isDesignatedRouter = checkdr.couldBeDesignatedRouter;
 
-			Log(LogInfo, "Now the designated router\n");
-			time(&now);
-
-			for(i = 0; i < ethCircuitCount; i++)
+			if (ethCircuit->isDesignatedRouter)
 			{
-				CreateTimer("AllEndNodesHello", now, 15, ethCircuits[i], HandleDesignatedRouterHelloTimer);
+				time_t now;
+
+				Log(LogInfo, "Now the designated router on circuit %s\n", checkdr.circuit->name);
+				time(&now);
+
+    			CreateTimer("AllEndNodesHello", now, 15, checkdr.circuit, HandleDesignatedRouterHelloTimer);
 			}
-		}
-		else
-		{
-			Log(LogInfo, "No longer the designated router\n");
+			else
+			{
+				Log(LogInfo, "No longer the designated router on circuit %s\n", checkdr.circuit->name);
+			}
 		}
 	}
 }
@@ -126,8 +132,9 @@ static void HandleDesignatedRouterHelloTimer(rtimer_t * timer, char *name, void 
 	packet_t *packet;
 	time_t now;
 	circuit_t *circuit = (circuit_t *)context;
+	eth_circuit_t *ethCircuit = (eth_circuit_t *)circuit->context;
 
-	if (isDesignatedRouter)
+	if (ethCircuit->isDesignatedRouter)
 	{
 		time(&now);
 		/*Log(LogInfo, "Hello Timer to All End Nodes %s\n", circuit->name);*/
@@ -140,28 +147,31 @@ static void HandleDesignatedRouterHelloTimer(rtimer_t * timer, char *name, void 
 	}
 }
 
-static int CheckDrCallback(adjacency_t *adjacency, void *context)
+static int CheckDesignatedRouterCallback(adjacency_t *adjacency, void *context)
 {
-	checkdr_t *checkdr = (checkdr_t *)context;
+	check_designated_router_t *checkdr = (check_designated_router_t *)context;
 
-	if (adjacency->lastHeardFrom > checkdr->lastUpdate)
+	if (adjacency->circuit == checkdr->circuit)
 	{
-		checkdr->lastUpdate = adjacency->lastHeardFrom;
-	}
+		if (adjacency->lastHeardFrom > checkdr->lastUpdate)
+		{
+			checkdr->lastUpdate = adjacency->lastHeardFrom;
+		}
 
-	if (adjacency->id.area == nodeInfo.address.area)
-	{
-		if (adjacency->priority < nodeInfo.priority)
+		if (adjacency->id.area == nodeInfo.address.area)
 		{
-			checkdr->couldBeDesignatedRouter = 1;
-		}
-		else if (adjacency->priority == nodeInfo.priority)
-		{
-			checkdr->couldBeDesignatedRouter = adjacency->id.node < nodeInfo.address.node;
-		}
-		else
-		{
-			checkdr->couldBeDesignatedRouter = 0;
+			if (adjacency->priority < nodeInfo.priority)
+			{
+				checkdr->couldBeDesignatedRouter = 1;
+			}
+			else if (adjacency->priority == nodeInfo.priority)
+			{
+				checkdr->couldBeDesignatedRouter = adjacency->id.node < nodeInfo.address.node;
+			}
+			else
+			{
+				checkdr->couldBeDesignatedRouter = 0;
+			}
 		}
 	}
 
