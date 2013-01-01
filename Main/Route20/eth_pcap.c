@@ -1,31 +1,31 @@
 /* eth_pcap.c: Ethernet PCAP interface
-  ------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 
-   Copyright (c) 2012, Robert M. A. Jarratt
-   Portions Johnny Billquist
+Copyright (c) 2012, Robert M. A. Jarratt
+Portions Johnny Billquist
 
-   Permission is hereby granted, free of charge, to any person obtaining a
-   copy of this software and associated documentation files (the "Software"),
-   to deal in the Software without restriction, including without limitation
-   the rights to use, copy, modify, merge, publish, distribute, sublicense,
-   and/or sell copies of the Software, and to permit persons to whom the
-   Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-   THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-   Except as contained in this notice, the name of the author shall not be
-   used in advertising or otherwise to promote the sale, use or other dealings
-   in this Software without prior written authorization from the author.
+Except as contained in this notice, the name of the author shall not be
+used in advertising or otherwise to promote the sale, use or other dealings
+in this Software without prior written authorization from the author.
 
-  ------------------------------------------------------------------------------*/
+------------------------------------------------------------------------------*/
 
 #include <string.h>
 #include <pcap.h>
@@ -75,48 +75,50 @@ int EthPcapOpen(eth_circuit_t *ethCircuit)
 
 	pcapContext->pcap = NULL;
 
-	eth_translate(ethCircuit->circuit->name, devname);
-	Log(LogInfo, "Opening %s for packet capture\n", devname);
-	if ((pcapContext->pcap = pcap_open_live(devname, 1518, ETH_PROMISC, 1, ebuf)) == 0)
+	if (eth_translate(ethCircuit->circuit->name, devname) != NULL)
 	{
-		Log(LogError, "Error opening device %s\n", ebuf);
-	}
-	else
-	{
-#if defined(WIN32)
-		ethCircuit->circuit->waitHandle = (int)pcap_getevent(pcapContext->pcap);
-		pcap_setmintocopy(pcapContext->pcap, 0);
-#else
-		int one = 1;
-		ethCircuit->circuit->waitHandle = pcap_fileno(pcapContext->pcap);
-  //      if (ioctl(ethCircuit->circuit->waitHandle,BIOCIMMEDIATE,&one) == -1)
-		//{
-		//	Log(LogError, "ioctl BIOCIMMEDIATE failed\n");
-  //      }
-
-		//if (ioctl(ethCircuit->circuit->waitHandle,BIOCSHDRCMPLT,&i))
-		//{
-		//	Log(LogError, "ioctl BIOCSHDRCMPLT failed\n");
-		//}
-#endif
-		/*Log(LogInfo, "Wait handle that was obtained for %s (slot %d) was %u\n", ethCircuit->circuit->name, ethCircuit->circuit->slot, ethCircuit->circuit->waitHandle);*/
-    	if (pcap_setnonblock(pcapContext->pcap, 1, ebuf) != 0)
+		Log(LogInfo, "Opening %s for packet capture\n", devname);
+		if ((pcapContext->pcap = pcap_open_live(devname, 1518, ETH_PROMISC, 1, ebuf)) == 0)
 		{
-			Log(LogError, "Error setting nonblock mode.\n%s\n", ebuf);
+			Log(LogError, "Error opening device %s\n", ebuf);
 		}
 		else
 		{
-			struct bpf_program pgm;
-		    pgm.bf_len = sizeof(filterInstructions)/sizeof(struct bpf_insn);
-		    pgm.bf_insns = filterInstructions;
-		    if (pcap_setfilter(pcapContext->pcap, &pgm) == -1) // TODO: change filter not to pass LAT.
-		    {
-			    Log(LogError, "loading filter program");
+#if defined(WIN32)
+			ethCircuit->circuit->waitHandle = (int)pcap_getevent(pcapContext->pcap);
+			pcap_setmintocopy(pcapContext->pcap, 0);
+#else
+			int one = 1;
+			ethCircuit->circuit->waitHandle = pcap_fileno(pcapContext->pcap);
+			//      if (ioctl(ethCircuit->circuit->waitHandle,BIOCIMMEDIATE,&one) == -1)
+			//{
+			//	Log(LogError, "ioctl BIOCIMMEDIATE failed\n");
+			//      }
+
+			//if (ioctl(ethCircuit->circuit->waitHandle,BIOCSHDRCMPLT,&i))
+			//{
+			//	Log(LogError, "ioctl BIOCSHDRCMPLT failed\n");
+			//}
+#endif
+			/*Log(LogInfo, "Wait handle that was obtained for %s (slot %d) was %u\n", ethCircuit->circuit->name, ethCircuit->circuit->slot, ethCircuit->circuit->waitHandle);*/
+			if (pcap_setnonblock(pcapContext->pcap, 1, ebuf) != 0)
+			{
+				Log(LogError, "Error setting nonblock mode.\n%s\n", ebuf);
 			}
 			else
 			{
-				ethCircuit->circuit->state = CircuitUp;
-				CircuitStateChange(ethCircuit->circuit);
+				struct bpf_program pgm;
+				pgm.bf_len = sizeof(filterInstructions)/sizeof(struct bpf_insn);
+				pgm.bf_insns = filterInstructions;
+				if (pcap_setfilter(pcapContext->pcap, &pgm) == -1) // TODO: change filter not to pass LAT.
+				{
+					Log(LogError, "loading filter program");
+				}
+				else
+				{
+					ethCircuit->circuit->state = CircuitUp;
+					CircuitStateChange(ethCircuit->circuit);
+				}
 			}
 		}
 	}
@@ -146,7 +148,7 @@ packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
 			if (CompareDecnetAddress(&nodeInfo.address, &packet.from))
 			{
 				/*Log(LogInfo, "Discarding loopback from %s\n", ethCircuit->circuit->name);*/
-					ethCircuit->circuit->stats.loopbackPacketsReceived++;
+				ethCircuit->circuit->stats.loopbackPacketsReceived++;
 				ans = NULL;
 			}
 			else
@@ -177,7 +179,7 @@ packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
 
 int EthPcapWritePacket(eth_circuit_t *ethCircuit, packet_t *packet)
 {
-    eth_pcap_t *pcapContext = (eth_pcap_t *)ethCircuit->context;
+	eth_pcap_t *pcapContext = (eth_pcap_t *)ethCircuit->context;
 	u_char smallBuf[MIN_PACKET_SIZE];
 	u_char *data = packet->rawData;
 	int len = packet->rawLen;
@@ -190,7 +192,7 @@ int EthPcapWritePacket(eth_circuit_t *ethCircuit, packet_t *packet)
 		len = MIN_PACKET_SIZE;
 	}
 
-    return pcap_sendpacket(pcapContext->pcap, (const u_char *)data, len);
+	return pcap_sendpacket(pcapContext->pcap, (const u_char *)data, len);
 }
 
 void EthPcapClose(eth_circuit_t *ethCircuit)
