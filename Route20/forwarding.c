@@ -184,7 +184,7 @@ static int IsReachable(decnet_address_t *address)
 
 	if (nodeInfo.address.area != address->area)
 	{
-		ans = IsAreaReachable(address->area);
+		ans = nodeInfo.level == 1 || IsAreaReachable(address->area);
 	}
 	else
 	{
