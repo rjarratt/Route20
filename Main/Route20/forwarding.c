@@ -131,6 +131,10 @@ void ForwardPacket(packet_t *packet)
 				{
 					flags = SetIntraEthernet(flags);
 				}
+				else
+				{
+					flags = ClearIntraEthernet(flags);
+				}
 
 				//Log(LogInfo, "Forwarding to %s\n", dstAdjacency->circuit->name);
 				packetToForward = CreateLongDataMessage(&srcNode, &dstNode, forwardFlags, visits, data, dataLength);
