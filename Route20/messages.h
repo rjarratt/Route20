@@ -180,6 +180,7 @@ int IsValidDataPacket(packet_t *packet);
 int IsReturnToSender(byte flags);
 int IsReturnToSenderRequest(byte flags);
 byte SetIntraEthernet(byte flags);
+byte ClearIntraEthernet(byte flags);
 void ExtractDataPacketData(packet_t *packet, decnet_address_t *srcNode, decnet_address_t *dstNode, byte *flags, int *visits, byte **data, int *dataLength);
 packet_t *CreateLongDataMessage(decnet_address_t *srcNode, decnet_address_t *dstNode, byte flags, int visits, byte *data, int dataLength);
 

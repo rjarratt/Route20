@@ -465,6 +465,11 @@ byte SetIntraEthernet(byte flags)
     return flags | 0x20;
 }
 
+byte ClearIntraEthernet(byte flags)
+{
+    return flags & ~0x20;
+}
+
 void ExtractDataPacketData(packet_t *packet, decnet_address_t *srcNode, decnet_address_t *dstNode, byte *flags, int *visits, byte **data, int *dataLength)
 {
 	if (IsShortDataPacket(packet))
