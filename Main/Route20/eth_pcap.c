@@ -77,10 +77,10 @@ int EthPcapOpen(eth_circuit_t *ethCircuit)
 
 	if (eth_translate(ethCircuit->circuit->name, devname) != NULL)
 	{
-		Log(LogInfo, "Opening %s for packet capture\n", devname);
+		Log(LogEthPcap, LogInfo, "Opening %s for packet capture\n", devname);
 		if ((pcapContext->pcap = pcap_open_live(devname, 1518, ETH_PROMISC, 1, ebuf)) == 0)
 		{
-			Log(LogError, "Error opening device %s\n", ebuf);
+			Log(LogEthPcap, LogError, "Error opening device %s\n", ebuf);
 		}
 		else
 		{
@@ -103,7 +103,7 @@ int EthPcapOpen(eth_circuit_t *ethCircuit)
 			/*Log(LogInfo, "Wait handle that was obtained for %s (slot %d) was %u\n", ethCircuit->circuit->name, ethCircuit->circuit->slot, ethCircuit->circuit->waitHandle);*/
 			if (pcap_setnonblock(pcapContext->pcap, 1, ebuf) != 0)
 			{
-				Log(LogError, "Error setting nonblock mode.\n%s\n", ebuf);
+				Log(LogEthPcap, LogError, "Error setting nonblock mode.\n%s\n", ebuf);
 			}
 			else
 			{
@@ -112,7 +112,7 @@ int EthPcapOpen(eth_circuit_t *ethCircuit)
 				pgm.bf_insns = filterInstructions;
 				if (pcap_setfilter(pcapContext->pcap, &pgm) == -1) // TODO: change filter not to pass LAT.
 				{
-					Log(LogError, "loading filter program");
+					Log(LogEthPcap, LogError, "loading filter program");
 				}
 				else
 				{
@@ -170,7 +170,7 @@ packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
 	}
 	else
 	{
-		Log(LogError, "Error reading from pcap: %s\n", pcap_geterr(pcapContext->pcap));
+		Log(LogEthPcap, LogError, "Error reading from pcap: %s\n", pcap_geterr(pcapContext->pcap));
 		ans = NULL;
 	}
 
@@ -296,7 +296,7 @@ static int eth_devices(int max, struct eth_list* list)
 	if (pcap_findalldevs(&alldevs, errbuf) == -1)
 	{
 		char* msg = "Eth: error in pcap_findalldevs: %s\r\n";
-		Log(LogError, msg, errbuf);
+		Log(LogEthPcap, LogError, msg, errbuf);
 	}
 	else
 	{
@@ -304,7 +304,7 @@ static int eth_devices(int max, struct eth_list* list)
 		for (i=0, dev=alldevs; dev; dev=dev->next)
 		{
 			//struct pcap_addr *addr = dev->addresses;
-			Log(LogInfo, "Device list entry %d. Name %s. Description %s.\n", i, dev->name, dev->description);
+			Log(LogEthPcap, LogInfo, "Device list entry %d. Name %s. Description %s.\n", i, dev->name, dev->description);
 			//while (addr != NULL)
 			//{
 			//	Log(LogInfo, "Address family %d: %d %d %d %d %d %d\n", addr->addr->sa_family, addr->addr->sa_data[0] & 0xFF, addr->addr->sa_data[1] & 0xFF, addr->addr->sa_data[2] & 0xFF, addr->addr->sa_data[3] & 0xFF, addr->addr->sa_data[4] & 0xFF, addr->addr->sa_data[5] & 0xFF);

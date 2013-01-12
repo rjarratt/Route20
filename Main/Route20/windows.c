@@ -100,7 +100,7 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 			}
 			__except(EXCEPTION_EXECUTE_HANDLER)
 			{
-				Log(LogError, "Exception: %d\n", GetExceptionCode());
+				Log(LogGeneral, LogFatal, "Exception: %d\n", GetExceptionCode());
 			}
 		}
 		else if (!err)
@@ -112,7 +112,7 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 
 #pragma warning(disable : 4995)
 
-void Log(LogLevel level, char *format, ...)
+void Log(LogSource source, LogLevel level, char *format, ...)
 {
 	int n;
 	char buf[MAX_LOG_LINE_LEN];
@@ -123,17 +123,20 @@ void Log(LogLevel level, char *format, ...)
 
 	va_start(va, format);
 
-	if (onNewLine)
+	if (level <= LoggingLevels[source])
 	{
-	    time(&now);
-	    strftime(buf, 80, "%Y-%m-%d %H:%M:%S ", localtime(&now));
-	    fprintf(logFile, buf);
-	}
+		if (onNewLine)
+		{
+			time(&now);
+			strftime(buf, 80, "%Y-%m-%d %H:%M:%S ", localtime(&now));
+			fprintf(logFile, buf);
+		}
 
-	n = vsprintf(buf, format, va);
-	onNewLine = buf[n-1] == '\n';
-	fprintf(logFile, buf);
-	fflush(logFile);
+		n = vsprintf(buf, format, va);
+		onNewLine = buf[n-1] == '\n';
+		fprintf(logFile, buf);
+		fflush(logFile);
+	}
 
 	va_end(va);
 }
@@ -153,7 +156,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 	{
 		handles[i - 1] = (HANDLE)circuits[i].waitHandle;
 		handleCount++;
-    	Log(LogInfo, "Handle for %s (slot %d) is %u\n", circuits[i].name, circuits[i].slot, handles[i - 1]);
+    	Log(LogGeneral, LogVerbose, "Handle for %s (slot %d) is %u\n", circuits[i].name, circuits[i].slot, handles[i - 1]);
 	}
 
 	if (DnsWaitHandle != -1)
@@ -322,7 +325,7 @@ static void LogWin32Error(char *format, DWORD err)
 {
 	char buf[512];
     FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, err, 0, buf, sizeof(buf) - 1, NULL);
-	Log(LogError, format, buf);
+	Log(LogGeneral, LogError, format, buf);
 }
 
 static VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
@@ -356,7 +359,7 @@ static VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
 	}
 	__except(EXCEPTION_EXECUTE_HANDLER)
 	{
-		Log(LogError, "Exception: %08X\n", GetExceptionCode());
+		Log(LogGeneral, LogFatal, "Exception: %08X\n", GetExceptionCode());
 	}
 
 	CloseLog();

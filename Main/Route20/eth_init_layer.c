@@ -108,14 +108,14 @@ void EthInitCheckDesignatedRouter(void)
 			{
 				time_t now;
 
-				Log(LogInfo, "Now the designated router on circuit %s\n", checkdr.circuit->name);
+				Log(LogEthInit, LogInfo, "Now the designated router on circuit %s\n", checkdr.circuit->name);
 				time(&now);
 
     			CreateTimer("AllEndNodesHello", now, 15, checkdr.circuit, HandleDesignatedRouterHelloTimer);
 			}
 			else
 			{
-				Log(LogInfo, "No longer the designated router on circuit %s\n", checkdr.circuit->name);
+				Log(LogEthInit, LogInfo, "No longer the designated router on circuit %s\n", checkdr.circuit->name);
 			}
 		}
 	}

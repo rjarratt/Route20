@@ -113,7 +113,7 @@ int GetMessageBody(packet_t *packet)
 	int ans = 0;
 	if (packet->payloadLen <= 0)
 	{
-		Log(LogError, "Invalid message length, no flags.\n");
+		Log(LogMessages, LogError, "Invalid message length, no flags.\n");
 	}
 	else
 	{
@@ -124,7 +124,7 @@ int GetMessageBody(packet_t *packet)
 			ans = packet->payloadLen >= 0;
 			if (!ans)
 			{
-		        Log(LogError, "Invalid message length, padding length error.\n");
+		        Log(LogMessages, LogError, "Invalid message length, padding length error.\n");
 			}
 		}
 	}
@@ -247,28 +247,28 @@ int IsValidRouterHelloMessage(packet_t *packet)
 
 	if (packet->payloadLen < 19)
 	{
-		Log(LogError, "Router Hello message too short\n");
+		Log(LogMessages, LogError, "Router Hello message too short\n");
 	}
 	else
 	{
 		ethernet_router_hello_t *msg = (ethernet_router_hello_t *)packet->payload;
 		if (packet->payloadLen < msg->elistLen + 19)
 		{
-		    Log(LogError, "Router Hello message too short for E-LIST.\n");
+		    Log(LogMessages, LogError, "Router Hello message too short for E-LIST.\n");
 		}
 		else if (msg->elistLen < 8)
 		{
-		    Log(LogError, "Router Hello message E-LIST is too short, length is %d.\n", msg->elistLen);
+		    Log(LogMessages, LogError, "Router Hello message E-LIST is too short, length is %d.\n", msg->elistLen);
 		}
 		else
 		{
 			if (msg->rslistlen % 7 != 0)
 			{
-		        Log(LogError, "Router Hello message RS-LIST incomplete.\n");
+		        Log(LogMessages, LogError, "Router Hello message RS-LIST incomplete.\n");
 			}
 			else if (msg->elistLen != msg->rslistlen + 8)
 			{
-		        Log(LogError, "Router Hello message RS-LIST length mismatch.\n");
+		        Log(LogMessages, LogError, "Router Hello message RS-LIST length mismatch.\n");
 			}
 			else
 			{
@@ -291,14 +291,14 @@ int IsValidEndnodeHelloMessage(packet_t *packet)
 
 	if (packet->payloadLen < 32)
 	{
-		Log(LogError, "Endnode Hello message too short\n");
+		Log(LogMessages, LogError, "Endnode Hello message too short\n");
 	}
 	else
 	{
 		ethernet_endnode_hello_t *msg = (ethernet_endnode_hello_t *)packet->payload;
 		if (packet->payloadLen < msg->dataLen + 32)
 		{
-		    Log(LogError, "Endnode Hello message too short for DATA.\n");
+		    Log(LogMessages, LogError, "Endnode Hello message too short for DATA.\n");
 		}
 		else
 		{
@@ -326,7 +326,7 @@ routing_msg_t *ParseRoutingMessage(packet_t *packet)
 
 	if (packet->payloadLen < 6)
 	{
-		Log(LogError, "Routing message too short\n");
+		Log(LogMessages, LogError, "Routing message too short\n");
 	}
 	else
 	{
@@ -364,14 +364,14 @@ routing_msg_t *ParseRoutingMessage(packet_t *packet)
 
 			if (actualChecksum != calculatedChecksum)
 			{
-				Log(LogError, "Level 2 Routing Checksum error, expected %04X, was %04X\n", actualChecksum, calculatedChecksum);
+				Log(LogMessages, LogError, "Level 2 Routing Checksum error, expected %04X, was %04X\n", actualChecksum, calculatedChecksum);
 				FreeRoutingMessage(msg);
 				msg = NULL;
 			}
 		}
 		else
 		{
-			Log(LogError, "Invalid routing message\n");
+			Log(LogMessages, LogError, "Invalid routing message\n");
 		}
 	}
 
@@ -444,7 +444,7 @@ int IsValidDataPacket(packet_t *packet)
 
 	if (!ans)
 	{
-		Log(LogError, "Message format error, data packet header\n");
+		Log(LogMessages, LogError, "Message format error, data packet header\n");
 	}
 
 	return ans;
@@ -564,7 +564,7 @@ static routing_segment_t *GetNextLevel2Segment(packet_t *packet, int *currentOff
 		int segBytes = packet->payloadLen - 2 - *currentOffset;
 		if (segBytes < 4)
 		{
-			Log(LogError, "Routing message segment header incorrect\n");
+			Log(LogMessages, LogError, "Routing message segment header incorrect\n");
 		}
 		else
 		{
@@ -572,7 +572,7 @@ static routing_segment_t *GetNextLevel2Segment(packet_t *packet, int *currentOff
 			int segLength = 4 + count * 2;
 			if (segBytes < segLength)
 			{
-			    Log(LogError, "Routing message segment length incorrect\n");
+			    Log(LogMessages, LogError, "Routing message segment length incorrect\n");
 			}
 			else
 			{

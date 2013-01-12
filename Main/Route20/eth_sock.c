@@ -67,7 +67,7 @@ int EthSockOpen(eth_circuit_t *ethCircuit)
 	}
 	else
 	{
-		Log(LogError, "Cannot resolve address for %s, circuit not started.\n", sockContext->destinationHostName);
+		Log(LogEthSock, LogError, "Cannot resolve address for %s, circuit not started.\n", sockContext->destinationHostName);
 	}
 
 	return ans;
@@ -145,7 +145,7 @@ static void ProcessDnsResponse(byte *address, void *context)
 
 	if (memcmp(&sockContext->destinationAddress, newAddress, sizeof(sockaddr_t)) != 0)
 	{
-	    Log(LogInfo, "Changed IP address for %s\n", ethCircuit->circuit->name);
+	    Log(LogEthSock, LogInfo, "Changed IP address for %s\n", ethCircuit->circuit->name);
 	    memcpy(&sockContext->destinationAddress, newAddress, sizeof(sockContext->destinationAddress));
 	}
 }

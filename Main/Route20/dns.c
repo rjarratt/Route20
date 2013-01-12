@@ -196,16 +196,16 @@ void DnsProcessResponse(void)
 
 		if (!ok)
 		{
-			Log(LogError, "Invalid DNS response ignored\n");
+			Log(LogDns, LogWarning, "Invalid DNS response ignored\n");
 		}
 		else if (!haveIp)
 		{
-			Log(LogError, "DNS response without host address ignored\n");
+			Log(LogDns, LogWarning, "DNS response without host address ignored\n");
 		}
 	}
 	else
 	{
-		Log(LogError, "Failed to read DNS response\n");
+		Log(LogDns, LogWarning, "Failed to read DNS response\n");
 	}
 }
 

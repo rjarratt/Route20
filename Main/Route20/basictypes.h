@@ -33,9 +33,27 @@ typedef unsigned short int     uint16;
 
 typedef enum
 {
+	LogFatal,
+	LogError,
 	LogInfo,
-	LogError
+	LogWarning,
+	LogVerbose
 } LogLevel;
+
+typedef enum
+{
+	LogGeneral,
+	LogAdjacency,
+	LogDecision,
+	LogForwarding,
+	LogMessages,
+	LogDns,
+	LogEthInit,
+	LogEthPcap,
+	LogEthSock,
+	LogSock,
+	LogEndMarker
+} LogSource;
 
 #define BASICTYPES_H
 #endif

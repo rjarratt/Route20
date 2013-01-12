@@ -51,11 +51,13 @@ static init_layer_t *ethernetInitLayer;
 // TODO: Add Phase III support
 static int ReadConfig(char *fileName);
 static char *ReadConfigLine(FILE *f);
+static char *ReadLoggingConfig(FILE *f, int *ans);
 static char *ReadNodeConfig(FILE *f, int *ans);
 static char *ReadEthernetConfig(FILE *f, int *ans);
 static char *ReadBridgeConfig(FILE *f, int *ans);
 static char *ReadDnsConfig(FILE *f, int *ans);
 static int SplitString(char *string, char splitBy, char **left, char **right);
+static void ParseLogLevel(char *string, int *source);
 static void PurgeAdjacenciesCallback(rtimer_t *, char *, void *);
 static void ProcessPacket(circuit_t *circuit, packet_t *packet);
 static int RouterHelloIsForThisNode(decnet_address_t *from, int iinfo);
@@ -72,6 +74,11 @@ int Initialise(char *configFileName)
 	time_t now;
 
 	DnsConfig.dnsConfigured = 0;
+
+	for (i = 0; i < LogEndMarker; i++)
+	{
+		LoggingLevels[i] = LogInfo;
+	}
 
 	ans = ReadConfig(configFileName);
 	if (ans)
@@ -107,16 +114,16 @@ int Initialise(char *configFileName)
 
 void MainLoop(void)
 {
-	Log(LogInfo, "Main loop start\n");
+	Log(LogGeneral, LogInfo, "Main loop start\n");
 
 	ProcessEvents(Circuits, numCircuits, ProcessPacket);
 
-	Log(LogInfo, "Main loop terminated\n");
+	Log(LogGeneral, LogInfo, "Main loop terminated\n");
 	nodeInfo.state = Stopping;
 
 	StopAllTimers();
 	ethernetInitLayer->Stop();
-	Log(LogInfo, "Shutdown complete\n");
+	Log(LogGeneral, LogInfo, "Shutdown complete\n");
 }
 
 static int ReadConfig(char *fileName)
@@ -126,7 +133,7 @@ static int ReadConfig(char *fileName)
 	int nodePresent = 0;
 	if ((f = fopen(fileName, "r")) == NULL)
 	{
-		Log(LogError, "Could not open the configuration file: %s", fileName);
+		Log(LogGeneral, LogError, "Could not open the configuration file: %s", fileName);
 		ans = 0;
 	}
 
@@ -135,7 +142,11 @@ static int ReadConfig(char *fileName)
 		char *line = "";
 		while(line != NULL)
 		{
-			if (stricmp(line, "[node]") == 0)
+			if (stricmp(line, "[logging]") == 0)
+			{
+				line = ReadLoggingConfig(f, &ans);
+			}
+			else if (stricmp(line, "[node]") == 0)
 			{
 				nodePresent = 1;
 				line = ReadNodeConfig(f, &ans);
@@ -163,16 +174,77 @@ static int ReadConfig(char *fileName)
 
 	if (!nodePresent)
 	{
-		Log(LogError, "Node section missing from configuration file\n");
+		Log(LogGeneral, LogError, "Node section missing from configuration file\n");
 		ans = 0;
 	}
 	else if (numCircuits <= 0)
 	{
-		Log(LogError, "No circuits defined\n");
+		Log(LogGeneral, LogError, "No circuits defined\n");
 		ans = 0;
 	}
 
 	return ans;
+}
+
+static char *ReadLoggingConfig(FILE *f, int *ans)
+{
+	char *line;
+	char *name;
+	char *value;
+
+	while (line = ReadConfigLine(f))
+	{
+		if (*line == '[')
+		{
+			break;
+		}
+
+		if (SplitString(line, '=', &name, &value))
+		{
+			if (stricmp(name, "general") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogGeneral]);
+			}
+			else if (stricmp(name, "adjacency") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogAdjacency]);
+			}
+			else if (stricmp(name, "decision") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogDecision]);
+			}
+			else if (stricmp(name, "forwarding") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogForwarding]);
+			}
+			else if (stricmp(name, "messages") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogMessages]);
+			}
+			else if (stricmp(name, "dns") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogDns]);
+			}
+			else if (stricmp(name, "ethinit") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogEthInit]);
+			}
+			else if (stricmp(name, "ethpcap") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogEthPcap]);
+			}
+			else if (stricmp(name, "ethsock") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogEthSock]);
+			}
+			else if (stricmp(name, "sock") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogSock]);
+			}
+		}
+	}
+
+	return line;
 }
 
 static char *ReadNodeConfig(FILE *f, int *ans)
@@ -210,7 +282,7 @@ static char *ReadNodeConfig(FILE *f, int *ans)
 				}
 				else
 				{
-					Log(LogError, "Node address must be in the form <area>.<node>\n");
+					Log(LogGeneral, LogError, "Node address must be in the form <area>.<node>\n");
 				}
 			}
 			else if (stricmp(name, "priority") == 0)
@@ -224,7 +296,7 @@ static char *ReadNodeConfig(FILE *f, int *ans)
 	if (!addressPresent)
 	{
 		*ans = 0;
-		Log(LogError, "Node address must be defined in the configuration file\n");
+		Log(LogGeneral, LogError, "Node address must be defined in the configuration file\n");
 	}
 
 	return line;
@@ -261,17 +333,17 @@ static char *ReadEthernetConfig(FILE *f, int *ans)
 	if (*pcapInterface == '\0')
 	{
 		*ans = 0;
-		Log(LogError, "Interface not defined for ethernet circuit\n");
+		Log(LogGeneral, LogError, "Interface not defined for ethernet circuit\n");
 	}
 	else
 	{
 		if (numCircuits >= NC)
 		{
-			Log(LogError, "Too many circuit definitions, ignoring ethernet interface %s\n", pcapInterface);
+			Log(LogGeneral, LogError, "Too many circuit definitions, ignoring ethernet interface %s\n", pcapInterface);
 		}
 		else
 		{
-			Log(LogInfo, "Ethernet interface is: %s\n", pcapInterface);
+			Log(LogGeneral, LogInfo, "Ethernet interface is: %s\n", pcapInterface);
 			CircuitCreateEthernetPcap(&Circuits[1 + numCircuits++], pcapInterface, cost);
 		}
 	}
@@ -312,7 +384,7 @@ static char *ReadBridgeConfig(FILE *f, int *ans)
 				}
 				else
 				{
-					Log(LogError, "Bridge address must be of the form <host>:<port>\n");
+					Log(LogGeneral, LogError, "Bridge address must be of the form <host>:<port>\n");
 				}
 			}
 			else if (stricmp(name, "port") == 0)
@@ -330,22 +402,22 @@ static char *ReadBridgeConfig(FILE *f, int *ans)
 	if (!addressPresent)
 	{
 		*ans = 0;
-		Log(LogError, "Address not defined for bridge circuit\n");
+		Log(LogGeneral, LogError, "Address not defined for bridge circuit\n");
 	}
 	else if (!receivePortPresent)
 	{
 		*ans = 0;
-		Log(LogError, "Port not defined for bridge circuit\n");
+		Log(LogGeneral, LogError, "Port not defined for bridge circuit\n");
 	}
 	else
 	{
 		if (numCircuits >= NC)
 		{
-			Log(LogError, "Too many circuit definitions, ignoring bridge interface %s\n", hostName);
+			Log(LogGeneral, LogError, "Too many circuit definitions, ignoring bridge interface %s\n", hostName);
 		}
 		else
 		{
-			Log(LogInfo, "Bridge interface sends to %s:%d and listens on %d\n", hostName, destPort, receivePort);
+			Log(LogGeneral, LogInfo, "Bridge interface sends to %s:%d and listens on %d\n", hostName, destPort, receivePort);
 			CircuitCreateEthernetSocket(&Circuits[1 + numCircuits++], hostName, receivePort, destPort, cost);
 			dnsNeeded = 1;
 		}
@@ -387,12 +459,12 @@ static char *ReadDnsConfig(FILE *f, int *ans)
 	if (!addressPresent)
 	{
 		*ans = 0;
-		Log(LogError, "Address not defined for DNS\n");
+		Log(LogGeneral, LogError, "Address not defined for DNS\n");
 	}
 	else if (!pollPresent)
 	{
 		*ans = 0;
-		Log(LogError, "Poll period not defined for DNS\n");
+		Log(LogGeneral, LogError, "Poll period not defined for DNS\n");
 	}
 	else
 	{
@@ -441,6 +513,30 @@ static int SplitString(char *string, char splitBy, char **left, char **right)
 	return *right != NULL;
 }
 
+static void ParseLogLevel(char *string, int *source)
+{
+	if (stricmp(string, "fatal") == 0)
+	{
+		*source = LogFatal;
+	}
+	else if (stricmp(string, "error") == 0)
+	{
+		*source = LogError;
+	}
+	else if (stricmp(string, "info") == 0)
+	{
+		*source = LogInfo;
+	}
+	else if (stricmp(string, "warning") == 0)
+	{
+		*source = LogWarning;
+	}
+	else if (stricmp(string, "verbose") == 0)
+	{
+		*source = LogVerbose;
+	}
+}
+
 static void PurgeAdjacenciesCallback(rtimer_t *timer, char *name, void *context)
 {
 	PurgeAdjacencies();
@@ -455,22 +551,22 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 		{
 			if (IsInitializationMessage(packet))
 			{
-				//LogMessage(circuit, packet, "Initialization");
+				LogMessage(circuit, packet, "Initialization");
 			}
 			else if (IsVerificationMessage(packet))
 			{
-				//LogMessage(circuit, packet, "Verification");
+				LogMessage(circuit, packet, "Verification");
 			}
 			else if (IsHelloAndTestMessage(packet))
 			{
-				//LogMessage(circuit, packet, "Hello and Test");
+				LogMessage(circuit, packet, "Hello and Test");
 			}
 			else if (IsLevel1RoutingMessage(packet))
 			{
 				if ((nodeInfo.level == 1 || nodeInfo.level == 2))
 				{
 					routing_msg_t *msg;
-					//LogMessage(circuit, packet, "Level 1 Routing");
+					LogMessage(circuit, packet, "Level 1 Routing");
 					msg = ParseRoutingMessage(packet);
 					if (msg != NULL)
 					{
@@ -488,7 +584,7 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 				if (nodeInfo.level == 2)
 				{
 					routing_msg_t *msg;
-					//LogMessage(circuit, packet, "Level 2 Routing");
+					LogMessage(circuit, packet, "Level 2 Routing");
 					msg = ParseRoutingMessage(packet);
 					if (msg != NULL)
 					{
@@ -499,7 +595,7 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 			}
 			else if (IsEthernetRouterHelloMessage(packet))
 			{
-				//LogMessage(circuit, packet, "Ethernet Router Hello");
+				LogMessage(circuit, packet, "Ethernet Router Hello");
 				if (IsValidRouterHelloMessage(packet))
 				{
 					ethernet_router_hello_t *msg = (ethernet_router_hello_t *)packet->payload;
@@ -517,7 +613,7 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 			}
 			else if (IsEthernetEndNodeHelloMessage(packet))
 			{
-				//LogMessage(circuit, packet, "Ethernet Endnode Hello");
+				LogMessage(circuit, packet, "Ethernet Endnode Hello");
 				if (IsValidEndnodeHelloMessage(packet))
 				{
 					ethernet_endnode_hello_t *msg = (ethernet_endnode_hello_t *)packet->payload;
@@ -534,7 +630,7 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 			}
 			else if (IsDataMessage(packet))
 			{
-				//LogMessage(circuit, packet, "Data message");
+				LogMessage(circuit, packet, "Data message");
 				if (IsValidDataPacket(packet))
 				{
 					ForwardPacket(packet);
@@ -588,7 +684,7 @@ static int VersionSupported(byte tiver[3])
 
 	if (ans == 0)
 	{
-		Log(LogInfo, "Received message for unsupported routing specification version %d.%d.%d\n", tiver[0], tiver[1], tiver[2]);
+		Log(LogMessages, LogWarning, "Received message for unsupported routing specification version %d.%d.%d\n", tiver[0], tiver[1], tiver[2]);
 	}
 
 	return ans;
@@ -597,7 +693,7 @@ static int VersionSupported(byte tiver[3])
 static void LogMessage(circuit_t *circuit, packet_t *packet, char *messageName)
 {
 	//Log(LogInfo, "Process pkt from %6s from ", circuit->name);
-	Log(LogInfo, "Process pkt from ", circuit->name);
-	LogDecnetAddress(LogInfo, &packet->from);
-	Log(LogInfo, " %s\n", messageName);
+	Log(LogMessages, LogVerbose, "Process pkt from ", circuit->name);
+	LogDecnetAddress(LogMessages, LogVerbose, &packet->from);
+	Log(LogMessages, LogVerbose, " %s\n", messageName);
 }
