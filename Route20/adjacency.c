@@ -194,14 +194,14 @@ static void AdjacencyUp(adjacency_t *adjacency)
 {
 	adjacency->state = Up;
 	stateChangeCallback(adjacency);
-	Log(LogInfo, "Adjacency up "); LogDecnetAddress(LogInfo, &adjacency->id); Log(LogInfo, " (Slot %d) on %s\n", adjacency->slot, adjacency->circuit->name);
+	Log(LogAdjacency, LogInfo, "Adjacency up "); LogDecnetAddress(LogAdjacency, LogInfo, &adjacency->id); Log(LogAdjacency, LogInfo, " (Slot %d) on %s\n", adjacency->slot, adjacency->circuit->name);
 }
 
 void AdjacencyDown(adjacency_t *adjacency)
 {
 	adjacency->state = Initialising;
 	stateChangeCallback(adjacency);
-	Log(LogInfo, "Adjacency down "); LogDecnetAddress(LogInfo, &adjacency->id); Log(LogInfo, " (Slot %d)\n", adjacency->slot);
+	Log(LogAdjacency, LogInfo, "Adjacency down "); LogDecnetAddress(LogAdjacency, LogInfo, &adjacency->id); Log(LogAdjacency, LogInfo, " (Slot %d)\n", adjacency->slot);
 }
 
 static void DeleteAdjacency(adjacency_t *adjacency)

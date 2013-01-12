@@ -49,23 +49,23 @@ int CompareDecnetAddress(decnet_address_t *address1, decnet_address_t *address2)
 	return address1->type == address2->type && address1->area == address2->area && address1->node == address2->node;
 }
 
-void LogDecnetAddress(LogLevel level, decnet_address_t *address)
+void LogDecnetAddress(LogSource source, LogLevel level, decnet_address_t *address)
 {
 	if (address->type == AllRouters)
 	{
-		Log(level, "All Routers");
+		Log(source, level, "All Routers");
 	}
 	else if (address->type == AllLevel2Routers)
 	{
-		Log(level, "All Level 2 Routers");
+		Log(source, level, "All Level 2 Routers");
 	}
 	else if (address->type == AllEndNodes)
 	{
-		Log(level, "All End Nodes");
+		Log(source, level, "All End Nodes");
 	}
 	else
 	{
-		Log(level, "%d.%d", address->area, address->node);
+		Log(source, level, "%d.%d", address->area, address->node);
 	}
 
 }

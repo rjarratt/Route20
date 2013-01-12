@@ -52,12 +52,12 @@ void ForwardPacket(packet_t *packet)
 	int forward = 1;
 
 	ExtractDataPacketData(packet, &srcNode, &dstNode, &flags, &visits, &data, &dataLength);
-	//Log(LogInfo, "Forward from ");
-	//LogDecnetAddress(LogInfo, &srcNode);
-	//Log(LogInfo, " to ");
-	//LogDecnetAddress(LogInfo, &dstNode);
-	//Log(LogInfo, ". Visits=%d", visits);
-	//Log(LogError, " OA(0)=%d, AOA(area)=%d, Att=%d, Reachable=%d.", OA[0], AOA[dstNode.area], AttachedFlg, IsReachable(&dstNode));
+	Log(LogForwarding, LogVerbose, "Forward from ");
+	LogDecnetAddress(LogForwarding, LogVerbose, &srcNode);
+	Log(LogForwarding, LogVerbose, " to ");
+	LogDecnetAddress(LogForwarding, LogVerbose, &dstNode);
+	Log(LogForwarding, LogVerbose, ". Visits=%d", visits);
+	Log(LogForwarding, LogVerbose, " OA(0)=%d, AOA(area)=%d, Att=%d, Reachable=%d.", OA[0], AOA[dstNode.area], AttachedFlg, IsReachable(&dstNode));
 
 	visits++;
 
@@ -66,7 +66,7 @@ void ForwardPacket(packet_t *packet)
 	{
 		if (srcAdjacency->type == PhaseIIIAdjacency)
 		{
-			Log(LogError, "TODO: Phase III data packet forwarding not implemented\n");
+			Log(LogForwarding, LogWarning, "TODO: Phase III data packet forwarding not implemented\n");
 			forward = 0;
 		}
 
@@ -85,7 +85,7 @@ void ForwardPacket(packet_t *packet)
 			forwardFlags = 0x16;
 			if (visits > 2 * Maxv)
 			{
-				Log(LogInfo, "Dropping looping return message\n");
+				Log(LogForwarding, LogWarning, "Dropping looping return message\n");
 				forward = 0;
 			}
 		}
@@ -98,18 +98,18 @@ void ForwardPacket(packet_t *packet)
 				memcpy(&temp, &srcNode, sizeof(decnet_address_t));
 				memcpy(&srcNode, &dstNode, sizeof(decnet_address_t));
 				memcpy(&dstNode, &temp, sizeof(decnet_address_t));
-				//Log(LogInfo, "Returning packet to sender as node unreachable\n");
+				Log(LogForwarding, LogVerbose, "Returning packet to sender as node unreachable\n");
 				forwardFlags = 0x16;
 			}
 			else
 			{
-				//Log(LogInfo, "Dropping packet to unreachable node because return not requested\n");
+				Log(LogForwarding, LogVerbose, "Dropping packet to unreachable node because return not requested\n");
 				forward = 0;
 			}
 		}
 		else if (visits > Maxv)
 		{
-			Log(LogInfo, "Dropping looping message\n");
+			Log(LogForwarding, LogWarning, "Dropping looping message\n");
 			forward = 0;
 		}
 
@@ -119,7 +119,7 @@ void ForwardPacket(packet_t *packet)
 		{
 			if (dstAdjacency->type == PhaseIIIAdjacency)
 			{
-				Log(LogError, "TODO: Phase III data packet forwarding not implemented\n");
+				Log(LogForwarding, LogWarning, "TODO: Phase III data packet forwarding not implemented\n");
 				forward = 0;
 			}
 
@@ -136,19 +136,19 @@ void ForwardPacket(packet_t *packet)
 					flags = ClearIntraEthernet(flags);
 				}
 
-				//Log(LogInfo, "Forwarding to %s\n", dstAdjacency->circuit->name);
+				Log(LogForwarding, LogVerbose, "Forwarding to %s\n", dstAdjacency->circuit->name);
 				packetToForward = CreateLongDataMessage(&srcNode, &dstNode, forwardFlags, visits, data, dataLength);
 				dstAdjacency->circuit->WritePacket(dstAdjacency->circuit, &nodeInfo.address, &dstAdjacency->id, packetToForward);
 			}
 		}
 		else
 		{
-			//Log(LogError, "Destination adjacency not found.\n");
+			Log(LogForwarding, LogWarning, "Destination adjacency not found.\n");
 		}
 	}
 	else
 	{
-		//Log(LogError, "Source adjacency not found.\n");
+		Log(LogForwarding, LogWarning, "Source adjacency not found.\n");
 	}
 }
 

@@ -240,7 +240,7 @@ static void SockError(char *msg)
 
 	if (lastSocketError != err)
 	{
-	    Log(LogError, "Sockets: %s error %d\n", msg, err);
+	    Log(LogSock, LogError, "Sockets: %s error %d\n", msg, err);
 		lastSocketError = err;
 	}
 }

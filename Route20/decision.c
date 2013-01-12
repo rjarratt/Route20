@@ -124,7 +124,7 @@ void ProcessLevel1RoutingMessage(routing_msg_t *msg)
 				int hops;
 				int cost;
 				ExtractRoutingInfo(segment->rtginfo[i - segment->start], &hops, &cost);
-				//Log(LogInfo, "Adjacency slot %d, segment index is %d, hops=%d, cost=%d\n", adjacency->slot, i, hops, cost);
+				Log(LogDecision, LogVerbose, "L1 Adjacency slot %d, segment index is %d, hops=%d, cost=%d\n", adjacency->slot, i, hops, cost);
 				Hop[i][adjacency->slot] = hops;
 				Hop[i][adjacency->slot]++;
 				Cost[i][adjacency->slot] = cost;
@@ -154,6 +154,7 @@ void ProcessLevel2RoutingMessage(routing_msg_t *msg)
 				int hops;
 				int cost;
 				ExtractRoutingInfo(segment->rtginfo[i - segment->start], &hops, &cost);
+				Log(LogDecision, LogVerbose, "L2 Adjacency slot %d, segment index is %d, hops=%d, cost=%d\n", adjacency->slot, i, hops, cost);
 				AHop[i][adjacency->slot] = hops;
 				AHop[i][adjacency->slot]++;
 				ACost[i][adjacency->slot] = cost;
@@ -401,7 +402,7 @@ static void CheckCircuitCostGreaterThanZero(circuit_t *circuit)
 {
 	if (circuit->cost <= 0)
 	{
-		Log(LogError, "Circuit cost must be greater than 0 when circuit goes up, terminating\n");
+		Log(LogDecision, LogFatal, "Circuit cost must be greater than 0 when circuit goes up, terminating\n");
 		exit(0);
 	}
 }
@@ -645,7 +646,7 @@ static void Check(char *detail)
 
 	if (Hop[nodeInfo.address.node][0] != 0 || Cost[nodeInfo.address.node][0] != 0)
 	{
-		Log(LogError, "Check 1 failed. Hop is %d, cost is %d\n", Hop[nodeInfo.address.node][0], Cost[nodeInfo.address.node][0]);
+		Log(LogDecision, LogError, "Check 1 failed. Hop is %d, cost is %d\n", Hop[nodeInfo.address.node][0], Cost[nodeInfo.address.node][0]);
 		ok = 0;
 	}
 
@@ -653,7 +654,7 @@ static void Check(char *detail)
 	{
 		if (Hop[0][0] != 0 || Cost[0][0] != 0)
 		{
-		    Log(LogError, "Check 2 failed. Hop[0][0]=%d Cost[0][0]=%d\n", Hop[0][0], Cost[0][0]);
+		    Log(LogDecision, LogError, "Check 2 failed. Hop[0][0]=%d Cost[0][0]=%d\n", Hop[0][0], Cost[0][0]);
 			ok = 0;
 		}
 	}
@@ -662,7 +663,7 @@ static void Check(char *detail)
 	{
 		if (Hop[0][0] != Infh || Cost[0][0] != Infc)
 		{
-		    Log(LogError, "Check 3 failed. Hop[0][0]=%d Cost[0][0]=%d\n", Hop[0][0], Cost[0][0]);
+		    Log(LogDecision, LogError, "Check 3 failed. Hop[0][0]=%d Cost[0][0]=%d\n", Hop[0][0], Cost[0][0]);
 			ok = 0;
 		}
 	}
@@ -675,7 +676,7 @@ static void Check(char *detail)
 			{
 				if (AHop[i][0] != 0 || ACost[i][0] != 0)
 				{
-		            Log(LogError, "Check 4 failed. AHop[%d][0]=%d, ACost[%d][0]=%d\n", i, AHop[i][0], i, ACost[i][0]);
+		            Log(LogDecision, LogError, "Check 4 failed. AHop[%d][0]=%d, ACost[%d][0]=%d\n", i, AHop[i][0], i, ACost[i][0]);
 					ok = 0;
 				}
 			}
@@ -683,7 +684,7 @@ static void Check(char *detail)
 			{
 				if (AHop[i][0] != Infh || ACost[i][0] != Infc)
 				{
-		            Log(LogError, "Check 5 failed. AHop[%d][0]=%d, ACost[%d][0]=%d\n", i, AHop[i][0], i, ACost[i][0]);
+		            Log(LogDecision, LogError, "Check 5 failed. AHop[%d][0]=%d, ACost[%d][0]=%d\n", i, AHop[i][0], i, ACost[i][0]);
 					ok = 0;
 				}
 			}
@@ -694,11 +695,11 @@ static void Check(char *detail)
 	{
 		if (detail == NULL)
 		{
-		    Log(LogError, "Check failed, exiting\n");
+		    Log(LogDecision, LogFatal, "Check failed, exiting\n");
 		}
 		else
 		{
-		    Log(LogError, "Check failed, exiting: %s\n", detail);
+		    Log(LogDecision, LogFatal, "Check failed, exiting: %s\n", detail);
 		}
 		exit(0);
 	}

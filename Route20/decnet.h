@@ -51,7 +51,7 @@ extern decnet_address_t AllRoutersAddress;
 uint16 GetDecnetId(decnet_address_t address);
 void GetDecnetAddressFromId(byte *id, decnet_address_t *address);
 int CompareDecnetAddress(decnet_address_t *address1, decnet_address_t *address2);
-void LogDecnetAddress(LogLevel level, decnet_address_t *address);
+void LogDecnetAddress(LogSource source, LogLevel level, decnet_address_t *address);
 
 #define DECNET_H
 #endif

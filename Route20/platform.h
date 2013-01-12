@@ -32,6 +32,6 @@
 #define stricmp strcasecmp
 #endif
 
-void Log(LogLevel level, char *format, ...);
+void Log(LogSource source, LogLevel level, char *format, ...);
 int IsStopping(void);
 void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *));

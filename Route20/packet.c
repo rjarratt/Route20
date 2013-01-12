@@ -103,7 +103,7 @@ int EthValidPacket(packet_t *packet)
 			ans = statedLen <= packet->rawLen - 16;
 			if (!ans)
 			{
-				Log(LogInfo, "Ethernet payload length error, expected %d, was %d\n", statedLen, packet->rawLen - 16);
+				Log(LogMessages, LogError, "Ethernet payload length error, expected %d, was %d\n", statedLen, packet->rawLen - 16);
 			    //DumpPacket(packet, ".");
 			}
 		}
@@ -131,12 +131,12 @@ void EthSetPayload(packet_t *packet)
 void DumpPacket(packet_t *packet, char *msg)
 {
 	int i;
-	Log(LogInfo, "%s Packet raw length = %d\n", msg, packet->rawLen);
+	Log(LogMessages, LogError, "%s Packet raw length = %d\n", msg, packet->rawLen);
 	for (i = 0; i < packet->rawLen; i++)
 	{
-		Log(LogInfo, "%02X ", packet->rawData[i]);
+		Log(LogMessages, LogError, "%02X ", packet->rawData[i]);
 	}
-	Log(LogInfo, "\n");
+	Log(LogMessages, LogError, "\n");
 }
 
 static int is_ethertype(packet_t *packet, int type)

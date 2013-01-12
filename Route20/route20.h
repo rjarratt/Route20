@@ -26,5 +26,7 @@
 
   ------------------------------------------------------------------------------*/
 
+int LoggingLevels[LogEndMarker];
+
 int Initialise(char *configFileName);
 void MainLoop(void);

@@ -93,14 +93,14 @@ int main(int argc, char *argv[])
     sid = setsid();
     if (sid < 0) 
 	{
-        Log(LogError, "Failed to set SID");
+        Log(LogGeneral, LogFatal, "Failed to set SID");
         exit(EXIT_FAILURE);
     }
     
     /* Change the current working directory */
     if ((chdir("/")) < 0)
 	{
-        Log(LogError, "Failed to change directory to root");
+        Log(LogGeneral, LogFatal, "Failed to change directory to root");
         exit(EXIT_FAILURE);
     }
     
@@ -109,18 +109,18 @@ int main(int argc, char *argv[])
     close(STDOUT_FILENO);
     close(STDERR_FILENO);
     
-    Log(LogInfo, "Initialising");
+    Log(LogGeneral, LogInfo, "Initialising");
 	if (Initialise(configFileName))
 	{
-        Log(LogInfo, "Initialised");
+        Log(LogGeneral, LogInfo, "Initialised");
         MainLoop();
 	}
 
-    Log(LogInfo, "Exited");
+    Log(LogGeneral, LogInfo, "Exited");
     exit(EXIT_SUCCESS);
 }
 
-void Log(LogLevel level, char *format, ...)
+void Log(LogSource source, LogLevel level, char *format, ...)
 {
 	va_list va;
 	static char line[MAX_LOG_LINE_LEN];
@@ -129,33 +129,51 @@ void Log(LogLevel level, char *format, ...)
 	
 	va_start(va, format);
 
-	int sysLevel;
-	switch (level)
+	if (level <= LoggingLevels[source])
 	{
-	case LogInfo:
+		int sysLevel;
+		switch (level)
 		{
-			sysLevel = LOG_INFO;
-			break;
+		case LogVerbose:
+			{
+				sysLevel = LOG_DEBUG;
+				break;
+			}
+		case LogWarning:
+			{
+				sysLevel = LOG_WARNING;
+				break;
+			}
+		case LogInfo:
+			{
+				sysLevel = LOG_INFO;
+				break;
+			}
+		case LogError:
+			{
+				sysLevel = LOG_ERR;
+				break;
+			}
+		case LogFatal:
+			{
+				sysLevel = LOG_CRIT;
+				break;
+			}
+		default:
+			{
+				sysLevel = LOG_ERR;
+				break;
+			}
 		}
-	case LogError:
-		{
-			sysLevel = LOG_ERR;
-			break;
-		}
-	default:
-		{
-			sysLevel = LOG_ERR;
-			break;
-		}
-	}
 
-	currentLen += vsprintf(&line[currentLen], format, va);
-	onNewLine = line[currentLen-1] == '\n';
+		currentLen += vsprintf(&line[currentLen], format, va);
+		onNewLine = line[currentLen-1] == '\n';
 
-	if (onNewLine)
-	{
-	    syslog(sysLevel, "%s", line);
-		currentLen = 0;
+		if (onNewLine)
+		{
+			syslog(sysLevel, "%s", line);
+			currentLen = 0;
+		}
 	}
 
 	va_end(va);
@@ -208,7 +226,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 			}
 			else
 			{
-			    Log(LogError, "pselect error: %d\n", errno);
+			    Log(LogGeneral, LogError, "pselect error: %d\n", errno);
 			}
 		}
 		else
