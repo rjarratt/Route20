@@ -14,6 +14,10 @@
     <ProjectGuid>{4526A6AB-9F68-4BC4-8D6F-3904DC4F5EA4}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>Route20</RootNamespace>
+    <SccProjectName>SAK</SccProjectName>
+    <SccAuxPath>SAK</SccAuxPath>
+    <SccLocalPath>SAK</SccLocalPath>
+    <SccProvider>SAK</SccProvider>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
