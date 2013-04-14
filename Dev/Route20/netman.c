@@ -45,6 +45,7 @@ typedef struct
 	circuit_t *circuit;
 } AdjacentNodeCallbackData;
 
+void OpenPort();
 void CloseCallback(uint16 locAddr);
 void ConnectCallback(uint16 locAddr);
 void DataCallback(uint16 locAddr, byte *data, int dataLength);
@@ -66,6 +67,11 @@ static void AddStringToResponse(byte *data, int *pos, char *s);
 
 void NetManInitialise()
 {
+	OpenPort();
+}
+
+void OpenPort()
+{
     uint16 nspPort;
 	int port = NspOpen(CloseCallback, ConnectCallback, DataCallback);
 	if (port <= 0)
@@ -82,7 +88,7 @@ void NetManInitialise()
 void CloseCallback(uint16 locAddr)
 {
 	Log(LogNetMan, LogVerbose, "NSP port %hu closed\n", locAddr);
-	NetManInitialise(); // TODO: don't make this a call to NetManInitialise but extract the method.
+	OpenPort();
 }
 
 void ConnectCallback(uint16 locAddr)
