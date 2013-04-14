@@ -24,12 +24,14 @@
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v100</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v100</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -111,7 +113,13 @@
     <ClCompile Include="linux.c" />
     <ClCompile Include="circuit.c" />
     <ClCompile Include="messages.c" />
+    <ClCompile Include="netman.c" />
+    <ClCompile Include="netman_messages.c" />
     <ClCompile Include="node.c" />
+    <ClCompile Include="nsp.c" />
+    <ClCompile Include="nsp_messages.c" />
+    <ClCompile Include="nsp_session_control_port_database.c" />
+    <ClCompile Include="nsp_transmit_queue.c" />
     <ClCompile Include="packet.c" />
     <ClCompile Include="route20.c" />
     <ClCompile Include="routing_database.c" />
@@ -144,7 +152,13 @@
     <ClInclude Include="init_layer.h" />
     <ClInclude Include="circuit.h" />
     <ClInclude Include="messages.h" />
+    <ClInclude Include="netman.h" />
+    <ClInclude Include="netman_messages.h" />
     <ClInclude Include="node.h" />
+    <ClInclude Include="nsp.h" />
+    <ClInclude Include="nsp_messages.h" />
+    <ClInclude Include="nsp_session_control_port_database.h" />
+    <ClInclude Include="nsp_transmit_queue.h" />
     <ClInclude Include="packet.h" />
     <ClInclude Include="platform.h" />
     <ClInclude Include="route20.h" />

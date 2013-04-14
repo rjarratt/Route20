@@ -29,4 +29,5 @@
 int LoggingLevels[LogEndMarker];
 
 int Initialise(char *configFileName);
+void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, int dataLength));
 void MainLoop(void);

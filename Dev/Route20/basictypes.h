@@ -52,6 +52,9 @@ typedef enum
 	LogEthPcap,
 	LogEthSock,
 	LogSock,
+	LogNsp,
+	LogNspMessages,
+	LogNetMan,
 	LogEndMarker
 } LogSource;
 

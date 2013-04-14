@@ -22,7 +22,11 @@ ROUTE20 = adjacency.c \
           init_layer.c \
           linux.c \
           messages.c \
+          netman.c \
           node.c \
+          nsp.c \
+          nsp_messages.c \
+		  nsp_session_control_port_database.c \
           packet.c \
           route20.c \
           routing_database.c \

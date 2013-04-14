@@ -1,8 +1,8 @@
-/* forwarding.h: DECnet Forwarding Process (section 4.9)
+/* netman.h: Network Management support
   ------------------------------------------------------------------------------
 
    Copyright (c) 2012, Robert M. A. Jarratt
- 
+
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
    to deal in the Software without restriction, including without limitation
@@ -26,6 +26,8 @@
 
   ------------------------------------------------------------------------------*/
 
-int IsReachable(decnet_address_t *address);
-void ForwardPacket(packet_t *packet);
-void SendPacket(decnet_address_t *dstNode, packet_t *packet, byte flags); // TODO: re-layer this?
+#if !defined(NETMAN_H)
+void NetManInitialise();
+#define NETMAN_H
+#endif
+

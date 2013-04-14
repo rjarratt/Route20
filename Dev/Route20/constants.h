@@ -53,5 +53,7 @@
 #define MAX_LOG_LINE_LEN 800
 #define CONFIG_FILE_NAME "route20.ini"
 
+#define NSP_SEGMENT_SIZE 1459
+
 #define CONSTANTS_H
 #endif

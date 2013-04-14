@@ -90,6 +90,24 @@
     <ClCompile Include="update.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="nsp.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nsp_messages.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nsp_session_control_port_database.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="netman.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="nsp_transmit_queue.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="netman_messages.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="makefile" />
@@ -173,6 +191,24 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="update.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="nsp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="nsp_messages.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="nsp_session_control_port_database.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="netman.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="nsp_transmit_queue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="netman_messages.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

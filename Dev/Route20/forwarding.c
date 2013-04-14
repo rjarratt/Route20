@@ -34,18 +34,34 @@
 #include "area_routing_database.h"
 #include "area_forwarding_database.h"
 #include "adjacency.h"
+#include "forwarding.h"
 
 static adjacency_t *GetAdjacencyForNode(decnet_address_t *node);
-static int IsReachable(decnet_address_t *address);
+
+int IsReachable(decnet_address_t *address)
+{
+	int ans = 0;
+
+	if (nodeInfo.address.area != address->area)
+	{
+		ans = nodeInfo.level == 1 || IsAreaReachable(address->area);
+	}
+	else
+	{
+		ans = IsNodeReachable(address->node);
+	}
+
+	return ans;
+}
 
 void ForwardPacket(packet_t *packet)
 {
 	adjacency_t *srcAdjacency;
-    adjacency_t *dstAdjacency;
     decnet_address_t srcNode;
 	decnet_address_t dstNode;
-	byte flags;
+	packet_t *packetToForward;
 	byte forwardFlags = 0x0E;
+	byte flags;
 	int visits;
 	byte *data;
 	int dataLength;
@@ -113,42 +129,52 @@ void ForwardPacket(packet_t *packet)
 			forward = 0;
 		}
 
-		dstAdjacency = GetAdjacencyForNode(&dstNode);
-
-		if (dstAdjacency != NULL)
+		if (forward)
 		{
-			if (dstAdjacency->type == PhaseIIIAdjacency)
-			{
-				Log(LogForwarding, LogWarning, "TODO: Phase III data packet forwarding not implemented\n");
-				forward = 0;
-			}
-
-			if (forward)
-			{
-				packet_t *packetToForward;
-
-				if (srcAdjacency == dstAdjacency && IsBroadcastCircuit(srcAdjacency->circuit))
-				{
-					flags = SetIntraEthernet(flags);
-				}
-				else
-				{
-					flags = ClearIntraEthernet(flags);
-				}
-
-				Log(LogForwarding, LogVerbose, "Forwarding to %s\n", dstAdjacency->circuit->name);
-				packetToForward = CreateLongDataMessage(&srcNode, &dstNode, forwardFlags, visits, data, dataLength);
-				dstAdjacency->circuit->WritePacket(dstAdjacency->circuit, &nodeInfo.address, &dstAdjacency->id, packetToForward);
-			}
-		}
-		else
-		{
-			Log(LogForwarding, LogWarning, "Destination adjacency not found.\n");
+			packetToForward = CreateLongDataMessage(&srcNode, &dstNode, forwardFlags, visits, data, dataLength);
+			SendPacket(&dstNode, packetToForward, flags);
 		}
 	}
 	else
 	{
 		Log(LogForwarding, LogWarning, "Source adjacency not found.\n");
+	}
+}
+
+void SendPacket(decnet_address_t *dstNode, packet_t *packet, byte flags)
+{
+    adjacency_t *dstAdjacency;
+	int forward = 1;
+
+	dstAdjacency = GetAdjacencyForNode(dstNode);
+
+	if (dstAdjacency != NULL)
+	{
+		if (dstAdjacency->type == PhaseIIIAdjacency)
+		{
+			Log(LogForwarding, LogWarning, "TODO: Phase III data packet forwarding not implemented\n");
+			forward = 0;
+		}
+
+		if (forward)
+		{
+
+			if (IsBroadcastCircuit(dstAdjacency->circuit))
+			{
+				flags = SetIntraEthernet(flags);
+			}
+			else
+			{
+				flags = ClearIntraEthernet(flags);
+			}
+
+			Log(LogForwarding, LogVerbose, "Forwarding to %s\n", dstAdjacency->circuit->name);
+			dstAdjacency->circuit->WritePacket(dstAdjacency->circuit, &nodeInfo.address, &dstAdjacency->id, packet);
+		}
+	}
+	else
+	{
+		Log(LogForwarding, LogWarning, "Destination adjacency not found.\n");
 	}
 }
 
@@ -177,22 +203,6 @@ static adjacency_t *GetAdjacencyForNode(decnet_address_t *node)
 	else
 	{
 		ans = GetAdjacency(adjacencyNum);
-	}
-
-	return ans;
-}
-
-static int IsReachable(decnet_address_t *address)
-{
-	int ans = 0;
-
-	if (nodeInfo.address.area != address->area)
-	{
-		ans = nodeInfo.level == 1 || IsAreaReachable(address->area);
-	}
-	else
-	{
-		ans = IsNodeReachable(address->node);
 	}
 
 	return ans;
