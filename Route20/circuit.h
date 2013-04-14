@@ -46,8 +46,6 @@ typedef enum
 	DDCMPCircuit
 } CircuitType;
 
-// TODO: Designated router is per-circuit - see Circuit(i) point 10.3 in routing database
-
 typedef struct circuit_stats
 {
 	long          validRawPacketsReceived;
