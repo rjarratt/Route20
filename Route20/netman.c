@@ -41,8 +41,9 @@ int numCircuits;
 
 typedef struct
 {
-	uint16 srcPort;
+	uint16     srcPort;
 	circuit_t *circuit;
+	int        adjacentRoutersCount;
 } AdjacentNodeCallbackData;
 
 void OpenPort();
@@ -177,7 +178,6 @@ static void SendError(uint16 locAddr)
 
 static void ProcessShowKnownCircuits(uint16 locAddr)
 {
-	// TODO: Not showing circuits that have no adjacencies
 	int i;
 
 	Log(LogNetMan, LogInfo, "Processing SHOW KNOWN CIRCUITS for port %hu\n", locAddr);
@@ -192,7 +192,12 @@ static void ProcessShowKnownCircuits(uint16 locAddr)
 			AdjacentNodeCallbackData context;
 			context.srcPort = locAddr;
 			context.circuit = circuit;
+			context.adjacentRoutersCount = 0;
 			ProcessRouterAdjacencies(AdjacentNodeCircuitCallback, &context);
+			if (context.adjacentRoutersCount <= 0)
+			{
+				SendCircuitInfo(locAddr, circuit, NULL);
+			}
 		}
 		else
 		{
@@ -235,6 +240,7 @@ static int AdjacentNodeCircuitCallback(adjacency_t *adjacency, void *context)
 	AdjacentNodeCallbackData *callbackData = (AdjacentNodeCallbackData *)context;
 	if (callbackData->circuit == adjacency->circuit)
 	{
+		callbackData->adjacentRoutersCount++;
 		SendCircuitInfo(callbackData->srcPort, callbackData->circuit, &adjacency->id);
 	}
 
