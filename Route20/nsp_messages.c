@@ -87,6 +87,11 @@ int IsOtherDataAcknowledgementMessage(byte *nspPayload)
 	return NspMessageFlags(nspPayload) == 0x14;
 }
 
+int IsNoOperationMessage(byte *nspPayload)
+{
+	return NspMessageFlags(nspPayload) == 0x08;
+}
+
 nsp_header_t *ParseNspHeader(byte *nspPayload, int nspPayloadLength)
 {
 	nsp_header_t *header = (nsp_header_t *)nspPayload;
