@@ -177,6 +177,7 @@ static void SendError(uint16 locAddr)
 
 static void ProcessShowKnownCircuits(uint16 locAddr)
 {
+	// TODO: Not showing circuits that have no adjacencies
 	int i;
 
 	Log(LogNetMan, LogInfo, "Processing SHOW KNOWN CIRCUITS for port %hu\n", locAddr);
