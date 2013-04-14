@@ -1,0 +1,159 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{4526A6AB-9F68-4BC4-8D6F-3904DC4F5EA4}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>Route20</RootNamespace>
+    <SccProjectName>SAK</SccProjectName>
+    <SccAuxPath>SAK</SccAuxPath>
+    <SccLocalPath>SAK</SccLocalPath>
+    <SccProvider>SAK</SccProvider>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\Rob\Documents\DEC\DECEmulation\WinPCap Developer Pack WpdPack_4_1_2\WpdPack\Include</AdditionalIncludeDirectories>
+      <PrecompiledHeaderFile>
+      </PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>
+      </PrecompiledHeaderOutputFile>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
+      <DisableSpecificWarnings>4100;4200;4127;4206</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;wpcap.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\Rob\Documents\DEC\DECEmulation\WinPCap Developer Pack WpdPack_4_1_2\WpdPack\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy "$(ProjectDir)route20.ini" "$(TargetDir)"
+</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_MBCS</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\Rob\Documents\DEC\DECEmulation\WinPCap Developer Pack WpdPack_4_1_2\WpdPack\Include</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>C:\Users\Rob\Documents\DEC\DECEmulation\WinPCap Developer Pack WpdPack_4_1_2\WpdPack\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>wsock32.lib;ws2_32.lib;wpcap.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="adjacency.c" />
+    <ClCompile Include="area_forwarding_database.c" />
+    <ClCompile Include="area_routing_database.c" />
+    <ClCompile Include="decision.c" />
+    <ClCompile Include="decnet.c" />
+    <ClCompile Include="dns.c" />
+    <ClCompile Include="eth_decnet.c" />
+    <ClCompile Include="eth_init_layer.c" />
+    <ClCompile Include="eth_circuit.c" />
+    <ClCompile Include="eth_pcap.c" />
+    <ClCompile Include="eth_sock.c" />
+    <ClCompile Include="forwarding.c" />
+    <ClCompile Include="forwarding_database.c" />
+    <ClCompile Include="init_layer.c" />
+    <ClCompile Include="linux.c" />
+    <ClCompile Include="circuit.c" />
+    <ClCompile Include="messages.c" />
+    <ClCompile Include="node.c" />
+    <ClCompile Include="packet.c" />
+    <ClCompile Include="route20.c" />
+    <ClCompile Include="routing_database.c" />
+    <ClCompile Include="socket.c" />
+    <ClCompile Include="timer.c" />
+    <ClCompile Include="update.c" />
+    <ClCompile Include="windows.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="makefile" />
+    <None Include="readme.txt" />
+    <None Include="route20.ini" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="adjacency.h" />
+    <ClInclude Include="area_forwarding_database.h" />
+    <ClInclude Include="area_routing_database.h" />
+    <ClInclude Include="basictypes.h" />
+    <ClInclude Include="constants.h" />
+    <ClInclude Include="decision.h" />
+    <ClInclude Include="decnet.h" />
+    <ClInclude Include="dns.h" />
+    <ClInclude Include="eth_decnet.h" />
+    <ClInclude Include="eth_init_layer.h" />
+    <ClInclude Include="eth_circuit.h" />
+    <ClInclude Include="eth_pcap.h" />
+    <ClInclude Include="eth_sock.h" />
+    <ClInclude Include="forwarding.h" />
+    <ClInclude Include="forwarding_database.h" />
+    <ClInclude Include="init_layer.h" />
+    <ClInclude Include="circuit.h" />
+    <ClInclude Include="messages.h" />
+    <ClInclude Include="node.h" />
+    <ClInclude Include="packet.h" />
+    <ClInclude Include="platform.h" />
+    <ClInclude Include="route20.h" />
+    <ClInclude Include="routing_database.h" />
+    <ClInclude Include="socket.h" />
+    <ClInclude Include="timer.h" />
+    <ClInclude Include="update.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
