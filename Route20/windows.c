@@ -37,6 +37,8 @@ in this Software without prior written authorization from the author.
 #include "platform.h"
 #include "timer.h"
 #include "route20.h"
+#include "nsp.h"
+#include "netman.h"
 #include "dns.h"
 
 #pragma comment(lib, "advapi32.lib")
@@ -95,6 +97,8 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 			{
 				if (Initialise(CONFIG_FILE_NAME))
 				{
+					NspInitialise();
+					NetManInitialise();
 					MainLoop();
 				}
 			}
@@ -354,6 +358,8 @@ static VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
 	{
 		if (Initialise(CONFIG_FILE_NAME))
 		{
+			NspInitialise();
+			NetManInitialise();
 			MainLoop();
 		}
 	}

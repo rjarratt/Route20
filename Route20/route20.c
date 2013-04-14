@@ -43,10 +43,12 @@ in this Software without prior written authorization from the author.
 #include "forwarding.h"
 #include "update.h"
 #include "dns.h"
+#include "node.h"
 
 static int dnsNeeded = 0;
-static int numCircuits = 0;
+int numCircuits = 0;
 static init_layer_t *ethernetInitLayer;
+static void (*processHigherLevelProtocolPacket)(decnet_address_t *from, byte *data, int dataLength) = NULL;
 
 // TODO: Add Phase III support
 static int ReadConfig(char *fileName);
@@ -59,11 +61,13 @@ static char *ReadDnsConfig(FILE *f, int *ans);
 static int SplitString(char *string, char splitBy, char **left, char **right);
 static void ParseLogLevel(char *string, int *source);
 static void PurgeAdjacenciesCallback(rtimer_t *, char *, void *);
+static void LogCircuitStats(rtimer_t *, char *, void *);
 static void ProcessPacket(circuit_t *circuit, packet_t *packet);
 static int RouterHelloIsForThisNode(decnet_address_t *from, int iinfo);
 static int EndnodeHelloIsForThisNode(decnet_address_t *from, int iinfo);
 static int VersionSupported(byte tiver[3]);
 static void LogMessage(circuit_t *circuit, packet_t *packet, char *messageName);
+static void LogLoopbackMessage(circuit_t *circuit, packet_t *packet, char *messageName);
 
 #pragma warning(disable : 4996)
 
@@ -98,6 +102,7 @@ int Initialise(char *configFileName)
 		CreateTimer("PurgeAdjacencies", now + 1, 1, NULL, PurgeAdjacenciesCallback);
 		ethernetInitLayer = CreateEthernetInitializationSublayer();
 		ethernetInitLayer->Start(Circuits, numCircuits);
+		//CreateTimer("CircuitStats", now + 3600, 3600, NULL, LogCircuitStats);
 
 		if (DnsConfig.dnsConfigured && dnsNeeded)
 		{
@@ -110,6 +115,11 @@ int Initialise(char *configFileName)
 	}
 
 	return ans;
+}
+
+void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, int dataLength))
+{
+	processHigherLevelProtocolPacket = callback;
 }
 
 void MainLoop(void)
@@ -240,6 +250,18 @@ static char *ReadLoggingConfig(FILE *f, int *ans)
 			else if (stricmp(name, "sock") == 0)
 			{
 				ParseLogLevel(value, &LoggingLevels[LogSock]);
+			}
+			else if (stricmp(name, "nsp") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogNsp]);
+			}
+			else if (stricmp(name, "nspmessages") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogNspMessages]);
+			}
+			else if (stricmp(name, "netman") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogNetMan]);
 			}
 		}
 	}
@@ -542,6 +564,24 @@ static void PurgeAdjacenciesCallback(rtimer_t *timer, char *name, void *context)
 	PurgeAdjacencies();
 }
 
+static void LogCircuitStats(rtimer_t *timer, char *name, void *context)
+{
+	int i;
+    Log(LogGeneral, LogFatal, "Statistics ****************\n");
+	for (i = 1; i <= numCircuits; i++)
+	{
+		circuit_t *circuit = &Circuits[i];
+		Log(LogGeneral, LogFatal, "%s\n", circuit->name);
+		Log(LogGeneral, LogFatal, "  DECnet packets received:              %d\n", circuit->stats.decnetPacketsReceived);
+		Log(LogGeneral, LogFatal, "  DECnet packets to this node received: %d\n", circuit->stats.decnetToThisNodePacketsReceived);
+		Log(LogGeneral, LogFatal, "  Invalid packets received:             %d\n", circuit->stats.invalidPacketsReceived);
+		Log(LogGeneral, LogFatal, "  Loopback packets received:            %d\n", circuit->stats.loopbackPacketsReceived);
+		Log(LogGeneral, LogFatal, "  Valid raw packets received:           %d\n", circuit->stats.validRawPacketsReceived);
+		Log(LogGeneral, LogFatal, "  Packets sent:                         %d\n", circuit->stats.packetsSent);
+	}
+	Log(LogGeneral, LogFatal, "End Statistics ************\n");
+}
+
 static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 {
 	if (nodeInfo.state == Running)
@@ -570,7 +610,12 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 					msg = ParseRoutingMessage(packet);
 					if (msg != NULL)
 					{
-						if (msg->srcnode.area == nodeInfo.address.area)
+					    // TODO: Fix the fact that we need to keep loopbacks for routing to self to work (A5RTR not reachable otherwise).
+						/*if (CompareDecnetAddress(&msg->srcnode, &nodeInfo.address))
+						{
+					        LogLoopbackMessage(circuit, packet, "Level 1 Routing");
+						}
+						else*/ if (msg->srcnode.area == nodeInfo.address.area)
 						{
 							ProcessLevel1RoutingMessage(msg);
 						}
@@ -586,7 +631,12 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 					routing_msg_t *msg;
 					LogMessage(circuit, packet, "Level 2 Routing");
 					msg = ParseRoutingMessage(packet);
-					if (msg != NULL)
+					// TODO: Fix the fact that we need to keep loopbacks for routing to self to work (A5RTR not reachable otherwise).
+					/*if (CompareDecnetAddress(&msg->srcnode, &nodeInfo.address))
+					{
+						LogLoopbackMessage(circuit, packet, "Level 2 Routing");
+					}
+					else*/ if (msg != NULL)
 					{
 						ProcessLevel2RoutingMessage(msg);
 						FreeRoutingMessage(msg);
@@ -601,12 +651,19 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 					ethernet_router_hello_t *msg = (ethernet_router_hello_t *)packet->payload;
 					decnet_address_t from;
 					GetDecnetAddress(&msg->id, &from);
-					if (RouterHelloIsForThisNode(&from, msg->iinfo))
+					if (CompareDecnetAddress(&from, &nodeInfo.address))
 					{
-						if (VersionSupported(msg->tiver))
+						LogLoopbackMessage(circuit, packet, "Ethernet Router Hello");
+					}
+					else
+					{
+						if (RouterHelloIsForThisNode(&from, msg->iinfo))
 						{
-							AdjacencyType at = GetRouterLevel(msg->iinfo) == 1 ? Level1RouterAdjacency : Level2RouterAdjacency;
-							CheckRouterAdjacency(&from, circuit, at, msg->timer, msg->priority, msg->rslist, msg->rslistlen/sizeof(rslist_t));
+							if (VersionSupported(msg->tiver))
+							{
+								AdjacencyType at = GetRouterLevel(msg->iinfo) == 1 ? Level1RouterAdjacency : Level2RouterAdjacency;
+								CheckRouterAdjacency(&from, circuit, at, msg->timer, msg->priority, msg->rslist, msg->rslistlen/sizeof(rslist_t));
+							}
 						}
 					}
 				}
@@ -619,7 +676,11 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 					ethernet_endnode_hello_t *msg = (ethernet_endnode_hello_t *)packet->payload;
 					decnet_address_t from;
 					GetDecnetAddress(&msg->id, &from);
-					if (EndnodeHelloIsForThisNode(&from, msg->iinfo))
+					if (CompareDecnetAddress(&from, &nodeInfo.address))
+					{
+						LogLoopbackMessage(circuit, packet, "Ethernet Endnode Hello");
+					}
+					else if (EndnodeHelloIsForThisNode(&from, msg->iinfo))
 					{
 						if (VersionSupported(msg->tiver))
 						{
@@ -633,7 +694,28 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 				LogMessage(circuit, packet, "Data message");
 				if (IsValidDataPacket(packet))
 				{
-					ForwardPacket(packet);
+					decnet_address_t srcNode;
+					decnet_address_t dstNode;
+					byte flags;
+					int visits;
+					byte *data;
+					int dataLength;
+
+					ExtractDataPacketData(packet, &srcNode, &dstNode, &flags, &visits, &data, &dataLength);
+
+					// TODO: loopback check here too.
+					if (CompareDecnetAddress(&dstNode, &nodeInfo.address))
+					{
+						if (processHigherLevelProtocolPacket != NULL)
+						{
+
+							processHigherLevelProtocolPacket(&srcNode, data, dataLength);
+						}
+					}
+					else
+					{
+						ForwardPacket(packet);
+					}
 				}
 			}
 			else
@@ -693,7 +775,15 @@ static int VersionSupported(byte tiver[3])
 static void LogMessage(circuit_t *circuit, packet_t *packet, char *messageName)
 {
 	//Log(LogInfo, "Process pkt from %6s from ", circuit->name);
-	Log(LogMessages, LogVerbose, "Process pkt from ", circuit->name);
+	Log(LogMessages, LogVerbose, "Process pkt on %s from ", circuit->name);
 	LogDecnetAddress(LogMessages, LogVerbose, &packet->from);
 	Log(LogMessages, LogVerbose, " %s\n", messageName);
+}
+
+static void LogLoopbackMessage(circuit_t *circuit, packet_t *packet, char *messageName)
+{
+	//Log(LogInfo, "Process pkt from %6s from ", circuit->name);
+	Log(LogMessages, LogWarning, "Loopback pkt on %s from ", circuit->name);
+	LogDecnetAddress(LogMessages, LogWarning, &packet->from);
+	Log(LogMessages, LogWarning, " %s\n", messageName);
 }

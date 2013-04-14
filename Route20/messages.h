@@ -170,6 +170,7 @@ int GetRouterLevel(int iinfo);
 packet_t *CreateEthernetHello(decnet_address_t address);
 packet_t *CreateLevel1RoutingMessage(int from, int count);
 packet_t *CreateLevel2RoutingMessage(void);
+packet_t *CreateLongDataPacket(decnet_address_t toAddress, byte *data, int length);
 
 int IsValidRouterHelloMessage(packet_t *packet);
 int IsValidEndnodeHelloMessage(packet_t *packet);

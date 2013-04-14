@@ -1,4 +1,4 @@
-/* forwarding.h: DECnet Forwarding Process (section 4.9)
+/* netman_messages.h: Network Management messages
   ------------------------------------------------------------------------------
 
    Copyright (c) 2012, Robert M. A. Jarratt
@@ -26,6 +26,46 @@
 
   ------------------------------------------------------------------------------*/
 
-int IsReachable(decnet_address_t *address);
-void ForwardPacket(packet_t *packet);
-void SendPacket(decnet_address_t *dstNode, packet_t *packet, byte flags); // TODO: re-layer this?
+#include "basictypes.h"
+
+#if !defined(NETMAN_MESSAGES_H)
+
+#pragma pack(push)
+#pragma pack(1)
+
+typedef enum
+{
+    NetmanNodeEntityTypeCode,
+	NetmanLineEntityTypeCode,
+	NetmanLoggingEntityTypeCode,
+	NetmanCircuitEntityTypeCode,
+	NetmanModuleEntityTypeCode,
+	NetmanAreaEntityTypeCode
+} NetmanEntityTypeCode;
+
+typedef enum
+{
+    NetmanSummaryInfoTypeCode,
+	NetmanStatusInfoTypeCode,
+	NetmanCharacteristicsInfoTypeCode,
+	NetmanCountersInfoTypeCode,
+	NetmanEventsInfoTypeCode
+} NetmanInfoTypeCode;
+
+typedef struct
+{
+	byte functionCode;
+	byte option;
+	byte entity;
+} netman_read_information_t;
+
+#pragma pack(pop)
+
+int IsNetmanReadInformationMessage(byte *nspPayload);
+
+netman_read_information_t *ParseNetmanReadInformation(byte *nspPayload, int nspPayloadLength);
+
+//packet_t *NspCreateConnectAcknowledgement(decnet_address_t *toAddress, uint16 dstAddr);
+
+#define NETMAN_MESSAGES_H
+#endif

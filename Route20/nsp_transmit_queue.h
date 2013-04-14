@@ -1,8 +1,8 @@
-/* forwarding.h: DECnet Forwarding Process (section 4.9)
+/* nsp_transmit_queue.h: NSP transmit queue
   ------------------------------------------------------------------------------
 
    Copyright (c) 2012, Robert M. A. Jarratt
- 
+
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
    to deal in the Software without restriction, including without limitation
@@ -26,6 +26,32 @@
 
   ------------------------------------------------------------------------------*/
 
-int IsReachable(decnet_address_t *address);
-void ForwardPacket(packet_t *packet);
-void SendPacket(decnet_address_t *dstNode, packet_t *packet, byte flags); // TODO: re-layer this?
+#include "constants.h"
+#include "basictypes.h"
+
+#if !defined(NSP_TRANSMIT_QUEUE_H)
+
+typedef struct transmit_queue_entry *transmit_queue_entry_ptr;
+
+typedef struct transmit_queue_entry
+{
+	uint16  transmitSegmentNumber;
+	char   *data[NSP_SEGMENT_SIZE];
+	int     dataLength;
+	transmit_queue_entry_ptr next; /* pints to the next entry towards the tail */
+	
+} transmit_queue_entry_t;
+
+typedef struct
+{
+    transmit_queue_entry_ptr head; /* head is where the first entry in the queue is */
+    transmit_queue_entry_ptr tail;
+} transmit_queue_t;
+
+void InitialiseTransmitQueue(transmit_queue_t *queue);
+void TerminateTransmitQueue(transmit_queue_t *queue);
+void EnqueueToTransmitQueue(transmit_queue_t *queue, uint16 transmitSegmentNumber, byte *data, int dataLength);
+int DequeueFromTransmitQueue(transmit_queue_t *queue, uint16 maxTransmitSegmentNumber, uint16 *nextTransmitSegmentNumber, byte *data, int dataLength, int *actualDataLength);
+
+#define NSP_TRANSMIT_QUEUE_H
+#endif

@@ -1,8 +1,8 @@
-/* forwarding.h: DECnet Forwarding Process (section 4.9)
+/* nsp.h: NSP support
   ------------------------------------------------------------------------------
 
    Copyright (c) 2012, Robert M. A. Jarratt
- 
+
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
    to deal in the Software without restriction, including without limitation
@@ -26,6 +26,18 @@
 
   ------------------------------------------------------------------------------*/
 
-int IsReachable(decnet_address_t *address);
-void ForwardPacket(packet_t *packet);
-void SendPacket(decnet_address_t *dstNode, packet_t *packet, byte flags); // TODO: re-layer this?
+#include "packet.h"
+
+#if !defined(NSP_H)
+
+#define SERVICES_NONE 1
+#define SERVICES_SEGMENT 5
+
+void NspInitialise();
+int NspOpen(void (*closeCallback)(uint16 locAddr), void (*connectCallback)(uint16 locAddr), void (*dataCallback)(uint16 locAddr, byte *data, int dataLength));
+int NspAccept(uint16 srcAddr, byte services);
+void NspTransmit(uint16 srcAddr, byte *data, int dataLength); // TODO: will need to identify link src, dst (and node?)
+void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength);
+#define NSP_H
+#endif
+

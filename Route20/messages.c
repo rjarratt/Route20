@@ -194,8 +194,8 @@ packet_t *CreateLevel1RoutingMessage(int from, int count)
 	msg.flags = 0x07;
 	msg.srcNode = Uint16ToLittleEndian(GetDecnetId(nodeInfo.address));
 	msg.res = 0;
-	msg.count = Uint16ToLittleEndian(count);
-	msg.start = Uint16ToLittleEndian(from);
+	msg.count = Uint16ToLittleEndian((uint16)count);
+	msg.start = Uint16ToLittleEndian((uint16)from);
 
 	for(i = from; i < from + count; i++)
 	{
@@ -507,6 +507,7 @@ packet_t *CreateLongDataMessage(decnet_address_t *srcNode, decnet_address_t *dst
 	msg.header.visit_ct = (byte)visits;
 	memcpy(msg.body, data, dataLength);
 
+	memcpy(&ans.from, &nodeInfo.address, sizeof(decnet_address_t));
 	ans.payload = (byte *)&msg;
 	ans.payloadLen = sizeof(long_data_packet_hdr_t) + dataLength;
 	ans.rawData = ans.payload;

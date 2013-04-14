@@ -86,7 +86,10 @@ int EthPcapOpen(eth_circuit_t *ethCircuit)
 		{
 #if defined(WIN32)
 			ethCircuit->circuit->waitHandle = (int)pcap_getevent(pcapContext->pcap);
-			pcap_setmintocopy(pcapContext->pcap, 0);
+			if (pcap_setmintocopy(pcapContext->pcap, 0) != 0)
+			{
+				Log(LogEthPcap, LogError, "Error setting min to copy\n");
+			}
 #else
 			int one = 1;
 			ethCircuit->circuit->waitHandle = pcap_fileno(pcapContext->pcap);
@@ -143,23 +146,25 @@ packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
 		packet.rawLen = h->caplen;
 		if (EthValidPacket(&packet))
 		{
+			int disableLoopbackCheck = 1; // TODO: Configurable loopback check?
 			GetDecnetAddress((decnet_eth_address_t *)&packet.rawData[0], &packet.to);
 			GetDecnetAddress((decnet_eth_address_t *)&packet.rawData[6], &packet.from);
-			if (CompareDecnetAddress(&nodeInfo.address, &packet.from))
+			Log(LogEthPcap, LogVerbose, "From : ");LogDecnetAddress(LogEthPcap, LogVerbose, &packet.from);
+			if (!disableLoopbackCheck && CompareDecnetAddress(&nodeInfo.address, &packet.from))
 			{
-				/*Log(LogInfo, "Discarding loopback from %s\n", ethCircuit->circuit->name);*/
+				Log(LogEthPcap, LogWarning, " Discarding loopback from %s\n", ethCircuit->circuit->name);
 				ethCircuit->circuit->stats.loopbackPacketsReceived++;
 				ans = NULL;
 			}
 			else
 			{
-				/*Log(LogInfo, "Not loopback on %s \n", ethCircuit->circuit->name);*/
+				Log(LogEthPcap, LogVerbose, " Not loopback on %s \n", ethCircuit->circuit->name);
 				EthSetPayload(&packet);
 			}
 		}
 		else
 		{
-			/*Log(LogInfo, "Discarding invalid from %s\n", ethCircuit->circuit->name);*/
+			Log(LogEthPcap, LogWarning, "Discarding invalid from %s\n", ethCircuit->circuit->name);
 			ethCircuit->circuit->stats.invalidPacketsReceived++;
 			ans = NULL;
 		}
