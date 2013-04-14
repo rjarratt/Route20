@@ -160,17 +160,21 @@ void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength)
 	{
 		ProcessDataAcknowledgement(from, ParseDataAcknowledgement(data, dataLength));
 	}
+	else if (IsNoOperationMessage(data))
+	{
+	}
 	else
 	{
-
-		// Data Acknowledgement, Interrupt, Link Service, Other Data Ack && CC Set to RUN
-		// 117 msgflg layout lINK SERVICE, iNTERRUPT, Data Ack, Other-dATAT-ACK
-		packet_t *initiatePacket;
-		session_control_port_t *port;
-
-		port = FindScpEntryForRemoteNode(from, header->srcAddr);
-		initiatePacket = NspCreateDisconnectInitiate(from, lastPort, port->addrRem, 99);
-//		SendPacket(from, initiatePacket, 0x38); // TODO: flags value is also set in NspCreateDisconnectInitiate
+		Log(LogNsp, LogWarning, "Discarding unrecognised NSP message\n");
+//
+//		// Data Acknowledgement, Interrupt, Link Service, Other Data Ack && CC Set to RUN
+//		// 117 msgflg layout lINK SERVICE, iNTERRUPT, Data Ack, Other-dATAT-ACK
+//		packet_t *initiatePacket;
+//		session_control_port_t *port;
+//
+//		port = FindScpEntryForRemoteNode(from, header->srcAddr);
+//		initiatePacket = NspCreateDisconnectInitiate(from, lastPort, port->addrRem, 99);
+////		SendPacket(from, initiatePacket, 0x38); // TODO: flags value is also set in NspCreateDisconnectInitiate
 	}
 }
 

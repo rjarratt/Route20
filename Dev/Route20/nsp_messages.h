@@ -118,6 +118,7 @@ int IsDataAcknowledgementMessage(byte *nspPayload);
 int IsInterruptMessage(byte *nspPayload);
 int IsLinkServiceMessage(byte *nspPayload);
 int IsOtherDataAcknowledgementMessage(byte *nspPayload);
+int IsNoOperationMessage(byte *nspPayload);
 
 nsp_header_t *ParseNspHeader(byte *nspPayload, int nspPayloadLength);
 nsp_connect_initiate_t *ParseConnectInitiate(byte *nspPayload, int nspPayloadLength);
