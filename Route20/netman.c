@@ -134,7 +134,7 @@ static void ProcessReadInformationMessage(uint16 locAddr, netman_read_informatio
 	{
 		ProcessShowKnownCircuits(locAddr);
 	}
-	if (isVolatile && infoType == NetmanSummaryInfoTypeCode && entityType == NetmanNodeEntityTypeCode && isAdjacent)
+	else if (isVolatile && infoType == NetmanSummaryInfoTypeCode && entityType == NetmanNodeEntityTypeCode && isAdjacent)
 	{
 		ProcessShowAdjacentNodes(locAddr);
 	}
