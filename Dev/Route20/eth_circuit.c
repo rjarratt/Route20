@@ -89,7 +89,7 @@ int EthCircuitStart(circuit_t *circuit)
 {
 	time_t now;
 	time(&now);
-	CreateTimer("AllRoutersHello", now, 15, circuit, HandleHelloTimer);
+	CreateTimer("AllRoutersHello", now, T3, circuit, HandleHelloTimer);
 	return 0;
 }
 

@@ -111,7 +111,7 @@ void EthInitCheckDesignatedRouter(void)
 				Log(LogEthInit, LogInfo, "Now the designated router on circuit %s\n", checkdr.circuit->name);
 				time(&now);
 
-    			CreateTimer("AllEndNodesHello", now, 15, checkdr.circuit, HandleDesignatedRouterHelloTimer);
+    			CreateTimer("AllEndNodesHello", now, T3, checkdr.circuit, HandleDesignatedRouterHelloTimer);
 			}
 			else
 			{

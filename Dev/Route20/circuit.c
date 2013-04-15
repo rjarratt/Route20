@@ -32,6 +32,7 @@
 #include <pcap-bpf.h>
 #include "constants.h"
 #include "platform.h"
+#include "node.h"
 #include "circuit.h"
 #include "eth_circuit.h"
 
@@ -41,6 +42,7 @@
 #endif
 
 static void (*stateChangeCallback)(circuit_t *circuit);
+static int FirstLevel1Node();
 
 void SetCircuitStateChangeCallback(void (*callback)(circuit_t *circuit))
 {
@@ -62,7 +64,7 @@ void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost)
 	circuit->circuitType = EthernetCircuit;
 	circuit->state = CircuitOff;
 	circuit->cost = cost;
-	circuit->nextLevel1Node = 0;
+	circuit->nextLevel1Node = FirstLevel1Node();
 
 	circuit->Open = EthCircuitOpen;
 	circuit->Start = EthCircuitStart;
@@ -81,7 +83,7 @@ void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receive
 	circuit->circuitType = EthernetCircuit;
 	circuit->state = CircuitOff;
 	circuit->cost = cost;
-	circuit->nextLevel1Node = 0;
+	circuit->nextLevel1Node = FirstLevel1Node();
 
     circuit->Open = EthCircuitOpen;
 	circuit->Start = EthCircuitStart;
@@ -93,6 +95,16 @@ void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receive
 int  IsBroadcastCircuit(circuit_ptr circuit)
 {
 	return circuit->circuitType == EthernetCircuit;
+}
+
+static int FirstLevel1Node()
+{
+	int ans = 0;
+	/* make sure this node is the first level 1 node reported so other nodes see it as reachable quickly. If we start at 0 and
+	   this node is at 1023 it will be in the last packet in the burst to be sent and may get lost by recipients until after a
+	   few cycles of sending level 1 updates. */
+	ans = (nodeInfo.address.node / LEVEL1_BATCH_SIZE) * LEVEL1_BATCH_SIZE;
+	return ans;
 }
 
 
