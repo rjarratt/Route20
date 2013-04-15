@@ -51,7 +51,9 @@ void InitialiseUpdateProcess(void)
 
 	if (nodeInfo.level == 1 || nodeInfo.level == 2)
 	{
-	    CreateTimer("Update", now + T2, T2, NULL, ProcessUpdateTimer);
+		/* add T3 + 5 seconds to first delay to allow ethernet adjacencies to come up first so that any other nodes on the 
+		   ethernet see the adjacency before receiving any routing messages */
+	    CreateTimer("Update", now + T2 + T3 + 5, T2, NULL, ProcessUpdateTimer);
 	}
 }
 
@@ -85,7 +87,7 @@ static void ProcessCircuitLevel1Update(circuit_t *circuit)
 	{
 	    if (Level1UpdateRequired(circuit->slot, circuit->nextLevel1Node, LEVEL1_BATCH_SIZE))
 		{
-		    //Log(LogInfo, "Sending level 1 routing to %s starting from node %d\n", circuit->name, circuit->nextLevel1Node);
+		    Log(LogUpdate, LogVerbose, "Sending level 1 routing to %s for node range %d-%d\n", circuit->name, circuit->nextLevel1Node, circuit->nextLevel1Node + LEVEL1_BATCH_SIZE -1);
 		    packet = CreateLevel1RoutingMessage(circuit->nextLevel1Node, LEVEL1_BATCH_SIZE);
 			if (IsBroadcastCircuit(circuit))
 			{
@@ -111,7 +113,7 @@ static void ProcessCircuitLevel2Update(circuit_t *circuit)
 		
 	if (Level2UpdateRequired(circuit->slot))
 	{
-		//Log(LogInfo, "Sending level 2 routing to %s\n", circuit->name);
+		Log(LogUpdate, LogVerbose, "Sending level 2 routing to %s\n", circuit->name);
 		packet = CreateLevel2RoutingMessage();
 		if (IsBroadcastCircuit(circuit))
 		{

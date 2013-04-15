@@ -46,6 +46,7 @@
 #define T1       600
 #define BCT1     180
 #define T2         1
+#define T3        15
 
 #define LEVEL1_BATCH_SIZE 32 /* must be integral factor of NN + 1 */
 

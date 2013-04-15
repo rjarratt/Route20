@@ -165,7 +165,7 @@ packet_t *CreateEthernetHello(decnet_address_t address)
 	msg.blksize = Uint16ToLittleEndian(1498);
 	msg.priority = nodeInfo.priority;
 	msg.area = 0;
-	msg.timer = Uint16ToLittleEndian(15);
+	msg.timer = Uint16ToLittleEndian(T3);
 	msg.mpd = 0;
 
 	rslistArgs.count = 0;
