@@ -146,7 +146,7 @@ packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
 		packet.rawLen = h->caplen;
 		if (EthValidPacket(&packet))
 		{
-			int disableLoopbackCheck = 1; // TODO: Configurable loopback check?
+			int disableLoopbackCheck = 0;
 			GetDecnetAddress((decnet_eth_address_t *)&packet.rawData[0], &packet.to);
 			GetDecnetAddress((decnet_eth_address_t *)&packet.rawData[6], &packet.from);
 			Log(LogEthPcap, LogVerbose, "From : ");LogDecnetAddress(LogEthPcap, LogVerbose, &packet.from);

@@ -614,12 +614,11 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 					msg = ParseRoutingMessage(packet);
 					if (msg != NULL)
 					{
-					    // TODO: Fix the fact that we need to keep loopbacks for routing to self to work (A5RTR not reachable otherwise).
-						/*if (CompareDecnetAddress(&msg->srcnode, &nodeInfo.address))
+						if (CompareDecnetAddress(&msg->srcnode, &nodeInfo.address))
 						{
 					        LogLoopbackMessage(circuit, packet, "Level 1 Routing");
 						}
-						else*/ if (msg->srcnode.area == nodeInfo.address.area)
+						else if (msg->srcnode.area == nodeInfo.address.area)
 						{
 							ProcessLevel1RoutingMessage(msg);
 						}
@@ -635,12 +634,11 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 					routing_msg_t *msg;
 					LogMessage(circuit, packet, "Level 2 Routing");
 					msg = ParseRoutingMessage(packet);
-					// TODO: Fix the fact that we need to keep loopbacks for routing to self to work (A5RTR not reachable otherwise).
-					/*if (CompareDecnetAddress(&msg->srcnode, &nodeInfo.address))
+					if (CompareDecnetAddress(&msg->srcnode, &nodeInfo.address))
 					{
 						LogLoopbackMessage(circuit, packet, "Level 2 Routing");
 					}
-					else*/ if (msg != NULL)
+					else if (msg != NULL)
 					{
 						ProcessLevel2RoutingMessage(msg);
 						FreeRoutingMessage(msg);
@@ -707,8 +705,11 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 
 					ExtractDataPacketData(packet, &srcNode, &dstNode, &flags, &visits, &data, &dataLength);
 
-					// TODO: loopback check here too.
-					if (CompareDecnetAddress(&dstNode, &nodeInfo.address))
+					if (CompareDecnetAddress(&srcNode, &nodeInfo.address))
+					{
+						LogLoopbackMessage(circuit, packet, "Data message");
+					}
+					else if (CompareDecnetAddress(&dstNode, &nodeInfo.address))
 					{
 						if (processHigherLevelProtocolPacket != NULL)
 						{
