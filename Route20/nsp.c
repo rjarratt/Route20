@@ -40,13 +40,15 @@ in this Software without prior written authorization from the author.
 typedef struct
 {
 	decnet_address_t *node;
-	uint16            dstAddr;
-} RemoteNode;
+	uint16            locAddr;
+	uint16            remAddr;
+} PortSearchContext;
 
 static void ProcessLinkConnectionCompletion(decnet_address_t *from, nsp_header_t *);
 static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_t *connectInitiate);
 static void ProcessDisconnectInitiate(decnet_address_t *from, nsp_disconnect_initiate_t *disconnectInitiate);
 static void ProcessDataAcknowledgement(decnet_address_t *from, nsp_data_acknowledgement_t *dataAcknowledgement);
+static void ProcessDataMessage(decnet_address_t *from, nsp_header_t *header, byte *data, int dataLength);
 
 static void TransmitQueuedMessages(session_control_port_t *port);
 
@@ -56,7 +58,9 @@ static void SendConnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstA
 static void SendOtherDataAcknowledgement(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number);
 static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength);
 
-static session_control_port_t *FindScpEntryForRemoteNode(decnet_address_t *node, uint16 addr);
+static session_control_port_t *FindScpEntryForRemoteNodeConnection(decnet_address_t *node, uint16 locAddr, uint16 remAddr);
+static int ScpEntryMatchesRemoteNodeConnection(session_control_port_t *entry, void *context);
+static session_control_port_t *FindScpEntryForRemoteNode(decnet_address_t *node, uint16 remAddr);
 static int ScpEntryMatchesRemoteNode(session_control_port_t *entry, void *context);
 static void SetPortState(session_control_port_t *port, NspPortState newState);
 
@@ -73,7 +77,6 @@ void NspInitialise()
 
 int NspOpen(void (*closeCallback)(uint16 srcAddr), void (*connectCallback)(uint16 locAddr), void (*dataCallback)(uint16 locAddr, byte *data, int dataLength))
 {
-	// TODO: Check incoming NSP messages match local and remote pair
 	int ans = 0;
 	session_control_port_t *port = NspFindFreeScpDatabaseEntry();
 	if (port != NULL)
@@ -129,7 +132,7 @@ void NspTransmit(uint16 srcAddr, byte *data, int dataLength)
 
 void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength)
 {
-	// TODO: validate NSP messages
+	// TODO: validate NSP messages, see latter half of section 6.2
 	// TODO: process "return to sender" messages, NSP spec p79
 
 	nsp_header_t *header = ParseNspHeader(data, dataLength);
@@ -151,10 +154,7 @@ void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength)
 	}
 	else if (IsNspDataMessage(data))
 	{
-		session_control_port_t *port;
-
-		port = FindScpEntryForRemoteNode(from, header->srcAddr);
-		port->dataCallback(port->addrLoc, data + 9, dataLength - 9);
+		ProcessDataMessage(from, header, data, dataLength);
 	}
 	else if (IsDataAcknowledgementMessage(data))
 	{
@@ -197,7 +197,9 @@ static void ProcessLinkConnectionCompletion(decnet_address_t *from, nsp_header_t
 
 static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_t *connectInitiate)
 {
-	/* Section 6.2 of NSP spec */
+	/* Section 6.2 of NSP spec 
+
+	   Bullet 4 not implemented, where ConnectInitiate has been returned, because the router does not initiate connections */
 
 	if (connectInitiate->dstAddr == 0)
 	{
@@ -207,7 +209,6 @@ static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_
 		{
 			port = NspFindOpenScpDatabaseEntry();
 		}
-		// TODO: skipped various parts of the spec in 6.2
 
 		if (port != NULL)
 		{
@@ -240,7 +241,7 @@ static void ProcessDisconnectInitiate(decnet_address_t *from, nsp_disconnect_ini
 {
 	session_control_port_t *port;
 
-	port = FindScpEntryForRemoteNode(from, disconnectInitiate->srcAddr);
+	port = FindScpEntryForRemoteNodeConnection(from, disconnectInitiate->dstAddr, disconnectInitiate->srcAddr);
 	if (port != NULL)
 	{
 		switch (port->state)
@@ -282,6 +283,8 @@ static void ProcessDisconnectInitiate(decnet_address_t *from, nsp_disconnect_ini
 		Log(LogNsp, LogInfo, " on port %d\n", port->addrLoc);
 
 		SetPortState(port, NspPortStateClosed);
+		port->addrRem = 0;
+		memset(&port->node, 0, sizeof(port->node));
 		port->closeCallback(port->addrLoc);
 		TerminateTransmitQueue(&port->transmit_queue);
 	}
@@ -320,6 +323,17 @@ static void ProcessDataAcknowledgement(decnet_address_t *from, nsp_data_acknowle
 			// TODO: Implement NAK processing
             Log(LogNspMessages, LogError, "NAK of segment %d - NOT IMPLEMENTED\n", ackNum);
 		}
+	}
+}
+
+static void ProcessDataMessage(decnet_address_t *from, nsp_header_t *header, byte *data, int dataLength)
+{
+	session_control_port_t *port;
+
+	port = FindScpEntryForRemoteNodeConnection(from, header->dstAddr, header->srcAddr);
+	if (port != NULL)
+	{
+		port->dataCallback(port->addrLoc, data + 9, dataLength - 9);
 	}
 }
 
@@ -376,18 +390,34 @@ static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr
 	SendPacket(to, confirmPacket);
 }
 
-static session_control_port_t *FindScpEntryForRemoteNode(decnet_address_t *node, uint16 addr)
+static session_control_port_t *FindScpEntryForRemoteNodeConnection(decnet_address_t *node, uint16 locAddr, uint16 remAddr)
 {
-	RemoteNode rn;
-	rn.node = node;
-	rn.dstAddr = addr;
-	return NspFindScpDatabaseEntry(ScpEntryMatchesRemoteNode, &rn);
+	PortSearchContext cxt;
+	cxt.node = node;
+	cxt.locAddr = locAddr;
+	cxt.remAddr = remAddr;
+	return NspFindScpDatabaseEntry(ScpEntryMatchesRemoteNodeConnection, &cxt);
+}
+
+static int ScpEntryMatchesRemoteNodeConnection(session_control_port_t *entry, void *context)
+{
+	PortSearchContext *searchContext = (PortSearchContext *)context;
+	return CompareDecnetAddress(&entry->node, searchContext->node) && entry->addrLoc == searchContext->locAddr && entry->addrRem == searchContext->remAddr;
+}
+
+
+static session_control_port_t *FindScpEntryForRemoteNode(decnet_address_t *node, uint16 remAddr)
+{
+	PortSearchContext cxt;
+	cxt.node = node;
+	cxt.remAddr = remAddr;
+	return NspFindScpDatabaseEntry(ScpEntryMatchesRemoteNode, &cxt);
 }
 
 static int ScpEntryMatchesRemoteNode(session_control_port_t *entry, void *context)
 {
-	RemoteNode *remoteNode = (RemoteNode *)context;
-	return entry->state != NspPortStateOpen && CompareDecnetAddress(&entry->node, remoteNode->node) && entry->addrRem == remoteNode->dstAddr;
+	PortSearchContext *searchContext = (PortSearchContext *)context;
+	return entry->state != NspPortStateOpen && CompareDecnetAddress(&entry->node, searchContext->node) && entry->addrRem == searchContext->remAddr;
 }
 
 static void SetPortState(session_control_port_t *port, NspPortState newState)
