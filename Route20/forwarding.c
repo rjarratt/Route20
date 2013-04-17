@@ -132,7 +132,7 @@ void ForwardPacket(packet_t *packet)
 		if (forward)
 		{
 			packetToForward = CreateLongDataMessage(&srcNode, &dstNode, forwardFlags, visits, data, dataLength);
-			SendPacket(&dstNode, packetToForward, flags);
+			SendPacket(&dstNode, packetToForward);
 		}
 	}
 	else
@@ -141,7 +141,7 @@ void ForwardPacket(packet_t *packet)
 	}
 }
 
-void SendPacket(decnet_address_t *dstNode, packet_t *packet, byte flags)
+void SendPacket(decnet_address_t *dstNode, packet_t *packet)
 {
     adjacency_t *dstAdjacency;
 	int forward = 1;
@@ -161,11 +161,11 @@ void SendPacket(decnet_address_t *dstNode, packet_t *packet, byte flags)
 
 			if (IsBroadcastCircuit(dstAdjacency->circuit))
 			{
-				flags = SetIntraEthernet(flags);
+				SetIntraEthernet(packet);
 			}
 			else
 			{
-				flags = ClearIntraEthernet(flags);
+				ClearIntraEthernet(packet);
 			}
 
 			Log(LogForwarding, LogVerbose, "Forwarding to %s\n", dstAdjacency->circuit->name);

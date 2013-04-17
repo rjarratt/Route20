@@ -43,6 +43,7 @@ typedef struct
 	rslist_t *rslist;
 } rslistargs_t;
 
+static void SetMessageFlags(packet_t *packet, byte flags);
 static int IsShortDataPacket(packet_t *packet);
 static int IsLongDataPacket(packet_t *packet);
 static int IsPadded(packet_t *packet);
@@ -460,14 +461,14 @@ int IsReturnToSenderRequest(byte flags)
 	return (flags & 0x08) != 0;
 }
 
-byte SetIntraEthernet(byte flags)
+void SetIntraEthernet(packet_t *packet)
 {
-    return flags | 0x20;
+	SetMessageFlags(packet, MessageFlags(packet) | 0x20);
 }
 
-byte ClearIntraEthernet(byte flags)
+void ClearIntraEthernet(packet_t *packet)
 {
-    return flags & ~0x20;
+	SetMessageFlags(packet, MessageFlags(packet) & ~0x20);
 }
 
 void ExtractDataPacketData(packet_t *packet, decnet_address_t *srcNode, decnet_address_t *dstNode, byte *flags, int *visits, byte **data, int *dataLength)
@@ -514,6 +515,11 @@ packet_t *CreateLongDataMessage(decnet_address_t *srcNode, decnet_address_t *dst
 	ans.rawLen = ans.payloadLen;
 
 	return &ans;
+}
+
+static void SetMessageFlags(packet_t *packet, byte flags)
+{
+	packet->payload[0] = flags;
 }
 
 static int IsShortDataPacket(packet_t *packet)

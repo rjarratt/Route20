@@ -28,4 +28,4 @@
 
 int IsReachable(decnet_address_t *address);
 void ForwardPacket(packet_t *packet);
-void SendPacket(decnet_address_t *dstNode, packet_t *packet, byte flags); // TODO: re-layer this?
+void SendPacket(decnet_address_t *dstNode, packet_t *packet); // TODO: re-layer this?

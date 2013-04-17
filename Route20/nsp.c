@@ -174,7 +174,7 @@ void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength)
 //
 //		port = FindScpEntryForRemoteNode(from, header->srcAddr);
 //		initiatePacket = NspCreateDisconnectInitiate(from, lastPort, port->addrRem, 99);
-////		SendPacket(from, initiatePacket, 0x38); // TODO: flags value is also set in NspCreateDisconnectInitiate
+////		SendPacket(from, initiatePacket);
 	}
 }
 
@@ -341,7 +341,7 @@ static void SendConnectAcknowledgement(decnet_address_t *to, uint16 dstAddr)
 	packet_t *ackPacket;
 	Log(LogNspMessages, LogVerbose, "Sending ConnectAcknowledgement\n");
 	ackPacket = NspCreateConnectAcknowledgement(to, dstAddr);
-	SendPacket(to, ackPacket, 0x24); // TODO: flags value is also set in NspCreateConnectAcknowledgement
+	SendPacket(to, ackPacket);
 }
 
 static void SendDisconnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 reason)
@@ -349,7 +349,7 @@ static void SendDisconnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 d
 	packet_t *confirmPacket;
 	Log(LogNspMessages, LogVerbose, "Sending DisconnectConfirm\n");
 	confirmPacket = NspCreateDisconnectConfirm(to, srcAddr, dstAddr, reason);
-	SendPacket(to, confirmPacket, 0x48); // TODO: flags value is also set in NspCreateDisconnectConfirm
+	SendPacket(to, confirmPacket);
 }
 
 static void SendConnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, byte services)
@@ -357,7 +357,7 @@ static void SendConnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstA
 	packet_t *confirmPacket;
 	Log(LogNspMessages, LogVerbose, "Sending ConnectConfirm\n");
 	confirmPacket = NspCreateConnectConfirm(to, srcAddr, dstAddr, services, INFO_V40, NSP_SEGMENT_SIZE);
-	SendPacket(to, confirmPacket, 0x28); // TODO: flags value is also set in NspCreateConnectConfirm
+	SendPacket(to, confirmPacket);
 }
 
 static void SendOtherDataAcknowledgement(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number)
@@ -365,7 +365,7 @@ static void SendOtherDataAcknowledgement(decnet_address_t *to, uint16 srcAddr, u
 	packet_t *confirmPacket;
 	Log(LogNspMessages, LogVerbose, "Sending OtherDataAcknowledgement\n");
 	confirmPacket = NspCreateOtherDataAcknowledgement(to, srcAddr, dstAddr, isAck, number);
-	SendPacket(to, confirmPacket, 0x14); // TODO: flags value is also set in NspCreateConnectConfirm
+	SendPacket(to, confirmPacket);
 }
 
 static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength)
@@ -373,7 +373,7 @@ static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr
 	packet_t *confirmPacket;
 	Log(LogNspMessages, LogVerbose, "Sending DataSegment\n");
     confirmPacket = NspCreateDataMessage(to, srcAddr, dstAddr, seqNo, data, dataLength);
-	SendPacket(to, confirmPacket, 0x60); // TODO: flags value is also set in NspCreateDataMessage
+	SendPacket(to, confirmPacket);
 }
 
 static session_control_port_t *FindScpEntryForRemoteNode(decnet_address_t *node, uint16 addr)
