@@ -184,7 +184,7 @@ static void ProcessLinkConnectionCompletion(decnet_address_t *from, nsp_header_t
 	{
 		session_control_port_t *port;
 
-		port = FindScpEntryForRemoteNode(from, header->srcAddr); // TODO: May need to use srcAddr when looking for scp entry in most cases.
+		port = FindScpEntryForRemoteNode(from, header->srcAddr);
 		if (port != NULL)
 		{
 			if (port->state == NspPortStateConnectConfirm)
