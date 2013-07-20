@@ -32,6 +32,7 @@ in this Software without prior written authorization from the author.
 #include <windows.h>
 #include <tchar.h>
 #include <strsafe.h>
+#include <DbgHelp.h>
 
 #include "constants.h"
 #include "platform.h"
@@ -53,6 +54,9 @@ static void CloseLog();
 static void LogWin32Error(char *format, DWORD err);
 static void ProcessPackets(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *));
 
+static LONG WINAPI ExceptionFilter(EXCEPTION_POINTERS* pExp, DWORD dwExpCode);
+static void LogCallStack(CONTEXT *context, HANDLE thread, unsigned long code);
+
 static VOID ReportSvcStatus(DWORD, DWORD, DWORD );
 static VOID SvcInit( DWORD, LPTSTR * ); 
 static VOID SvcReportEvent( LPTSTR );
@@ -67,12 +71,11 @@ SERVICE_TABLE_ENTRY DispatchTable[] =
 	{ NULL, NULL } 
 }; 
 
-
-
-
 void __cdecl _tmain(int argc, TCHAR *argv[]) 
 { 
 	int err;
+
+	SymSetOptions(SYMOPT_LOAD_LINES);
 
 	// If command-line parameter is "install", install the service. 
 	// Otherwise, the service is probably being started by the SCM.
@@ -102,9 +105,8 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 					MainLoop();
 				}
 			}
-			__except(EXCEPTION_EXECUTE_HANDLER)
+			__except(ExceptionFilter(GetExceptionInformation(), GetExceptionCode()))
 			{
-				Log(LogGeneral, LogFatal, "Exception: %d\n", GetExceptionCode());
 			}
 		}
 		else if (!err)
@@ -113,6 +115,87 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 		}
 	}
 } 
+
+LONG WINAPI ExceptionFilter(EXCEPTION_POINTERS* pExp, DWORD dwExpCode)
+{
+	Log(LogGeneral, LogFatal, "Exception: %d\n", dwExpCode);
+	LogCallStack(pExp->ContextRecord, GetCurrentThread(), dwExpCode);
+	return EXCEPTION_EXECUTE_HANDLER;
+}
+
+#define MAX_CALL_STACK_DEPTH 1
+
+void LogCallStack(CONTEXT *context, HANDLE thread, unsigned long code)
+{
+	DWORD64 addresses[MAX_CALL_STACK_DEPTH];
+	int numAddresses;
+	STACKFRAME64 stackFrame;
+	HANDLE processHandle;
+	int i;
+
+	// Useful links:
+	// http://stackoverflow.com/questions/9424568/c-stack-tracing-issue
+	// http://www.codeproject.com/Articles/11132/Walking-the-callstack
+	// http://www.codeproject.com/Articles/41923/Get-the-call-stack-when-an-exception-is-being-caug  (get line number)
+
+	stackFrame.AddrPC.Offset = context->Eip;
+	stackFrame.AddrPC.Mode = AddrModeFlat;
+	stackFrame.AddrFrame.Offset = context->Ebp;
+	stackFrame.AddrFrame.Mode = AddrModeFlat;
+	stackFrame.AddrStack.Offset = context->Esp;
+    stackFrame.AddrStack.Mode = AddrModeFlat;
+
+	Log(LogGeneral, LogFatal, "EIP. %08x\n", context->Eip);
+	Log(LogGeneral, LogFatal, "EBP. %08x\n", context->Ebp);
+	Log(LogGeneral, LogFatal, "ESP. %08x\n", context->Esp);
+
+	processHandle = GetCurrentProcess();
+	
+	SymInitialize(processHandle, NULL, TRUE);
+
+	Log(LogGeneral, LogFatal, "Start of call stack==================================\n");
+
+	numAddresses = 0;
+	do
+	{
+		addresses[numAddresses++] = stackFrame.AddrPC.Offset;
+		if (numAddresses >= MAX_CALL_STACK_DEPTH) break;
+	}
+	while(StackWalk64(IMAGE_FILE_MACHINE_I386, processHandle, thread, &stackFrame, context, NULL, SymFunctionTableAccess64, SymGetModuleBase64, NULL));
+
+	for (i = 0; i < numAddresses; i++)
+	{
+		SYMBOL_INFO_PACKAGE symbol;
+		IMAGEHLP_LINE64 line;
+		DWORD displacement;
+
+		symbol.si.SizeOfStruct = sizeof(SYMBOL_INFO);
+		symbol.si.MaxNameLen = MAX_SYM_NAME;
+
+		line.SizeOfStruct = sizeof(IMAGEHLP_LINE64);
+
+		if (SymFromAddr(processHandle, addresses[i], 0, &symbol.si))
+		{
+		    Log(LogGeneral, LogFatal, "Stack walk. 0x%08llx %s", stackFrame.AddrPC.Offset, symbol.si.Name);
+			if (SymGetLineFromAddr64(processHandle, addresses[i], &displacement, &line))
+			{
+		        Log(LogGeneral, LogFatal, " %s(line %d)\n", line.FileName, line.LineNumber);
+			}
+			else
+			{
+                DWORD error = GetLastError();
+		        Log(LogGeneral, LogFatal, " line error %08x\n", error);
+			}
+		}
+		else
+		{
+		    Log(LogGeneral, LogFatal, "Stack walk. 0x%08llx symbol information not available.\n", stackFrame.AddrPC.Offset);
+		}
+
+	}
+
+	Log(LogGeneral, LogFatal, "End of call stack=====================================\n");
+}
 
 #pragma warning(disable : 4995)
 
