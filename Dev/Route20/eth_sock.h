@@ -48,7 +48,7 @@ typedef struct
 
 int EthSockOpen(eth_circuit_t *ethCircuit);
 packet_t *EthSockReadPacket(eth_circuit_t *ethCircuit);
-int EthSockWritePacket(eth_circuit_t *, packet_t *);
+int EthSockWritePacket(eth_circuit_t *ethCircuit, packet_t *packet);
 void EthSockClose(eth_circuit_t *ethCircuit);
 int EthSockWaitHandle(eth_circuit_t *ethCircuit);
 
