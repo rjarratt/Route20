@@ -28,10 +28,11 @@
 
 #include "circuit.h"
 
+#define MAX_EVENT_HANDLERS 32
+
 #if !defined(WIN32)
 #define stricmp strcasecmp
 #endif
 
 void Log(LogSource source, LogLevel level, char *format, ...);
-int IsStopping(void);
 void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *));

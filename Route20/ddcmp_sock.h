@@ -1,7 +1,7 @@
-/* init_layer.h: Initialization layer
+/* ddcmp_sock.h: Ddcmp sockets interface
   ------------------------------------------------------------------------------
 
-   Copyright (c) 2012, Robert M. A. Jarratt
+   Copyright (c) 2013, Robert M. A. Jarratt
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -26,22 +26,29 @@
 
   ------------------------------------------------------------------------------*/
 
-#include "init_layer.h"
-#include "eth_init_layer.h"
-#include "ddcmp_init_layer.h"
+#if defined(WIN32)
+//#include <Windows.h>
+#include <WinSock2.h>
+#endif
 
-init_layer_t *CreateEthernetInitializationSublayer(void)
-{
-	static init_layer_t ethernetInitLayer;
-	ethernetInitLayer.Start = EthInitLayerStart;
-	ethernetInitLayer.Stop = EthInitLayerStop;
-	return &ethernetInitLayer;
-}
+#include "packet.h"
+#include "socket.h"
+#include "ddcmp_circuit.h"
 
-init_layer_t *CreateDdcmpInitializationSublayer(void)
+#if !defined(DDCMP_SOCK_H)
+
+typedef struct
 {
-	static init_layer_t ddcmpInitLayer;
-	ddcmpInitLayer.Start = DdcmpInitLayerStart;
-	ddcmpInitLayer.Stop = DdcmpInitLayerStop;
-	return &ddcmpInitLayer;
-}
+	socket_t socket;
+	char *destinationHostName;
+	sockaddr_t destinationAddress;
+} ddcmp_sock_t;
+
+int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit);
+packet_t *DdcmpSockReadPacket(ddcmp_circuit_t *ddcmpCircuit);
+int DdcmpSockWritePacket(ddcmp_circuit_t *ddcmp, packet_t *packet);
+void DdcmpSockClose(ddcmp_circuit_t *ddcmpCircuit);
+int DdcmpSockWaitHandle(ddcmp_circuit_t *ddcmpCircuit);
+
+#define DDCMP_SOCK_H
+#endif

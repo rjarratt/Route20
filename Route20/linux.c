@@ -182,11 +182,6 @@ void Log(LogSource source, LogLevel level, char *format, ...)
 	va_end(va);
 }
 
-int IsStopping()
-{
-	return 0;
-}
-
 void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *))
 {
 	int i;

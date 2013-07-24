@@ -44,10 +44,12 @@ in this Software without prior written authorization from the author.
 #include "update.h"
 #include "dns.h"
 #include "node.h"
+#include "socket.h"
 
 static int dnsNeeded = 0;
 int numCircuits = 0;
 static init_layer_t *ethernetInitLayer;
+static init_layer_t *ddcmpInitLayer;
 static void (*processHigherLevelProtocolPacket)(decnet_address_t *from, byte *data, int dataLength) = NULL;
 
 // TODO: Add Phase III support
@@ -55,13 +57,16 @@ static int ReadConfig(char *fileName);
 static char *ReadConfigLine(FILE *f);
 static char *ReadLoggingConfig(FILE *f, int *ans);
 static char *ReadNodeConfig(FILE *f, int *ans);
+static char *ReadSocketConfig(FILE *f, int *ans);
 static char *ReadEthernetConfig(FILE *f, int *ans);
 static char *ReadBridgeConfig(FILE *f, int *ans);
+static char *ReadDdcmpConfig(FILE *f, int *ans);
 static char *ReadDnsConfig(FILE *f, int *ans);
 static int SplitString(char *string, char splitBy, char **left, char **right);
 static void ParseLogLevel(char *string, int *source);
 static void PurgeAdjacenciesCallback(rtimer_t *, char *, void *);
 static void LogCircuitStats(rtimer_t *, char *, void *);
+static void ProcessCircuitEvent(void *context);
 static void ProcessPacket(circuit_t *circuit, packet_t *packet);
 static int RouterHelloIsForThisNode(decnet_address_t *from, int iinfo);
 static int EndnodeHelloIsForThisNode(decnet_address_t *from, int iinfo);
@@ -77,6 +82,9 @@ int Initialise(char *configFileName)
 	int i;
 	time_t now;
 
+    numEventHandlers = 0;
+	eventHandlersChanged = 0;
+
 	DnsConfig.dnsConfigured = 0;
 
 	for (i = 0; i < LogEndMarker; i++)
@@ -87,7 +95,8 @@ int Initialise(char *configFileName)
 	ans = ReadConfig(configFileName);
 	if (ans)
 	{
-		InitialiseAdjacencies();
+        InitialiseSockets();
+        InitialiseAdjacencies();
 		InitialiseDecisionProcess();
 		InitialiseUpdateProcess();
 		SetAdjacencyStateChangeCallback(ProcessAdjacencyStateChange);
@@ -102,15 +111,13 @@ int Initialise(char *configFileName)
 		CreateTimer("PurgeAdjacencies", now + 1, 1, NULL, PurgeAdjacenciesCallback);
 		ethernetInitLayer = CreateEthernetInitializationSublayer();
 		ethernetInitLayer->Start(Circuits, numCircuits);
+		ddcmpInitLayer = CreateDdcmpInitializationSublayer();
+		ddcmpInitLayer->Start(Circuits, numCircuits);
 		//CreateTimer("CircuitStats", now + 3600, 3600, NULL, LogCircuitStats);
 
 		if (DnsConfig.dnsConfigured && dnsNeeded)
 		{
 			DnsOpen(DnsConfig.serverName);
-		}
-		else
-		{
-			DnsWaitHandle = -1;
 		}
 	}
 
@@ -120,6 +127,44 @@ int Initialise(char *configFileName)
 void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, int dataLength))
 {
 	processHigherLevelProtocolPacket = callback;
+}
+
+void RegisterEventHandler(unsigned int waitHandle, void *context, void (*eventHandler)(void *context))
+{
+	if (numEventHandlers >= MAX_EVENT_HANDLERS)
+	{
+		Log(LogGeneral, LogFatal, "Cannot allocate a new event handler\n");
+		exit(EXIT_FAILURE);
+	}
+
+	eventHandlers[numEventHandlers].waitHandle = waitHandle;
+	eventHandlers[numEventHandlers].context = context;
+	eventHandlers[numEventHandlers].eventHandler = eventHandler;
+	numEventHandlers++;
+	eventHandlersChanged = 1;
+}
+
+void DeregisterEventHandler(unsigned int waitHandle)
+{
+	int i;
+	int found = 0;
+	for (i = 0; i < numEventHandlers; i++)
+	{
+		if (found)
+		{
+			memcpy(&eventHandlers[i-1], &eventHandlers[i], sizeof(event_handler_t));
+		}
+		else if (eventHandlers[i].waitHandle == waitHandle)
+		{
+			found = 1;
+		}
+	}
+
+	if (found)
+	{
+		numEventHandlers--;
+	    eventHandlersChanged = 1;
+	}
 }
 
 void MainLoop(void)
@@ -133,6 +178,7 @@ void MainLoop(void)
 
 	StopAllTimers();
 	ethernetInitLayer->Stop();
+	ddcmpInitLayer->Stop();
 	Log(LogGeneral, LogInfo, "Shutdown complete\n");
 }
 
@@ -141,6 +187,7 @@ static int ReadConfig(char *fileName)
 	FILE *f;
 	int ans = 1;
 	int nodePresent = 0;
+	int ddcmpPresent = 0;
 	if ((f = fopen(fileName, "r")) == NULL)
 	{
 		Log(LogGeneral, LogError, "Could not open the configuration file: %s", fileName);
@@ -161,6 +208,10 @@ static int ReadConfig(char *fileName)
 				nodePresent = 1;
 				line = ReadNodeConfig(f, &ans);
 			}
+			else if (stricmp(line, "[socket]") == 0)
+			{
+				line = ReadSocketConfig(f, &ans);
+			}
 			else if (stricmp(line, "[ethernet]") == 0)
 			{
 				line = ReadEthernetConfig(f, &ans);
@@ -168,6 +219,11 @@ static int ReadConfig(char *fileName)
 			else if (stricmp(line, "[bridge]") == 0)
 			{
 				line = ReadBridgeConfig(f, &ans);
+			}
+			else if (stricmp(line, "[ddcmp]") == 0)
+			{
+				line = ReadDdcmpConfig(f, &ans);
+				ddcmpPresent = 1;
 			}
 			else if (stricmp(line, "[dns]") == 0)
 			{
@@ -190,6 +246,11 @@ static int ReadConfig(char *fileName)
 	else if (numCircuits <= 0)
 	{
 		Log(LogGeneral, LogError, "No circuits defined\n");
+		ans = 0;
+	}
+	else if (ddcmpPresent && !SocketConfig.socketConfigured)
+	{
+		Log(LogGeneral, LogError, "Socket section required in configuration file for DDCMP circuits\n");
 		ans = 0;
 	}
 
@@ -328,6 +389,44 @@ static char *ReadNodeConfig(FILE *f, int *ans)
 	return line;
 }
 
+static char *ReadSocketConfig(FILE *f, int *ans)
+{
+	char  *line;
+	char  *name;
+	char  *value;
+	int    TcpListenPortPresent = 0;
+
+	while (line = ReadConfigLine(f))
+	{
+		if (*line == '[')
+		{
+			break;
+		}
+
+		if (SplitString(line, '=', &name, &value))
+		{
+			if (stricmp(name, "TcpListenPort") == 0)
+			{
+				SocketConfig.tcpListenPort = (uint16)atoi(value);
+				TcpListenPortPresent = 1;
+			}
+		}
+	}
+
+	if (!TcpListenPortPresent)
+	{
+		*ans = 0;
+		Log(LogGeneral, LogError, "TCP listen port not specified\n");
+	}
+	else
+	{
+		Log(LogGeneral, LogInfo, "TCP listening on port %d\n", SocketConfig.tcpListenPort);
+		SocketConfig.socketConfigured = 1;
+	}
+
+	return line;
+}
+
 static char *ReadEthernetConfig(FILE *f, int *ans)
 {
 	char *line;
@@ -370,7 +469,7 @@ static char *ReadEthernetConfig(FILE *f, int *ans)
 		else
 		{
 			Log(LogGeneral, LogInfo, "Ethernet interface is: %s\n", pcapInterface);
-			CircuitCreateEthernetPcap(&Circuits[1 + numCircuits++], pcapInterface, cost);
+			CircuitCreateEthernetPcap(&Circuits[1 + numCircuits++], pcapInterface, cost, ProcessCircuitEvent);
 		}
 	}
 
@@ -444,7 +543,60 @@ static char *ReadBridgeConfig(FILE *f, int *ans)
 		else
 		{
 			Log(LogGeneral, LogInfo, "Bridge interface sends to %s:%d and listens on %d\n", hostName, destPort, receivePort);
-			CircuitCreateEthernetSocket(&Circuits[1 + numCircuits++], hostName, receivePort, destPort, cost);
+			CircuitCreateEthernetSocket(&Circuits[1 + numCircuits++], hostName, receivePort, destPort, cost, ProcessCircuitEvent);
+			dnsNeeded = 1;
+		}
+	}
+
+	return line;
+}
+
+static char *ReadDdcmpConfig(FILE *f, int *ans)
+{
+	char  *line;
+	char  *name;
+	char  *value;
+	char   addressPresent = 0;
+	char   hostName[80];
+	int    cost = 5;
+
+	while (line = ReadConfigLine(f))
+	{
+		if (*line == '[')
+		{
+			break;
+		}
+
+		if (SplitString(line, '=', &name, &value))
+		{
+			if (stricmp(name, "address") == 0)
+			{
+				strncpy(hostName, value, sizeof(hostName) - 1);
+				addressPresent = 1;
+			}
+
+			if (stricmp(name, "cost") == 0)
+			{
+				cost = atoi(value);
+			}
+		}
+	}
+
+	if (!addressPresent)
+	{
+		*ans = 0;
+		Log(LogGeneral, LogError, "Address not defined for DDCMP circuit\n");
+	}
+	else
+	{
+		if (numCircuits >= NC)
+		{
+			Log(LogGeneral, LogError, "Too many circuit definitions, ignoring DDCMP interface %s\n", hostName);
+		}
+		else
+		{
+			Log(LogGeneral, LogInfo, "DDCMP interface expecting connections from %s\n", hostName);
+			CircuitCreateDdcmpSocket(&Circuits[1 + numCircuits++], hostName, cost, ProcessCircuitEvent);
 			dnsNeeded = 1;
 		}
 	}
@@ -584,6 +736,22 @@ static void LogCircuitStats(rtimer_t *timer, char *name, void *context)
 		Log(LogGeneral, LogFatal, "  Packets sent:                         %d\n", circuit->stats.packetsSent);
 	}
 	Log(LogGeneral, LogFatal, "End Statistics ************\n");
+}
+
+static void ProcessCircuitEvent(void *context)
+{
+	packet_t *packet;
+	circuit_t *circuit;
+
+	circuit = (circuit_t *)context;
+	do
+	{
+	    packet = (*(circuit->ReadPacket))(circuit);
+		if (packet != NULL)
+		{
+			ProcessPacket(circuit, packet);
+		}
+	} while (packet != NULL);
 }
 
 static void ProcessPacket(circuit_t *circuit, packet_t *packet)

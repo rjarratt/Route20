@@ -28,6 +28,7 @@ in this Software without prior written authorization from the author.
 
 #include <memory.h>
 #include "platform.h"
+#include "route20.h"
 #include "socket.h"
 #include "eth_decnet.h"
 #include "eth_sock.h"
@@ -60,6 +61,7 @@ int EthSockOpen(eth_circuit_t *ethCircuit)
 			}
 
 			ethCircuit->circuit->waitHandle = sockContext->socket.waitHandle;
+			RegisterEventHandler(ethCircuit->circuit->waitHandle, ethCircuit->circuit, ethCircuit->circuit->WaitEventHandler);
 			memcpy(&sockContext->destinationAddress, destinationAddress, sizeof(sockContext->destinationAddress));
 			ethCircuit->circuit->state = CircuitUp;
 			CircuitStateChange(ethCircuit->circuit);
@@ -81,7 +83,7 @@ packet_t *EthSockReadPacket(eth_circuit_t *ethCircuit)
 	static packet_t sockPacket;
 	sockaddr_t receivedFrom;
 
-	if (ReadFromSocket(&sockContext->socket, &sockPacket, &receivedFrom))
+	if (ReadFromDatagramSocket(&sockContext->socket, &sockPacket, &receivedFrom))
 	{
 		if (CheckSourceAddress(&receivedFrom, sockContext))
 		{

@@ -41,6 +41,7 @@ in this Software without prior written authorization from the author.
 #include "nsp.h"
 #include "netman.h"
 #include "dns.h"
+#include "socket.h"
 
 #pragma comment(lib, "advapi32.lib")
 
@@ -52,6 +53,7 @@ static VOID WINAPI SvcMain( DWORD, LPTSTR * );
 static void OpenLog();
 static void CloseLog();
 static void LogWin32Error(char *format, DWORD err);
+static void ProcessStopEvent(void *context);
 static void ProcessPackets(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *));
 
 static LONG WINAPI ExceptionFilter(EXCEPTION_POINTERS* pExp, DWORD dwExpCode);
@@ -61,6 +63,7 @@ static VOID ReportSvcStatus(DWORD, DWORD, DWORD );
 static VOID SvcInit( DWORD, LPTSTR * ); 
 static VOID SvcReportEvent( LPTSTR );
 
+volatile int stop = 0;
 SERVICE_STATUS          gSvcStatus; 
 SERVICE_STATUS_HANDLE   gSvcStatusHandle; 
 HANDLE                  ghSvcStopEvent = NULL;
@@ -228,39 +231,30 @@ void Log(LogSource source, LogLevel level, char *format, ...)
 	va_end(va);
 }
 
-int IsStopping(void)
-{
-	return !WaitForSingleObject(ghSvcStopEvent, 0);
-}
-
 void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *))
 {
 	int i;
-	int handleCount = 0;
-	HANDLE *handles = (HANDLE *)malloc((numCircuits + 2) * sizeof(HANDLE));
+	HANDLE handles[MAXIMUM_WAIT_OBJECTS];
 	//Log(LogInfo, "Process events %d\n", numCircuits);
-	for(i = 1; i <= numCircuits; i++)
-	{
-		handles[i - 1] = (HANDLE)circuits[i].waitHandle;
-		handleCount++;
-    	Log(LogGeneral, LogVerbose, "Handle for %s (slot %d) is %u\n", circuits[i].name, circuits[i].slot, handles[i - 1]);
-	}
 
-	if (DnsWaitHandle != -1)
+	while (!stop)
 	{
-	    handles[handleCount++] = (HANDLE)DnsWaitHandle;
-	}
+		int timeout;
 
-	if (ghSvcStopEvent != NULL)
-	{
-	    handles[handleCount++] = ghSvcStopEvent;
-	}
+		if (eventHandlersChanged)
+		{
+			for (i = 0; i < numEventHandlers; i++)
+			{
+				handles[i] = (HANDLE)eventHandlers[i].waitHandle;
+                Log(LogGeneral, LogVerbose, "Wait handle %d\n", handles[i]);
+			}
 
-	while(1)
-	{
-		int timeout = SecondsUntilNextDue(); /*INFINITE*/
+			eventHandlersChanged = 0;
+		}
+
+		timeout = SecondsUntilNextDue();
 		/*Log(LogInfo, "Waiting for events, timeout is %d\n", timeout);*/
-		i = WaitForMultipleObjects(handleCount, handles, 0, timeout * 1000);
+		i = WaitForMultipleObjects(numEventHandlers, handles, 0, timeout * 1000);
 		if (i == -1)
 		{
 			DWORD err = GetLastError();
@@ -269,51 +263,16 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 		}
 		else
 		{
+    	    //Log(LogGeneral, LogVerbose, "Wait return is %d\n", i);
 			ProcessTimers();
 			if (i != WAIT_TIMEOUT)
 			{
 				i = i - WAIT_OBJECT_0;
-				ResetEvent(handles[i]);
-				if (handles[i] == ghSvcStopEvent)
-				{
-					break;
-				}
-				else if (handles[i] == (HANDLE)DnsWaitHandle)
-				{
-					DnsProcessResponse();
-				}
-				else
-				{
-					ProcessPackets(circuits, numCircuits, process);
-				}
+				ResetEvent((HANDLE)eventHandlers[i].waitHandle);
+				eventHandlers[i].eventHandler(eventHandlers[i].context);
 			}
 		}
 	}
-}
-
-static void ProcessPackets(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *))
-{
-	int i;
-	int moreToRead;
-
-	do
-	{
-		moreToRead = 0;
-		for( i = 1; i <= numCircuits; i++)
-		{
-			packet_t *packet = (*(circuits[i].ReadPacket))(&circuits[i]);
-			if (packet != NULL)
-			{
-				moreToRead = 1;
-				process(&circuits[i], packet);
-			}
-			else
-			{
-				//Log(LogInfo, "NI %d - no packet\n", i);
-			}
-		}
-	}
-	while (moreToRead);
 }
 
 static VOID SvcInstall()
@@ -415,6 +374,11 @@ static void LogWin32Error(char *format, DWORD err)
 	Log(LogGeneral, LogError, format, buf);
 }
 
+static void ProcessStopEvent(void *context)
+{
+	stop = 1;
+}
+
 static VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
 {
 	// Create an event. The control handler function, SvcCtrlHandler,
@@ -431,6 +395,8 @@ static VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
 		ReportSvcStatus( SERVICE_STOPPED, NO_ERROR, 0 );
 		return;
 	}
+
+	RegisterEventHandler((unsigned int)ghSvcStopEvent, NULL, ProcessStopEvent);
 
 	// Report running status when initialization is complete.
 

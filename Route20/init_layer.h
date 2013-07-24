@@ -38,6 +38,7 @@ typedef struct
 init_layer_t;
 
 init_layer_t *CreateEthernetInitializationSublayer(void);
+init_layer_t *CreateDdcmpInitializationSublayer(void);
 
 #define INIT_LAYER_H
 #endif

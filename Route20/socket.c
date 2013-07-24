@@ -30,7 +30,10 @@
 #include <stdlib.h>
 #include <errno.h>
 #include "platform.h"
+#include "route20.h"
 #include "socket.h"
+
+#define MAX_BUF_LEN 8192
 
 static int started;
 static int SockStartup(void);
@@ -38,62 +41,60 @@ static void SockError(char *msg);
 static void SockErrorAndClear(char *msg);
 static void SockErrorClear();
 static void SetNonBlocking(socket_t *socket);
+static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int type, int protocol);
+static int ListenTcpSocket(socket_t *sock);
+static void SetupSocketEvents(socket_t *sock, char *eventName, long events);
+static void ProcessListenSocketEvent(void *context);
 
+static socket_t *(*tcpAcceptCallback)(sockaddr_t *receivedFrom);
+static void (*tcpConnectCallback)(socket_t *sock);
 static int lastSocketError = 0;
 
-int OpenUdpSocket(socket_t *sock, char *eventName, uint16 receivePort)
+void InitialiseSockets()
 {
-	sockaddr_in_t sa;
-
-	sock->socket = INVALID_SOCKET;
-	sock->waitHandle = (unsigned int)-1;
-
 	if (!started)
 	{
 		SockStartup();
 	}
 
-	if (started)
+	ListenSocket.socket = INVALID_SOCKET;
+	ListenSocket.waitHandle = (unsigned int)-1;
+	if (SocketConfig.socketConfigured)
 	{
-		sock->socket = socket(PF_INET, SOCK_DGRAM, 0);
-		if (sock->socket == INVALID_SOCKET)
-		{
-			SockErrorAndClear("socket");
-		}
-		else
-		{
-			SetNonBlocking(sock);
-			sa.sin_family = AF_INET;
-			sa.sin_port = htons(receivePort);
-			sa.sin_addr.s_addr = INADDR_ANY; /* TODO: use specific interface? */
-			if (bind(sock->socket, (sockaddr_t*)&sa, sizeof(sa)) == -1)
-			{
-				CloseSocket(sock);
-				SockErrorAndClear("bind");
-			}
-			else
-			{
-#if defined(WIN32)
-				sock->waitHandle = (int)CreateEvent(NULL, 0, 0, eventName);
-				if (WSAEventSelect(sock->socket, (HANDLE)sock->waitHandle, FD_READ) == SOCKET_ERROR)
-				{
-					SockErrorAndClear("WSAEventSelect");
-				}
-#else
-				sock->waitHandle = sock->socket;
-#endif
-				if (sock->waitHandle == -1)
-				{
-					CloseSocket(sock);
-				}
-			}
-		}
+		OpenTcpSocket(&ListenSocket, "TCPLISTEN", SocketConfig.tcpListenPort);
+		RegisterEventHandler(ListenSocket.waitHandle, NULL, ProcessListenSocketEvent);
 	}
-
-	return sock->socket != INVALID_SOCKET;
 }
 
-int ReadFromSocket(socket_t *sock, packet_t *packet, sockaddr_t *receivedFrom)
+int OpenUdpSocket(socket_t *sock, char *eventName, uint16 receivePort)
+{
+	int ans = OpenSocket(sock, eventName, receivePort, SOCK_DGRAM, 0);
+
+	return ans;
+}
+
+int OpenTcpSocket(socket_t *sock, char *eventName, uint16 receivePort)
+{
+	int ans = OpenSocket(sock, eventName, receivePort, SOCK_STREAM, IPPROTO_TCP);
+	if (ans)
+	{
+		ans = ListenTcpSocket(sock);
+	}
+
+	return ans;
+}
+
+void SetTcpAcceptCallback(socket_t * (*callback)(sockaddr_t *receivedFrom))
+{
+	tcpAcceptCallback = callback;
+}
+
+void SetTcpConnectCallback(void (*callback)(socket_t *sock))
+{
+	tcpConnectCallback = callback;
+}
+
+int ReadFromDatagramSocket(socket_t *sock, packet_t *packet, sockaddr_t *receivedFrom)
 {
 	static byte buf[8192];
 	int ans;
@@ -112,6 +113,36 @@ int ReadFromSocket(socket_t *sock, packet_t *packet, sockaddr_t *receivedFrom)
 	}
 
 	return  ans;
+}
+
+int ReadFromStreamSocket(socket_t *sock, packet_t *packet)
+{
+	static byte buf[MAX_BUF_LEN];
+	int ans;
+	int bytesRead;
+
+	ans = 0;
+	bytesRead = recv(sock->socket, (char *)buf, MAX_BUF_LEN, 0);
+	Log(LogSock, LogVerbose, "Bytes read %d on %d\n", bytesRead, sock->receivePort);
+	if (bytesRead > 0)
+	{
+		ans = 1;
+	}
+	else if (bytesRead == 0)
+	{
+		// TODO: closure of socket
+	}
+	else
+	{
+		SockErrorAndClear("recv");
+	}
+
+
+	packet->rawLen = bytesRead;
+	packet->rawData = buf;
+	Log(LogSock, LogVerbose, "Read %d bytes on port %d\n", bytesRead, sock->receivePort);
+
+	return ans;
 }
 
 int SendToSocket(socket_t *sock, sockaddr_t *destination, packet_t *packet)
@@ -280,4 +311,120 @@ static void SetNonBlocking(socket_t *socket)
 		}
 	}
 #endif
+}
+
+static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int type, int protocol)
+{
+	sockaddr_in_t sa;
+
+	sock->socket = INVALID_SOCKET;
+	sock->waitHandle = (unsigned int)-1;
+	sock->receivePort = receivePort;
+
+	if (!started)
+	{
+		SockStartup();
+	}
+
+	if (started)
+	{
+		sock->socket = socket(PF_INET, type, protocol);
+		if (sock->socket == INVALID_SOCKET)
+		{
+			SockErrorAndClear("socket");
+		}
+		else
+		{
+			SetNonBlocking(sock);
+			sa.sin_family = AF_INET;
+			sa.sin_port = htons(receivePort);
+			sa.sin_addr.s_addr = INADDR_ANY; /* TODO: use specific interface? */
+			if (bind(sock->socket, (sockaddr_t*)&sa, sizeof(sa)) == -1)
+			{
+				CloseSocket(sock);
+				SockErrorAndClear("bind");
+			}
+			else
+			{
+				SetupSocketEvents(sock, eventName, FD_READ | FD_ACCEPT);
+				if (sock->waitHandle == -1)
+				{
+					CloseSocket(sock);
+				}
+			}
+		}
+	}
+
+	return sock->socket != INVALID_SOCKET;
+}
+
+static int ListenTcpSocket(socket_t *sock)
+{
+	int ans = 1;
+	if (listen(sock->socket, 5) != SOCKET_ERROR)
+	{
+	    Log(LogSock, LogVerbose, "Listening for TCP connections on %d\n", sock->receivePort);
+	}
+	else
+	{
+		CloseSocket(sock);
+		SockErrorAndClear("listen");
+	}
+
+	return ans;
+}
+
+static void SetupSocketEvents(socket_t *sock, char *eventName, long events)
+{
+#if defined(WIN32)
+	sock->waitHandle = (int)CreateEvent(NULL, 0, 0, eventName);
+	Log(LogSock, LogVerbose, "Wait handle for port %d is %d\n", sock->receivePort, sock->waitHandle);
+	if (WSAEventSelect(sock->socket, (HANDLE)sock->waitHandle, events) == SOCKET_ERROR)
+	{
+		SockErrorAndClear("WSAEventSelect");
+	}
+#else
+	sock->waitHandle = sock->socket;
+#endif
+}
+
+static void ProcessListenSocketEvent(void *context)
+{
+	int ilen;
+    sockaddr_t receivedFrom;
+	struct sockaddr_in  *inaddr;
+	unsigned int newSocket;
+
+	Log(LogSock, LogVerbose, "Processing TCP connection attempt on %d\n", ListenSocket.receivePort);
+	ilen = sizeof(receivedFrom);
+	newSocket = accept(ListenSocket.socket, &receivedFrom, &ilen);
+	if (newSocket != INVALID_SOCKET)
+	{
+		socket_t *sock = NULL;
+		if (tcpAcceptCallback != NULL)
+		{
+			sock = tcpAcceptCallback(&receivedFrom);
+		}
+
+		inaddr = (struct sockaddr_in *)&receivedFrom;
+
+		if (sock != NULL)
+		{
+	        Log(LogSock, LogWarning, "TCP connection from %d.%d.%d.%d accepted\n", inaddr->sin_addr.S_un.S_un_b.s_b1, inaddr->sin_addr.S_un.S_un_b.s_b2, inaddr->sin_addr.S_un.S_un_b.s_b3, inaddr->sin_addr.S_un.S_un_b.s_b4);
+			sock->socket = newSocket;
+			sock->receivePort = inaddr->sin_port;
+			SetNonBlocking(sock);
+			SetupSocketEvents(sock, NULL, FD_READ); // TODO: DDCMP event name, ought to come from ddcmp circuit, but not available here and name is not essential, could move eventName to socket structure but not valid for eth_pcap
+			if (tcpConnectCallback != NULL)
+			{
+				tcpConnectCallback(sock);
+			}
+
+		}
+		else
+		{
+	        Log(LogSock, LogWarning, "TCP connection from %d.%d.%d.%d rejected\n", inaddr->sin_addr.S_un.S_un_b.s_b1, inaddr->sin_addr.S_un.S_un_b.s_b2, inaddr->sin_addr.S_un.S_un_b.s_b3, inaddr->sin_addr.S_un.S_un_b.s_b4);
+			closesocket(newSocket);
+		}
+	}
 }

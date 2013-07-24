@@ -73,12 +73,14 @@ typedef struct circuit
 	packet_t *(*ReadPacket)(circuit_ptr circuit);
 	int (*WritePacket)(circuit_ptr circuit, decnet_address_t *from, decnet_address_t *to, packet_t *);
 	void (*Close)(circuit_ptr circuit);
+	void (*WaitEventHandler)(void *context);
 } circuit_t;
 
 void SetCircuitStateChangeCallback(void (*callback)(circuit_t *circuit));
 void CircuitStateChange(circuit_t *circuit);
-void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost);
-void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receivePort, uint16 destinationPort, int cost);
+void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost, void (*waitEventHandler)(void *context));
+void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receivePort, uint16 destinationPort, int cost, void (*waitEventHandler)(void *context));
+void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, int cost, void (*waitEventHandler)(void *context));
 int  IsBroadcastCircuit(circuit_ptr circuit);
 
 #define CIRCUIT_H

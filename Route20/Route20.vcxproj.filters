@@ -108,6 +108,15 @@
     <ClCompile Include="netman_messages.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ddcmp_circuit.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ddcmp_sock.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ddcmp_init_layer.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="makefile" />
@@ -209,6 +218,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="netman_messages.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ddcmp_circuit.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ddcmp_sock.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ddcmp_init_layer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

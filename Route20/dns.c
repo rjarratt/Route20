@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include "basictypes.h"
 #include "platform.h"
+#include "route20.h"
 #include "dns.h"
 #include "socket.h"
 
@@ -65,6 +66,8 @@ static socket_t DnsSocket;
 static sockaddr_t DnsServer;
 static callback_entry_t *callbackList = NULL;
 
+
+static void DnsProcessResponse(void *context);
 static callback_entry_t *FindCallbackEntry(int id);
 static callback_entry_t *CreateCallbackEntry(int id);
 static int ParseQuestion(packet_t *packet, int *currentOffset);
@@ -73,15 +76,12 @@ static int ParseResource(packet_t *packet, int *currentOffset, uint16 *type, byt
 int DnsOpen(char *serverName)
 {
 	int ans;
+
 	ans = OpenUdpSocket(&DnsSocket, "DNS", 0);
 	if (ans)
 	{
-		DnsWaitHandle = DnsSocket.waitHandle;
 		memcpy(&DnsServer, GetSocketAddressFromName(serverName, 53), sizeof(DnsServer));
-	}
-	else
-	{
-		DnsWaitHandle = -1;
+		RegisterEventHandler(DnsSocket.waitHandle, NULL, DnsProcessResponse);
 	}
 
 	return ans;
@@ -150,11 +150,11 @@ void DnsSendQuery(char *name, uint16 id, void (*callback)(byte *, void *), void 
 	SendToSocket(&DnsSocket, &DnsServer, &packet);
 }
 
-void DnsProcessResponse(void)
+static void DnsProcessResponse(void *context)
 {
 	packet_t packet;
 	sockaddr_t receivedFrom;
-	if (ReadFromSocket(&DnsSocket, &packet, &receivedFrom))
+	if (ReadFromDatagramSocket(&DnsSocket, &packet, &receivedFrom))
 	{
 	    int ok = 0;
 		int haveIp = 0;
