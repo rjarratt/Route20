@@ -78,10 +78,13 @@ int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit)
 
 packet_t *DdcmpSockReadPacket(ddcmp_circuit_t *ddcmpCircuit)
 {
-	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)ddcmpCircuit->context;
-
-	packet_t *packet = NULL;
+	static byte buffer[MAX_DDCMP_MSG_LEN];
 	static packet_t sockPacket;
+	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)ddcmpCircuit->context;
+	packet_t *packet = NULL;
+
+	sockPacket.rawData = buffer;
+	sockPacket.rawLen = MAX_DDCMP_MSG_LEN;
 
 	if (ReadFromStreamSocket(&sockContext->socket, &sockPacket))
 	{
