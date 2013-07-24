@@ -117,15 +117,15 @@ int ReadFromDatagramSocket(socket_t *sock, packet_t *packet, sockaddr_t *receive
 
 int ReadFromStreamSocket(socket_t *sock, packet_t *packet)
 {
-	static byte buf[MAX_BUF_LEN];
 	int ans;
 	int bytesRead;
 
 	ans = 0;
-	bytesRead = recv(sock->socket, (char *)buf, MAX_BUF_LEN, 0);
+	bytesRead = recv(sock->socket, (char *)packet->rawData, packet->rawLen, 0);
 	Log(LogSock, LogVerbose, "Bytes read %d on %d\n", bytesRead, sock->receivePort);
 	if (bytesRead > 0)
 	{
+	    packet->rawLen = bytesRead;
 		ans = 1;
 	}
 	else if (bytesRead == 0)
@@ -137,9 +137,6 @@ int ReadFromStreamSocket(socket_t *sock, packet_t *packet)
 		SockErrorAndClear("recv");
 	}
 
-
-	packet->rawLen = bytesRead;
-	packet->rawData = buf;
 	Log(LogSock, LogVerbose, "Read %d bytes on port %d\n", bytesRead, sock->receivePort);
 
 	return ans;
