@@ -1,7 +1,7 @@
-/* init_layer.h: Initialization layer
+/* ddcmp_circuit.h: DDCMO circuit
   ------------------------------------------------------------------------------
 
-   Copyright (c) 2012, Robert M. A. Jarratt
+   Copyright (c) 2013, Robert M. A. Jarratt
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -26,22 +26,32 @@
 
   ------------------------------------------------------------------------------*/
 
-#include "init_layer.h"
-#include "eth_init_layer.h"
-#include "ddcmp_init_layer.h"
+#include "packet.h"
+#include "circuit.h"
 
-init_layer_t *CreateEthernetInitializationSublayer(void)
-{
-	static init_layer_t ethernetInitLayer;
-	ethernetInitLayer.Start = EthInitLayerStart;
-	ethernetInitLayer.Stop = EthInitLayerStop;
-	return &ethernetInitLayer;
-}
+#if !defined(DDCMP_CIRCUIT_H)
 
-init_layer_t *CreateDdcmpInitializationSublayer(void)
+typedef struct ddcmp_circuit *ddcmp_circuit_ptr;
+
+typedef struct ddcmp_circuit
 {
-	static init_layer_t ddcmpInitLayer;
-	ddcmpInitLayer.Start = DdcmpInitLayerStart;
-	ddcmpInitLayer.Stop = DdcmpInitLayerStop;
-	return &ddcmpInitLayer;
-}
+	circuit_t *circuit;
+	void      *context;
+
+	int (*Open)(ddcmp_circuit_ptr circuit);
+	int (*Start)(ddcmp_circuit_ptr circuit);
+	packet_t *(*ReadPacket)(ddcmp_circuit_ptr circuit);
+	int (*WritePacket)(ddcmp_circuit_ptr circuit, packet_t *);
+	void (*Close)(ddcmp_circuit_ptr circuit);
+} ddcmp_circuit_t;
+
+ddcmp_circuit_ptr DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName);
+
+int DdcmpCircuitOpen(circuit_ptr circuit);
+int DdcmpCircuitStart(circuit_ptr circuit);
+packet_t *DdcmpCircuitReadPacket(circuit_ptr circuit);
+int DdcmpCircuitWritePacket(circuit_ptr circuit, decnet_address_t *from, decnet_address_t *to, packet_t *);
+void DdcmpCircuitClose(circuit_ptr circuit);
+
+#define DDCMP_CIRCUIT_H
+#endif

@@ -50,12 +50,27 @@ typedef struct hostent hostent_t;
 
 typedef struct
 {
+	int socketConfigured;
+	uint16 tcpListenPort;
+} socket_config_t;
+
+typedef struct
+{
 	unsigned int socket;
 	unsigned int waitHandle;
+	unsigned int receivePort;
 } socket_t;
 
+socket_config_t SocketConfig;
+socket_t ListenSocket;
+
+void InitialiseSockets();
 int OpenUdpSocket(socket_t *sock, char *eventName, uint16 receivePort);
-int ReadFromSocket(socket_t *sock, packet_t *packet, sockaddr_t *receivedFrom);
+int OpenTcpSocket(socket_t *sock, char *eventName, uint16 receivePort);
+void SetTcpAcceptCallback(socket_t *(*callback)(sockaddr_t *receivedFrom));
+void SetTcpConnectCallback(void (*callback)(socket_t *sock));
+int ReadFromDatagramSocket(socket_t *sock, packet_t *packet, sockaddr_t *receivedFrom);
+int ReadFromStreamSocket(socket_t *sock, packet_t *packet);
 int SendToSocket(socket_t *sock, sockaddr_t *destination, packet_t *packet);
 void CloseSocket(socket_t *sock);
 sockaddr_t *GetSocketAddressFromName(char *hostName, uint16 port);

@@ -37,11 +37,8 @@ typedef struct
 
 dns_config_t DnsConfig;
 
-int DnsWaitHandle;
-
 int DnsOpen(char *serverName);
 void DnsSendQuery(char *name, uint16 id, void (*callback)(byte *, void *), void *callbackContext);
-void DnsProcessResponse(void);
 
 #define DNS_H
 #endif

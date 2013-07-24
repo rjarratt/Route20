@@ -35,6 +35,7 @@
 #include "node.h"
 #include "circuit.h"
 #include "eth_circuit.h"
+#include "ddcmp_circuit.h"
 
 #if defined(WIN32)
 #include <Windows.h>
@@ -54,7 +55,7 @@ void CircuitStateChange(circuit_t *circuit)
 	stateChangeCallback(circuit);
 }
 
-void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost)
+void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost, void (*waitEventHandler)(void *context))
 {
 	eth_circuit_t *context = EthCircuitCreatePcap(circuit);
 
@@ -71,9 +72,10 @@ void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost)
 	circuit->ReadPacket = EthCircuitReadPacket;
 	circuit->WritePacket = EthCircuitWritePacket;
 	circuit->Close = EthCircuitClose;
+	circuit->WaitEventHandler = waitEventHandler;
 }
 
-void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receivePort, uint16 destinationPort, int cost)
+void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receivePort, uint16 destinationPort, int cost, void (*waitEventHandler)(void *context))
 {
 	eth_circuit_t *context = EthCircuitCreateSocket(circuit, receivePort, name, destinationPort);
 
@@ -90,6 +92,27 @@ void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receive
 	circuit->ReadPacket = EthCircuitReadPacket;
 	circuit->WritePacket = EthCircuitWritePacket;
 	circuit->Close = EthCircuitClose;
+	circuit->WaitEventHandler = waitEventHandler;
+}
+
+void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, int cost, void (*waitEventHandler)(void *context))
+{
+	ddcmp_circuit_t *context = DdcmpCircuitCreateSocket(circuit, name);
+
+	circuit->name = (char *)malloc(strlen(name)+1);
+	strcpy(circuit->name, name);
+	circuit->context = (void *)context;
+	circuit->circuitType = DDCMPCircuit;
+	circuit->state = CircuitOff;
+	circuit->cost = cost;
+	circuit->nextLevel1Node = FirstLevel1Node();
+
+    circuit->Open = DdcmpCircuitOpen;
+	circuit->Start = DdcmpCircuitStart;
+	circuit->ReadPacket = DdcmpCircuitReadPacket;
+	circuit->WritePacket = DdcmpCircuitWritePacket;
+	circuit->Close = DdcmpCircuitClose;
+	circuit->WaitEventHandler = waitEventHandler;
 }
 
 int  IsBroadcastCircuit(circuit_ptr circuit)

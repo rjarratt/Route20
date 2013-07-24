@@ -1,7 +1,7 @@
-/* init_layer.h: Initialization layer
+/* ddcmp_init_layer.h: DDCMP initialization layer
   ------------------------------------------------------------------------------
 
-   Copyright (c) 2012, Robert M. A. Jarratt
+   Copyright (c) 2013, Robert M. A. Jarratt
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -26,22 +26,10 @@
 
   ------------------------------------------------------------------------------*/
 
-#include "init_layer.h"
-#include "eth_init_layer.h"
-#include "ddcmp_init_layer.h"
+#if !defined(DDCMP_INIT_LAYER_H)
 
-init_layer_t *CreateEthernetInitializationSublayer(void)
-{
-	static init_layer_t ethernetInitLayer;
-	ethernetInitLayer.Start = EthInitLayerStart;
-	ethernetInitLayer.Stop = EthInitLayerStop;
-	return &ethernetInitLayer;
-}
+void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount);
+void DdcmpInitLayerStop(void);
 
-init_layer_t *CreateDdcmpInitializationSublayer(void)
-{
-	static init_layer_t ddcmpInitLayer;
-	ddcmpInitLayer.Start = DdcmpInitLayerStart;
-	ddcmpInitLayer.Stop = DdcmpInitLayerStop;
-	return &ddcmpInitLayer;
-}
+#define DDCMP_INIT_LAYER_H
+#endif

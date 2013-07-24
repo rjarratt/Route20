@@ -52,6 +52,7 @@ typedef enum
 	LogEthInit,
 	LogEthPcap,
 	LogEthSock,
+	LogDdcmpSock,
 	LogSock,
 	LogNsp,
 	LogNspMessages,
