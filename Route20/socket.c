@@ -375,7 +375,7 @@ static void SetupSocketEvents(socket_t *sock, char *eventName, long events)
 {
 #if defined(WIN32)
 	sock->waitHandle = (int)CreateEvent(NULL, 0, 0, eventName);
-	Log(LogSock, LogVerbose, "Wait handle for port %d is %d\n", sock->receivePort, sock->waitHandle);
+	//Log(LogSock, LogVerbose, "Wait handle for port %d is %d\n", sock->receivePort, sock->waitHandle);
 	if (WSAEventSelect(sock->socket, (HANDLE)sock->waitHandle, events) == SOCKET_ERROR)
 	{
 		SockErrorAndClear("WSAEventSelect");
