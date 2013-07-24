@@ -246,7 +246,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 			for (i = 0; i < numEventHandlers; i++)
 			{
 				handles[i] = (HANDLE)eventHandlers[i].waitHandle;
-                Log(LogGeneral, LogVerbose, "Wait handle %d\n", handles[i]);
+                //Log(LogGeneral, LogVerbose, "Wait handle %d\n", handles[i]);
 			}
 
 			eventHandlersChanged = 0;
