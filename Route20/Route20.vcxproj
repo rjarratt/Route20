@@ -157,6 +157,7 @@
     <ClInclude Include="forwarding_database.h" />
     <ClInclude Include="init_layer.h" />
     <ClInclude Include="circuit.h" />
+    <ClInclude Include="logging.h" />
     <ClInclude Include="messages.h" />
     <ClInclude Include="netman.h" />
     <ClInclude Include="netman_messages.h" />

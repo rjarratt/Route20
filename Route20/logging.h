@@ -1,7 +1,7 @@
-/* decnet.h: DECnet types
+/* logging.h: logging enumerations
   ------------------------------------------------------------------------------
 
-   Copyright (c) 2012, Robert M. A. Jarratt
+   Copyright (c) 2013, Robert M. A. Jarratt
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -26,33 +26,36 @@
 
   ------------------------------------------------------------------------------*/
 
-#include "basictypes.h"
-#include "logging.h"
-
-#if !defined(DECNET_H)
+#if !defined(LOGGING_H)
 
 typedef enum
 {
-	Node,
-	AllRouters,
-	AllLevel2Routers,
-	AllEndNodes
-} DecnetAddressType;
+	LogFatal,
+	LogError,
+	LogInfo,
+	LogWarning,
+	LogVerbose
+} LogLevel;
 
-typedef struct
+typedef enum
 {
-	DecnetAddressType type;
-	int area;
-	int node;
-} decnet_address_t;
+	LogGeneral,
+	LogAdjacency,
+	LogUpdate,
+	LogDecision,
+	LogForwarding,
+	LogMessages,
+	LogDns,
+	LogEthInit,
+	LogEthPcap,
+	LogEthSock,
+	LogDdcmpSock,
+	LogSock,
+	LogNsp,
+	LogNspMessages,
+	LogNetMan,
+	LogEndMarker
+} LogSource;
 
-extern decnet_address_t AllEndNodesAddress;
-extern decnet_address_t AllRoutersAddress;
-
-uint16 GetDecnetId(decnet_address_t address);
-void GetDecnetAddressFromId(byte *id, decnet_address_t *address);
-int CompareDecnetAddress(decnet_address_t *address1, decnet_address_t *address2);
-void LogDecnetAddress(LogSource source, LogLevel level, decnet_address_t *address);
-
-#define DECNET_H
+#define LOGGING_H
 #endif
