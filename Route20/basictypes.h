@@ -31,5 +31,14 @@
 typedef unsigned char byte;
 typedef unsigned short int     uint16;
 
+typedef enum
+{
+	LogFatal,
+	LogError,
+	LogInfo,
+	LogWarning,
+	LogVerbose
+} LogLevel;
+
 #define BASICTYPES_H
 #endif

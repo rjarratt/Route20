@@ -312,6 +312,14 @@ static char *ReadLoggingConfig(FILE *f, int *ans)
 			{
 				ParseLogLevel(value, &LoggingLevels[LogEthSock]);
 			}
+			else if (stricmp(name, "ddcmpsock") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogDdcmpSock]);
+			}
+			else if (stricmp(name, "ddcmp") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogDdcmp]);
+			}
 			else if (stricmp(name, "sock") == 0)
 			{
 				ParseLogLevel(value, &LoggingLevels[LogSock]);
