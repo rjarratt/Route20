@@ -202,16 +202,13 @@ void LogCallStack(CONTEXT *context, HANDLE thread, unsigned long code)
 
 #pragma warning(disable : 4995)
 
-void Log(LogSource source, LogLevel level, char *format, ...)
+void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
 {
 	int n;
 	char buf[MAX_LOG_LINE_LEN];
 	static int onNewLine = 1;
 
 	time_t now;
-	va_list va;
-
-	va_start(va, format);
 
 	if (level <= LoggingLevels[source])
 	{
@@ -222,11 +219,20 @@ void Log(LogSource source, LogLevel level, char *format, ...)
 			fprintf(logFile, buf);
 		}
 
-		n = vsprintf(buf, format, va);
+		n = vsprintf(buf, format, argptr);
 		onNewLine = buf[n-1] == '\n';
 		fprintf(logFile, buf);
 		fflush(logFile);
 	}
+}
+
+void Log(LogSource source, LogLevel level, char *format, ...)
+{
+	va_list va;
+
+	va_start(va, format);
+
+	VLog(source, level, format, va);
 
 	va_end(va);
 }
