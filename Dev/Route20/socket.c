@@ -37,6 +37,7 @@
 
 static int started;
 static int SockStartup(void);
+static int GetSockError(void);
 static void SockError(char *msg);
 static void SockErrorAndClear(char *msg);
 static void SockErrorClear();
@@ -122,9 +123,9 @@ int ReadFromStreamSocket(socket_t *sock, packet_t *packet)
 
 	ans = 0;
 	bytesRead = recv(sock->socket, (char *)packet->rawData, packet->rawLen, 0);
-	Log(LogSock, LogVerbose, "Bytes read %d on %d\n", bytesRead, sock->receivePort);
 	if (bytesRead > 0)
 	{
+	    Log(LogSock, LogVerbose, "Read %d bytes on port %d\n", bytesRead, sock->receivePort);
 	    packet->rawLen = bytesRead;
 		ans = 1;
 	}
@@ -132,12 +133,10 @@ int ReadFromStreamSocket(socket_t *sock, packet_t *packet)
 	{
 		// TODO: closure of socket
 	}
-	else
+	else if (GetSockError() != WSAEWOULDBLOCK) // TODO: will need to make this work right on Linux, where it is EWOULDBLOCK
 	{
 		SockErrorAndClear("recv");
 	}
-
-	Log(LogSock, LogVerbose, "Read %d bytes on port %d\n", bytesRead, sock->receivePort);
 
 	return ans;
 }
@@ -258,13 +257,20 @@ static int SockStartup(void)
 	return started;
 }
 
-static void SockError(char *msg)
+static int GetSockError(void)
 {
 #if defined(WIN32)
 	int err = WSAGetLastError ();
 #else
 	int err = errno;
 #endif
+
+	return err;
+}
+
+static void SockError(char *msg)
+{
+	int err = GetSockError();
 
 	if (lastSocketError != err)
 	{
