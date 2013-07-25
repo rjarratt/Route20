@@ -30,15 +30,6 @@
 
 typedef enum
 {
-	LogFatal,
-	LogError,
-	LogInfo,
-	LogWarning,
-	LogVerbose
-} LogLevel;
-
-typedef enum
-{
 	LogGeneral,
 	LogAdjacency,
 	LogUpdate,
@@ -50,6 +41,7 @@ typedef enum
 	LogEthPcap,
 	LogEthSock,
 	LogDdcmpSock,
+	LogDdcmp,
 	LogSock,
 	LogNsp,
 	LogNspMessages,
