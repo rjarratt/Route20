@@ -41,16 +41,27 @@ typedef enum
 	DdcmpLineRunning
 } DdcmpLineState;
 
+typedef enum
+{
+	NotSet,
+	SACK,
+	SNAK
+} SendAckNakFlagState;
+
 typedef struct ddcmp_line
 {
+	void *context; /* for callbacks */
+
 	DdcmpLineState state;
 	byte R;
 	byte N;
 	byte A;
 	byte T;
 	byte X;
+	SendAckNakFlagState SACKNAK;
+	byte NAKReason;
+
 	byte residualData[MAX_DDCMP_BUFFER_LENGTH]; /* unprocessed incomplete data from last processed buffer of data */
-	void *context;
 
 	void (*SendData)(void *context, byte *data, int length);
 	void (*NotifyHalt)(void *context);

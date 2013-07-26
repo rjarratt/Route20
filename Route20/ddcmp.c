@@ -29,6 +29,7 @@
 
 // TODO: implement partial buffers
 // TODO: implement timers
+// TODO: Implement SELECT for half-duplex
 
 #include <stdlib.h>
 #include "ddcmp.h"
@@ -40,6 +41,7 @@
 #define DLE 144u
 
 #define CONTROL_ACK   0x01
+#define CONTROL_NAK   0x02
 #define CONTROL_REP   0x03
 #define CONTROL_STRT  0x06
 #define CONTROL_STACK 0x07
@@ -54,7 +56,8 @@ typedef enum
 	TimerExpires,
 	ReceiveAckResp0,
 	ReceiveDataResp0,
-	ReceiveRepNumEqualsR
+	ReceiveRepNumEqualsR,
+	ReceiveRepNumNotEqualsR
 } DdcmpEvent;
 
 typedef struct
@@ -72,12 +75,15 @@ typedef struct
 	void (*action[MAX_STATE_TABLE_ACTIONS])(ddcmp_line_t *line);
 } state_table_entry_t;
 
+#define LOGFLAGS(flags) flags & 2 ? "S" : "", flags & 1 ? "Q" : ""
+
 static void InitialiseBuffer(buffer_t *buffer, byte *data, int length);
 static void ResetBuffer(buffer_t *buffer);
 static int BufferFromSegment(buffer_t *buffer, int length, buffer_t *newBuffer);
 static int ExtendBuffer(buffer_t *originalBuffer, buffer_t *buffer, int length);
 static byte CurrentByte(buffer_t *buffer);
 static void MoveToNextByte(buffer_t *buffer);
+static byte ByteAt(buffer_t *buffer, int position);
 static void AdvanceBufferPostion(buffer_t *buffer, int count);
 static int BufferStillHasData(buffer_t *buffer);
 static int RemainingBytesInBuffer(buffer_t *buffer);
@@ -85,24 +91,32 @@ static int CurrentBufferPosition(buffer_t *buffer);
 static void SetBufferPosition(buffer_t *buffer, int position);
 
 static uint16 Crc16(uint16 crc, buffer_t *buffer);
-static int SynchronizeMessageFrame(buffer_t *buffer);
+static void DoIdle(ddcmp_line_t *ddcmpLine);
+static int SynchronizeMessageFrame(ddcmp_line_t *ddcmpLine, buffer_t *buffer);
 static int ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buffer, buffer_t *message);
 static int SendMessage(ddcmp_line_t *ddcmpLine, byte *data, int length);
 static void ProcessEvent(ddcmp_line_t *ddcmpLine, DdcmpEvent evt);
 static void ProcessControlMessage(ddcmp_line_t *ddcmpLine, buffer_t *message);
+static void ProcessDataMessage(ddcmp_line_t *ddcmpLine, buffer_t *message);
 static void ProcessStartMessage(ddcmp_line_t *ddcmpLine, buffer_t *message);
 static void ProcessStackMessage(ddcmp_line_t *ddcmpLine, buffer_t *message);
 static void ProcessAckMessage(ddcmp_line_t *ddcmpLine, buffer_t *message);
 static void ProcessRepMessage(ddcmp_line_t *ddcmpLine, buffer_t *message);
+static unsigned int GetDataMessageCount(buffer_t *message);
+static unsigned int GetMessageFlags(buffer_t *message);
+static void SendAck(ddcmp_line_t *ddcmpLine);
+static void SendNak(ddcmp_line_t *ddcmpLine);
 
 static void StopTimerAction(ddcmp_line_t *ddcmpLine);
 static void StartTimerAction(ddcmp_line_t *ddcmpLine);
 static void SendStartAction(ddcmp_line_t *ddcmpLine);
-static void SendAckResp0Action(ddcmp_line_t *ddcmpLine);
-static void SendAckRespRAction(ddcmp_line_t *ddcmpLine);
+static void SendAckAction(ddcmp_line_t *ddcmpLine);
 static void SendStackAction(ddcmp_line_t *ddcmpLine);
 static void ResetVariablesAction(ddcmp_line_t *ddcmpLine);
 static void NotifyHaltAction(ddcmp_line_t *ddcmpLine);
+static void SetSackAction(ddcmp_line_t *ddcmpLine);
+static void SetSnakAction(ddcmp_line_t *ddcmpLine);
+static void SetNakReason3(ddcmp_line_t *ddcmpLine);
 
 static byte station = 1;
 
@@ -121,20 +135,21 @@ static state_table_entry_t stateTable[] =
 
 	{ UserRequestsStartup,  DdcmpLineHalted,   DdcmpLineIStrt,    { SendStartAction, ResetVariablesAction, StartTimerAction } },
 
-	{ ReceiveStack,         DdcmpLineIStrt,    DdcmpLineRunning,  { SendAckResp0Action, StopTimerAction } },
+	{ ReceiveStack,         DdcmpLineIStrt,    DdcmpLineRunning,  { SendAckAction, StopTimerAction } },
 	{ ReceiveStrt,          DdcmpLineIStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
 	{ TimerExpires,         DdcmpLineIStrt,    DdcmpLineIStrt,    { SendStartAction, StartTimerAction } },
 
 	{ ReceiveAckResp0,      DdcmpLineAStrt,    DdcmpLineRunning,  { StopTimerAction /* TODO see Data Transfer */ } },
 	{ ReceiveDataResp0,     DdcmpLineAStrt,    DdcmpLineRunning,  { StopTimerAction /* TODO see Data Transfer */ } },
-	{ ReceiveStack,         DdcmpLineAStrt,    DdcmpLineRunning,  { SendAckResp0Action, StopTimerAction } },
+	{ ReceiveStack,         DdcmpLineAStrt,    DdcmpLineRunning,  { SendAckAction, StopTimerAction } },
 	{ ReceiveStrt,          DdcmpLineAStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
 	{ TimerExpires,         DdcmpLineAStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
 
 	{ ReceiveStrt,          DdcmpLineRunning,  DdcmpLineHalted,   { SendStackAction, StartTimerAction, NotifyHaltAction } },
-	{ ReceiveStack,         DdcmpLineRunning,  DdcmpLineRunning,  { SendAckRespRAction } },
+	{ ReceiveStack,         DdcmpLineRunning,  DdcmpLineRunning,  { SendAckAction } },
 
-	{ ReceiveRepNumEqualsR, DdcmpLineRunning,  DdcmpLineRunning,  { SendAckRespRAction } },
+	{ ReceiveRepNumEqualsR, DdcmpLineRunning,  DdcmpLineRunning,  { SetSackAction } },
+	{ ReceiveRepNumNotEqualsR, DdcmpLineRunning,  DdcmpLineRunning,  { SetNakReason3, SetSnakAction } },
 	{ UserRequestsHalt,     DdcmpLineRunning,  DdcmpLineHalted,   { StopTimerAction} },
 
 	{ Undefined,            DdcmpLineAny,      DdcmpLineAny,      NULL }
@@ -149,6 +164,7 @@ static uint16 crc16_nibble[16] = {
 void DdcmpStart(ddcmp_line_t *ddcmpLine)
 {
 	ddcmpLine->state = DdcmpLineHalted;
+	ddcmpLine->SACKNAK = NotSet;
 	ProcessEvent(ddcmpLine, UserRequestsStartup);
 }
 
@@ -170,7 +186,7 @@ int DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length, by
 
 	while(BufferStillHasData(&buffer))
 	{
-	    if (SynchronizeMessageFrame(&buffer))
+	    if (SynchronizeMessageFrame(ddcmpLine, &buffer))
 		{
 			if (ExtractMessage(ddcmpLine, &buffer, &message))
 			{
@@ -183,6 +199,10 @@ int DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length, by
 					}
 
 				case SOH:
+					{
+						ProcessDataMessage(ddcmpLine, &message);
+						break;
+					}
 				case DLE:
 					{
 						ddcmpLine->Log(LogVerbose, "Data message received, total length=%d\n", message.length);
@@ -198,6 +218,8 @@ int DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length, by
 			}
 		}
 	}
+
+	DoIdle(ddcmpLine);
 
 	return ans;
 }
@@ -251,6 +273,11 @@ static void MoveToNextByte(buffer_t *buffer)
 	buffer->position++;
 }
 
+static byte ByteAt(buffer_t *buffer, int position)
+{
+	return buffer->data[position];
+}
+
 static void AdvanceBufferPostion(buffer_t *buffer, int count)
 {
 	buffer->position += count;
@@ -291,10 +318,22 @@ static uint16 Crc16(uint16 crc, buffer_t *buffer)
 	return crc;
 }
 
+static void DoIdle(ddcmp_line_t *ddcmpLine)
+{
+	if (ddcmpLine->SACKNAK == SACK)
+	{
+		SendAck(ddcmpLine);
+	}
+	else if (ddcmpLine->SACKNAK == SNAK)
+	{
+		SendNak(ddcmpLine);
+	}
+}
 
-static int SynchronizeMessageFrame(buffer_t *buffer)
+static int SynchronizeMessageFrame(ddcmp_line_t *ddcmpLine, buffer_t *buffer)
 {
 	int ans = 0;
+	int skipCount = 0;
 
 	while (BufferStillHasData(buffer))
 	{
@@ -311,7 +350,13 @@ static int SynchronizeMessageFrame(buffer_t *buffer)
 		else
 		{
 			MoveToNextByte(buffer);
+			skipCount++;
 		}
+	}
+
+	if (skipCount > 0)
+	{
+		ddcmpLine->Log(LogVerbose, "Synch skipped %d bytes\n");
 	}
 
 	return ans;
@@ -346,12 +391,8 @@ static int ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buffer, buffer_t *m
 			{
 				if (Crc16(0, message) == 0)
 				{
-					unsigned int count;
-					MoveToNextByte(message);
-					count = CurrentByte(message) & 0xFF;
-					MoveToNextByte(message);
-					count += (CurrentByte(message) & 0x3F) << 8;
-					AdvanceBufferPostion(message, 6);
+					unsigned int count = GetDataMessageCount(message);
+					SetBufferPosition(message, 8);
 
 					if (ExtendBuffer(buffer, message, count + 2))
 					{
@@ -473,48 +514,63 @@ static void ProcessControlMessage(ddcmp_line_t *ddcmpLine, buffer_t *message)
 	}
 }
 
+static void ProcessDataMessage(ddcmp_line_t *ddcmpLine, buffer_t *message)
+{
+	unsigned int count;
+	int flags;
+	int resp;
+	int num;
+	int addr;
+	count = GetDataMessageCount(message);
+	flags = GetMessageFlags(message);
+	resp = ByteAt(message, 3);
+	num = ByteAt(message, 4);
+	addr = ByteAt(message, 5);
+	ddcmpLine->Log(LogInfo, "Received DATA message. Len=%d, Flags=%s%s, R=%d, N=%d, A=%d\n", count, LOGFLAGS(flags), resp, num, addr);
+	if (num == ddcmpLine->R + 1)
+	{
+		ddcmpLine->R = num;
+	}
+}
+
 static void ProcessStartMessage(ddcmp_line_t *ddcmpLine, buffer_t *message)
 {
 	// TODO: proper message validation
-	byte subTypeAndFlags;
-	byte stationAddress;
+	int flags;
+	int addr;
 
-	subTypeAndFlags = CurrentByte(message);
-	AdvanceBufferPostion(message, 2);
-	stationAddress = CurrentByte(message);
+	flags = GetMessageFlags(message);
+	addr = ByteAt(message, 5);
 
-	ddcmpLine->Log(LogVerbose, "STRT, subtype & flags %02X, Station address %02X\n", subTypeAndFlags, stationAddress);
+	ddcmpLine->Log(LogInfo, "Received STRT message. Flags=%s%s, A=%d\n", LOGFLAGS(flags), addr);
 	ProcessEvent(ddcmpLine, ReceiveStrt);
 }
 
 static void ProcessStackMessage(ddcmp_line_t *ddcmpLine, buffer_t *message)
 {
 	// TODO: proper message validation
-	byte subTypeAndFlags;
-	byte stationAddress;
+	int flags;
+	int addr;
 
-	subTypeAndFlags = CurrentByte(message);
-	AdvanceBufferPostion(message, 2);
-	stationAddress = CurrentByte(message);
+	flags = GetMessageFlags(message);
+	addr = ByteAt(message, 5);
 
-	ddcmpLine->Log(LogVerbose, "STACK, subtype & flags %02X, Station address %02X\n", subTypeAndFlags, stationAddress);
+	ddcmpLine->Log(LogInfo, "Received STACK message. Flags=%s%s, A=%d\n", LOGFLAGS(flags), addr);
 	ProcessEvent(ddcmpLine, ReceiveStack);
 }
 
 static void ProcessAckMessage(ddcmp_line_t *ddcmpLine, buffer_t *message)
 {
 	// TODO: proper message validation
-	byte subTypeAndFlags;
-	byte stationAddress;
-	byte resp;
+	int flags;
+	int addr;
+	int resp;
 
-	subTypeAndFlags = CurrentByte(message);
-	AdvanceBufferPostion(message, 1);
-	resp = CurrentByte(message);
-	AdvanceBufferPostion(message, 1);
-	stationAddress = CurrentByte(message);
+	flags = GetMessageFlags(message);
+	resp = ByteAt(message, 3);
+	addr = ByteAt(message, 5);
 
-	ddcmpLine->Log(LogVerbose, "ACK, subtype & flags %02X, Resp=%d, Station address %02X\n", subTypeAndFlags, resp, stationAddress);
+	ddcmpLine->Log(LogInfo, "Received ACK message. Flags=%s%s, R=%d, A=%d\n", LOGFLAGS(flags), resp, addr);
 	if (resp == 0)
 	{
 	    ProcessEvent(ddcmpLine, ReceiveAckResp0);
@@ -528,21 +584,60 @@ static void ProcessAckMessage(ddcmp_line_t *ddcmpLine, buffer_t *message)
 static void ProcessRepMessage(ddcmp_line_t *ddcmpLine, buffer_t *message)
 {
 	// TODO: proper message validation
-	byte subTypeAndFlags;
-	byte stationAddress;
-	byte num;
+	int flags;
+	int addr;
+	int num;
 
-	subTypeAndFlags = CurrentByte(message);
-	AdvanceBufferPostion(message, 2);
-	num = CurrentByte(message);
-	stationAddress = CurrentByte(message);
+	flags = GetMessageFlags(message);
+	num = ByteAt(message, 4);
+	addr = ByteAt(message, 5);
 
-	ddcmpLine->Log(LogVerbose, "REP, subtype & flags %02X, Num=%d, Station address %02X\n", subTypeAndFlags, num, stationAddress);
+	ddcmpLine->Log(LogInfo, "Received REP message. Flags=%s%s, N=%d, A=%d\n", LOGFLAGS(flags), num, addr);
 
 	if (num == ddcmpLine->R)
 	{
 		ProcessEvent(ddcmpLine, ReceiveRepNumEqualsR);
 	}
+	else
+	{
+		ProcessEvent(ddcmpLine, ReceiveRepNumNotEqualsR);
+	}
+}
+
+static unsigned int GetDataMessageCount(buffer_t *message)
+{
+	unsigned int count;
+
+    count = ByteAt(message, 1) & 0xFF;
+	count += (ByteAt(message,2) & 0x3F) << 8;
+
+	return count;
+}
+
+static unsigned int GetMessageFlags(buffer_t *message)
+{
+	return (ByteAt(message, 2) >> 6) & 3;
+}
+
+static void SendAck(ddcmp_line_t *ddcmpLine)
+{
+	byte ack[] = { 0x05, CONTROL_ACK, 0x00, 0x00, 0x00, 0x00 };
+	ack[3] = ddcmpLine->R;
+	ack[5] = station;
+	ddcmpLine->Log(LogInfo, "Sending ACK. Num=%d\n", ddcmpLine->R);
+	SendMessage(ddcmpLine, ack, sizeof(ack));
+	ddcmpLine->SACKNAK = NotSet;
+}
+
+static void SendNak(ddcmp_line_t *ddcmpLine)
+{
+	byte nak[] = { 0x05, CONTROL_NAK, 0x00, 0x00, 0x00, 0x00 };
+	nak[2] = ddcmpLine->NAKReason;
+	nak[3] = ddcmpLine->R;
+	nak[5] = station;
+	ddcmpLine->Log(LogInfo, "Sending NAK. Num=%d, Reason=%d\n", ddcmpLine->R, ddcmpLine->NAKReason);
+	SendMessage(ddcmpLine, nak, sizeof(nak));
+	ddcmpLine->SACKNAK = NotSet;
 }
 
 static void StopTimerAction(ddcmp_line_t *ddcmpLine)
@@ -562,18 +657,10 @@ static void SendStartAction(ddcmp_line_t *ddcmpLine)
 	SendMessage(ddcmpLine, start, sizeof(start));
 }
 
-static void SendAckResp0Action(ddcmp_line_t *ddcmpLine)
+static void SendAckAction(ddcmp_line_t *ddcmpLine)
 {
-	byte ack[] = { 0x05, CONTROL_ACK, 0x00, 0x00, 0x00, station };
-	ddcmpLine->Log(LogVerbose, "Send ack (resp=0) action\n");
-	SendMessage(ddcmpLine, ack, sizeof(ack));
-}
-
-static void SendAckRespRAction(ddcmp_line_t *ddcmpLine)
-{
-	byte ack[] = { 0x05, CONTROL_ACK, 0x00, ddcmpLine->R, 0x00, station };
-	ddcmpLine->Log(LogVerbose, "Send ack (resp=R) action\n");
-	SendMessage(ddcmpLine, ack, sizeof(ack));
+	ddcmpLine->Log(LogVerbose, "Send ack action\n");
+	SendAck(ddcmpLine);
 }
 
 static void SendStackAction(ddcmp_line_t *ddcmpLine)
@@ -600,5 +687,23 @@ static void NotifyHaltAction(ddcmp_line_t *ddcmpLine)
 	{
 		ddcmpLine->NotifyHalt(ddcmpLine->context);
 	}
+}
+
+static void SetSackAction(ddcmp_line_t *ddcmpLine)
+{
+	ddcmpLine->Log(LogVerbose, "Set SACK action\n");
+	ddcmpLine->SACKNAK = SACK;
+}
+
+static void SetSnakAction(ddcmp_line_t *ddcmpLine)
+{
+	ddcmpLine->Log(LogVerbose, "Set SNAK action\n");
+	ddcmpLine->SACKNAK = SNAK;
+}
+
+static void SetNakReason3(ddcmp_line_t *ddcmpLine)
+{
+	ddcmpLine->Log(LogVerbose, "Set NAK reason 3 action\n");
+	ddcmpLine->NAKReason = 3;
 }
 
