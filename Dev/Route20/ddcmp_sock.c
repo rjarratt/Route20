@@ -41,6 +41,9 @@ in this Software without prior written authorization from the author.
 static void ProcessDnsTimer(rtimer_t *timer, char *name, void *context);
 static void ProcessDnsResponse(byte *address, void *context);
 static int  CheckSourceAddress(sockaddr_t *receivedFrom, ddcmp_sock_t *context);
+static void DdcmpSendData(void *context, byte *data, int length);
+static void DdcmpNotifyHalt(void *context);
+static void DdcmpLog(LogLevel level, char *format, ...);
 
 int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit)
 {
@@ -50,6 +53,11 @@ int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit)
 	int ans = 1;
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)ddcmpCircuit->context;
 	sockaddr_t *destinationAddress;
+
+	sockContext->line.context = sockContext;
+	sockContext->line.SendData = DdcmpSendData;
+	sockContext->line.NotifyHalt = DdcmpNotifyHalt;
+	sockContext->line.Log = DdcmpLog;
 
 	destinationAddress = GetSocketAddressFromName(sockContext->destinationHostName, 0);
 	if (destinationAddress != NULL)
@@ -78,42 +86,17 @@ int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit)
 
 packet_t *DdcmpSockReadPacket(ddcmp_circuit_t *ddcmpCircuit)
 {
-	static byte buffer[MAX_DDCMP_MSG_LEN];
 	static packet_t sockPacket;
+	byte buffer[MAX_DDCMP_MSG_LEN];
+	int bufferLength;
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)ddcmpCircuit->context;
 	packet_t *packet = NULL;
 
-	sockPacket.rawData = buffer;
-	sockPacket.rawLen = MAX_DDCMP_MSG_LEN;
+	bufferLength = ReadFromStreamSocket(&sockContext->socket, (char *)buffer, MAX_DDCMP_MSG_LEN);
 
-	if (ReadFromStreamSocket(&sockContext->socket, &sockPacket))
+	if (DdcmpProcessReceivedData(&sockContext->line, buffer, bufferLength, &sockPacket.rawData, &sockPacket.rawLen))
 	{
-	//	if (CheckSourceAddress(&receivedFrom, sockContext))
-	//	{
-	//		if (EthValidPacket(&sockPacket))
-	//		{
-	//			GetDecnetAddress((decnet_eth_address_t *)&sockPacket.rawData[0], &sockPacket.to);
-	//			GetDecnetAddress((decnet_eth_address_t *)&sockPacket.rawData[6], &sockPacket.from);
-	//			sockPacket.IsDecnet = EthSockIsDecnet;
-	//			if (CompareDecnetAddress(&nodeInfo.address, &sockPacket.from))
-	//			{
-	//				/*Log(LogInfo, "Discarding loopback from %s\n", ethCircuit->circuit->name);*/
-	//				ethCircuit->circuit->stats.loopbackPacketsReceived++;
-	//				packet = NULL;
-	//			}
-	//			else
-	//			{
-	//				/*Log(LogInfo, "Not sock loopback on %s\n", ethCircuit->circuit->name);*/
-	//				EthSetPayload(&sockPacket);
-	//				packet = &sockPacket;
-	//			}
-	//		}
-	//		else
-	//		{
- //   			ethCircuit->circuit->stats.invalidPacketsReceived++;
-	//			packet = NULL;
-	//		}
-	//	}
+		packet = &sockPacket;
 	}
 
 	return packet;
@@ -168,4 +151,28 @@ static int CheckSourceAddress(sockaddr_t *receivedFrom, ddcmp_sock_t *context)
 	//}
 
 	return ans;
+}
+
+static void DdcmpSendData(void *context, byte *data, int length)
+{
+	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)context;
+	WriteToStreamSocket(&sockContext->socket, data, length);
+}
+
+static void DdcmpNotifyHalt(void *context)
+{
+	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)context;
+	Log(LogDdcmpSock, LogError, "DDCMP halted, restarting\n");
+	DdcmpStart(&sockContext->line);
+}
+
+static void DdcmpLog(LogLevel level, char *format, ...)
+{
+	va_list va;
+
+	va_start(va, format);
+
+	VLog(LogDdcmp, level, format, va);
+
+	va_end(va);
 }

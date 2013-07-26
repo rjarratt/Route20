@@ -116,18 +116,17 @@ int ReadFromDatagramSocket(socket_t *sock, packet_t *packet, sockaddr_t *receive
 	return  ans;
 }
 
-int ReadFromStreamSocket(socket_t *sock, packet_t *packet)
+int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
 {
 	int ans;
 	int bytesRead;
 
 	ans = 0;
-	bytesRead = recv(sock->socket, (char *)packet->rawData, packet->rawLen, 0);
+	bytesRead = recv(sock->socket, (char *)buffer, bufferLength, 0);
 	if (bytesRead > 0)
 	{
 	    Log(LogSock, LogVerbose, "Read %d bytes on port %d\n", bytesRead, sock->receivePort);
-	    packet->rawLen = bytesRead;
-		ans = 1;
+	    ans = bytesRead;
 	}
 	else if (bytesRead == 0)
 	{
@@ -141,6 +140,13 @@ int ReadFromStreamSocket(socket_t *sock, packet_t *packet)
 	return ans;
 }
 
+int WriteToStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
+{
+	// TODO: robustness to failures and to partial sends
+	send(sock->socket, (char *)buffer, bufferLength, 0);
+	return 1;
+}
+
 int SendToSocket(socket_t *sock, sockaddr_t *destination, packet_t *packet)
 {
 	int ans = 0;
@@ -151,7 +157,7 @@ int SendToSocket(socket_t *sock, sockaddr_t *destination, packet_t *packet)
 		if (sendto(sock->socket, (char *)packet->rawData, packet->rawLen, 0, destination, sizeof(*destination)) == -1)
 		{
 #if defined(WIN32)
-			if (WSAGetLastError() == WSAEWOULDBLOCK)
+			if (WSAGetLastError() == WSAEWOULDBLOCK) // TODO: abstracted wouldblock check elsewhere now.
 			{
 				retry = 1;
 				Sleep(1);

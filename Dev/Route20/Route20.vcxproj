@@ -99,6 +99,7 @@
     <ClCompile Include="adjacency.c" />
     <ClCompile Include="area_forwarding_database.c" />
     <ClCompile Include="area_routing_database.c" />
+    <ClCompile Include="ddcmp.c" />
     <ClCompile Include="ddcmp_circuit.c" />
     <ClCompile Include="ddcmp_init_layer.c" />
     <ClCompile Include="ddcmp_sock.c" />
@@ -142,6 +143,7 @@
     <ClInclude Include="area_routing_database.h" />
     <ClInclude Include="basictypes.h" />
     <ClInclude Include="constants.h" />
+    <ClInclude Include="ddcmp.h" />
     <ClInclude Include="ddcmp_circuit.h" />
     <ClInclude Include="ddcmp_init_layer.h" />
     <ClInclude Include="ddcmp_sock.h" />
