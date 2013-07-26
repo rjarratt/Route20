@@ -149,7 +149,7 @@ static int CheckSourceAddress(sockaddr_t *receivedFrom, ddcmp_sock_t *context)
 	//{
 	//	Log(LogError, "Security, dropping packet from unrecognised source\n");
 	//}
-
+	
 	return ans;
 }
 
