@@ -1,4 +1,4 @@
-/* ddcmp_sock.h: Ddcmp sockets interface
+/* ddcmp.h: DDCMP protocol
   ------------------------------------------------------------------------------
 
    Copyright (c) 2013, Robert M. A. Jarratt
@@ -26,31 +26,40 @@
 
   ------------------------------------------------------------------------------*/
 
-#if defined(WIN32)
-//#include <Windows.h>
-#include <WinSock2.h>
-#endif
+#include "basictypes.h"
 
-#include "packet.h"
-#include "socket.h"
-#include "ddcmp.h"
-#include "ddcmp_circuit.h"
+#if !defined(DDCMP_H)
 
-#if !defined(DDCMP_SOCK_H)
+#define MAX_DDCMP_BUFFER_LENGTH 8192
 
-typedef struct
+typedef enum
 {
-	socket_t socket;
-	char *destinationHostName;
-	sockaddr_t destinationAddress;
-	ddcmp_line_t line;
-} ddcmp_sock_t;
+	DdcmpLineAny,
+	DdcmpLineHalted,
+	DdcmpLineIStrt,
+	DdcmpLineAStrt,
+	DdcmpLineRunning
+} DdcmpLineState;
 
-int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit);
-packet_t *DdcmpSockReadPacket(ddcmp_circuit_t *ddcmpCircuit);
-int DdcmpSockWritePacket(ddcmp_circuit_t *ddcmp, packet_t *packet);
-void DdcmpSockClose(ddcmp_circuit_t *ddcmpCircuit);
-int DdcmpSockWaitHandle(ddcmp_circuit_t *ddcmpCircuit);
+typedef struct ddcmp_line
+{
+	DdcmpLineState state;
+	byte R;
+	byte N;
+	byte A;
+	byte T;
+	byte X;
+	byte residualData[MAX_DDCMP_BUFFER_LENGTH]; /* unprocessed incomplete data from last processed buffer of data */
+	void *context;
 
-#define DDCMP_SOCK_H
+	void (*SendData)(void *context, byte *data, int length);
+	void (*NotifyHalt)(void *context);
+    void (*Log)(LogLevel level, char *format, ...);
+} ddcmp_line_t;
+
+void DdcmpStart(ddcmp_line_t *ddcmpLine);
+void DdcmpHalt(ddcmp_line_t *ddcmpLine);
+int DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length, byte **payload, int *payloadLength);
+
+#define DDCMP
 #endif

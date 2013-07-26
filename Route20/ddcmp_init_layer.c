@@ -72,7 +72,10 @@ void DdcmpInitLayerStop(void)
 	for(i = 0; i < ddcmpCircuitCount; i++)
 	{
 		circuit_t *circuit = ddcmpCircuits[i];
+		ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)ddcmpCircuits[i]->context;
+		ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
 		circuit->Close(circuit);
+		DdcmpHalt(&ddcmpSock->line);
 	}
 }
 
@@ -112,7 +115,7 @@ static void TcpConnectCallback(socket_t *sock)
 		{
 			ddcmpCircuit->circuit->waitHandle = sock->waitHandle;
 			RegisterEventHandler(ddcmpCircuit->circuit->waitHandle, ddcmpCircuit->circuit, ddcmpCircuit->circuit->WaitEventHandler);
-			//ddcmpCircuit->circuit->WaitEventHandler(ddcmpCircuit->circuit);
+			DdcmpStart(&ddcmpSock->line);
 			break;
 		}
 	}
