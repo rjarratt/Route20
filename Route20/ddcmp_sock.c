@@ -106,6 +106,8 @@ packet_t *DdcmpSockReadPacket(ddcmp_circuit_t *ddcmpCircuit)
 	{
 		sockPacket.rawData = sockContext->buffer;
 		sockPacket.rawLen = sockContext->bufferLength;
+		sockPacket.payload = sockContext->buffer;
+		sockPacket.payloadLen = sockContext->bufferLength;
 		packet = &sockPacket;
 		sockContext->buffer = NULL;
 	}

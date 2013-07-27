@@ -30,6 +30,7 @@
 // TODO: implement partial buffers
 // TODO: implement timers
 // TODO: Implement SELECT for half-duplex
+// TODO: Send NAK if CRC is wrong (2.5.3.1)
 
 #include <stdlib.h>
 #include "ddcmp.h"
@@ -189,7 +190,7 @@ static state_table_entry_t stateTable[] =
 	{ ReceiveRepNumNotEqualsR,     DdcmpLineRunning,  DdcmpLineRunning,  { SetNakReason3Action, SetSnakAction } },
 	{ UserRequestsHalt,            DdcmpLineRunning,  DdcmpLineHalted,   { StopTimerAction} },
 	{ ReceiveDataMsgInSequence,    DdcmpLineRunning,  DdcmpLineRunning,  { SetReceivedSequenceNumberAction, GiveMessageToUserAction, SetSackAction } },
-	{ ReceiveDataMsgOutOfSequence, DdcmpLineRunning,  DdcmpLineRunning,  {  } },
+	{ ReceiveDataMsgOutOfSequence, DdcmpLineRunning,  DdcmpLineRunning,  { NULL } },
 
 	{ Undefined,                DdcmpLineAny,      DdcmpLineAny,      NULL }
 };
@@ -724,6 +725,7 @@ static void SendStartAction(ddcmp_line_t *ddcmpLine)
 	byte start[] = { 0x05, CONTROL_STRT, 0xC0, 0x00, 0x00, 0x00 };
 	start[5] = station;
 	ddcmpLine->Log(LogVerbose, "Send start action\n");
+	ddcmpLine->Log(LogInfo, "Sending STRT. A=%d\n", station);
 	SendMessage(ddcmpLine, start, sizeof(start));
 }
 
@@ -738,6 +740,7 @@ static void SendStackAction(ddcmp_line_t *ddcmpLine)
 	byte stack[] = { 0x05, CONTROL_STACK, 0xC0, 0x00, 0x00, 0x00 };
 	stack[5] = station;
 	ddcmpLine->Log(LogVerbose, "Send stack action\n");
+	ddcmpLine->Log(LogInfo, "Sending STACK. A=%d\n", station);
 	SendMessage(ddcmpLine, stack, sizeof(stack));
 }
 

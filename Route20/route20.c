@@ -772,6 +772,15 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 			if (IsInitializationMessage(packet))
 			{
 				LogMessage(circuit, packet, "Initialization");
+				//if (1 /* TODO check valid */)
+				//{
+				//	initialization_msg_t *msg = (initialization_msg_t *)packet->payload;
+				//	decnet_address_t from;
+				//	GetDecnetAddressFromId(msg->srcnode, &from);
+				//	Log(LogMessages, LogVerbose, "Initialization. From ");
+				//	LogDecnetAddress(LogMessages, LogVerbose, &from);
+				//	Log(LogMessages, LogVerbose, "Block %d, Ver %d.%d.%d\n", msg->blksize, msg->tiver[0], msg->tiver[1], msg->tiver[2]);
+				//}
 			}
 			else if (IsVerificationMessage(packet))
 			{
