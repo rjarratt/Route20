@@ -56,6 +56,16 @@ typedef struct
 
 typedef struct
 {
+	byte          srcnode[2];
+	byte          tiinfo;
+	uint16        blksize;
+	byte          tiver[3];
+	uint16        timer;
+
+} initialization_msg_t;
+
+typedef struct
+{
 	byte   flags;
 	uint16 srcNode;
 	byte   res;
