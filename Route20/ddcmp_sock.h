@@ -44,6 +44,8 @@ typedef struct
 	char *destinationHostName;
 	sockaddr_t destinationAddress;
 	ddcmp_line_t line;
+	byte *buffer;
+	int bufferLength;
 } ddcmp_sock_t;
 
 int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit);
