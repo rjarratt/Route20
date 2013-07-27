@@ -28,7 +28,6 @@
   ------------------------------------------------------------------------------*/
 
 // TODO: implement partial buffers
-// TODO: implement timers
 // TODO: Implement SELECT for half-duplex
 // TODO: Send NAK if CRC is wrong (2.5.3.1)
 
@@ -97,6 +96,7 @@ typedef struct
 	SendAckNakFlagState SACKNAK;
 	byte NAKReason;
 	buffer_t currentMessage;
+	void *replyTimerHandle;
 
 	byte residualData[MAX_DDCMP_BUFFER_LENGTH]; /* unprocessed incomplete data from last processed buffer of data */
 } ddcmp_line_control_block_t;
@@ -130,6 +130,7 @@ static void DoIdle(ddcmp_line_t *ddcmpLine);
 static int SynchronizeMessageFrame(ddcmp_line_t *ddcmpLine, buffer_t *buffer);
 static int ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buffer);
 static int SendMessage(ddcmp_line_t *ddcmpLine, byte *data, int length);
+static void ReplyTimerHandler(void *timerContext);
 static void ProcessEvent(ddcmp_line_t *ddcmpLine, DdcmpEvent evt);
 static void ProcessControlMessage(ddcmp_line_t *ddcmpLine);
 static void ProcessDataMessage(ddcmp_line_t *ddcmpLine);
@@ -498,6 +499,12 @@ static int SendMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
 	return 1;
 }
 
+static void ReplyTimerHandler(void *timerContext)
+{
+	ddcmp_line_t *ddcmpLine = (ddcmp_line_t *)timerContext;
+	ProcessEvent(ddcmpLine, TimerExpires);
+}
+
 static void ProcessEvent(ddcmp_line_t *ddcmpLine, DdcmpEvent evt)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
@@ -712,12 +719,16 @@ static void SendNak(ddcmp_line_t *ddcmpLine)
 
 static void StopTimerAction(ddcmp_line_t *ddcmpLine)
 {
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Stop timer action\n");
+	ddcmpLine->CancelOneShotTimer(cb->replyTimerHandle);
 }
 
 static void StartTimerAction(ddcmp_line_t *ddcmpLine)
 {
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Start timer action\n");
+	cb->replyTimerHandle = ddcmpLine->CreateOneShotTimer(ddcmpLine, "Reply timer", 3, ReplyTimerHandler);
 }
 
 static void SendStartAction(ddcmp_line_t *ddcmpLine)
