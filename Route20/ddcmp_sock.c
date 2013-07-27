@@ -53,7 +53,7 @@ static void *DdcmpCreateOneShotTimer(void *timerContext, char *name, int seconds
 static void DdcmpCancelOneShotTimer(void *timerHandle);
 static void DdcmpSendData(void *context, byte *data, int length);
 static void DdcmpNotifyHalt(void *context);
-static void DdcmpNotifyDataMessage(void *context, byte *data, int length);
+static int  DdcmpNotifyDataMessage(void *context, byte *data, int length);
 static void DdcmpLog(LogLevel level, char *format, ...);
 
 int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit)
@@ -221,8 +221,9 @@ static void DdcmpNotifyHalt(void *context)
 	DdcmpStart(&sockContext->line);
 }
 
-static void DdcmpNotifyDataMessage(void *context, byte *data, int length)
+static int DdcmpNotifyDataMessage(void *context, byte *data, int length)
 {
+	int ans = 0;
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)context;
 	if (sockContext->buffer != NULL)
 	{
@@ -232,7 +233,10 @@ static void DdcmpNotifyDataMessage(void *context, byte *data, int length)
 	{
 		sockContext->buffer = data;
 		sockContext->bufferLength = length;
+		ans = 1;
 	}
+
+	return ans;
 }
 
 static void DdcmpLog(LogLevel level, char *format, ...)
