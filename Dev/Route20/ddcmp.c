@@ -57,7 +57,9 @@ typedef enum
 	ReceiveAckResp0,
 	ReceiveDataResp0,
 	ReceiveRepNumEqualsR,
-	ReceiveRepNumNotEqualsR
+	ReceiveRepNumNotEqualsR,
+	ReceiveDataMsgInSequence,
+	ReceiveDataMsgOutOfSequence
 } DdcmpEvent;
 
 typedef enum
@@ -136,6 +138,7 @@ static void ProcessAckMessage(ddcmp_line_t *ddcmpLine);
 static void ProcessRepMessage(ddcmp_line_t *ddcmpLine);
 static unsigned int GetDataMessageCount(buffer_t *message);
 static unsigned int GetMessageFlags(buffer_t *message);
+static byte GetMessageNum(buffer_t *message);
 static void SendAck(ddcmp_line_t *ddcmpLine);
 static void SendNak(ddcmp_line_t *ddcmpLine);
 
@@ -148,7 +151,9 @@ static void ResetVariablesAction(ddcmp_line_t *ddcmpLine);
 static void NotifyHaltAction(ddcmp_line_t *ddcmpLine);
 static void SetSackAction(ddcmp_line_t *ddcmpLine);
 static void SetSnakAction(ddcmp_line_t *ddcmpLine);
-static void SetNakReason3(ddcmp_line_t *ddcmpLine);
+static void SetNakReason3Action(ddcmp_line_t *ddcmpLine);
+static void SetReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine);
+static void GiveMessageToUserAction(ddcmp_line_t *ddcmpLine);
 
 static byte station = 1;
 
@@ -163,28 +168,30 @@ static char * lineStateString[] =
 
 static state_table_entry_t stateTable[] =
 {
-	{ UserRequestsHalt,     DdcmpLineAny,      DdcmpLineHalted,   { StopTimerAction} },
+	{ UserRequestsHalt,            DdcmpLineAny,      DdcmpLineHalted,   { StopTimerAction} },
 
-	{ UserRequestsStartup,  DdcmpLineHalted,   DdcmpLineIStrt,    { SendStartAction, ResetVariablesAction, StartTimerAction } },
+	{ UserRequestsStartup,         DdcmpLineHalted,   DdcmpLineIStrt,    { SendStartAction, ResetVariablesAction, StartTimerAction } },
 
-	{ ReceiveStack,         DdcmpLineIStrt,    DdcmpLineRunning,  { SendAckAction, StopTimerAction } },
-	{ ReceiveStrt,          DdcmpLineIStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
-	{ TimerExpires,         DdcmpLineIStrt,    DdcmpLineIStrt,    { SendStartAction, StartTimerAction } },
+	{ ReceiveStack,                DdcmpLineIStrt,    DdcmpLineRunning,  { SendAckAction, StopTimerAction } },
+	{ ReceiveStrt,                 DdcmpLineIStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
+	{ TimerExpires,                DdcmpLineIStrt,    DdcmpLineIStrt,    { SendStartAction, StartTimerAction } },
 
-	{ ReceiveAckResp0,      DdcmpLineAStrt,    DdcmpLineRunning,  { StopTimerAction /* TODO see Data Transfer */ } },
-	{ ReceiveDataResp0,     DdcmpLineAStrt,    DdcmpLineRunning,  { StopTimerAction /* TODO see Data Transfer */ } },
-	{ ReceiveStack,         DdcmpLineAStrt,    DdcmpLineRunning,  { SendAckAction, StopTimerAction } },
-	{ ReceiveStrt,          DdcmpLineAStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
-	{ TimerExpires,         DdcmpLineAStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
+	{ ReceiveAckResp0,             DdcmpLineAStrt,    DdcmpLineRunning,  { StopTimerAction } },
+	{ ReceiveDataResp0,            DdcmpLineAStrt,    DdcmpLineRunning,  { StopTimerAction } },
+	{ ReceiveStack,                DdcmpLineAStrt,    DdcmpLineRunning,  { SendAckAction, StopTimerAction } },
+	{ ReceiveStrt,                 DdcmpLineAStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
+	{ TimerExpires,                DdcmpLineAStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
 
-	{ ReceiveStrt,          DdcmpLineRunning,  DdcmpLineHalted,   { SendStackAction, StartTimerAction, NotifyHaltAction } },
-	{ ReceiveStack,         DdcmpLineRunning,  DdcmpLineRunning,  { SendAckAction } },
+	{ ReceiveStrt,                 DdcmpLineRunning,  DdcmpLineHalted,   { SendStackAction, StartTimerAction, NotifyHaltAction } },
+	{ ReceiveStack,                DdcmpLineRunning,  DdcmpLineRunning,  { SendAckAction } },
 
-	{ ReceiveRepNumEqualsR, DdcmpLineRunning,  DdcmpLineRunning,  { SetSackAction } },
-	{ ReceiveRepNumNotEqualsR, DdcmpLineRunning,  DdcmpLineRunning,  { SetNakReason3, SetSnakAction } },
-	{ UserRequestsHalt,     DdcmpLineRunning,  DdcmpLineHalted,   { StopTimerAction} },
+	{ ReceiveRepNumEqualsR,        DdcmpLineRunning,  DdcmpLineRunning,  { SetSackAction } },
+	{ ReceiveRepNumNotEqualsR,     DdcmpLineRunning,  DdcmpLineRunning,  { SetNakReason3Action, SetSnakAction } },
+	{ UserRequestsHalt,            DdcmpLineRunning,  DdcmpLineHalted,   { StopTimerAction} },
+	{ ReceiveDataMsgInSequence,    DdcmpLineRunning,  DdcmpLineRunning,  { SetReceivedSequenceNumberAction, GiveMessageToUserAction, SetSackAction } },
+	{ ReceiveDataMsgOutOfSequence, DdcmpLineRunning,  DdcmpLineRunning,  {  } },
 
-	{ Undefined,            DdcmpLineAny,      DdcmpLineAny,      NULL }
+	{ Undefined,                DdcmpLineAny,      DdcmpLineAny,      NULL }
 };
 
 /* crc16 polynomial x^16 + x^15 + x^2 + 1 (0xA001) CCITT LSB */
@@ -212,10 +219,9 @@ void DdcmpHalt(ddcmp_line_t *ddcmpLine)
 	ProcessEvent(ddcmpLine, UserRequestsHalt);
 }
 
-int DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length, byte **payload, int *payloadLength)
+void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length, byte **payload, int *payloadLength)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	int ans = 0;
 	buffer_t buffer;
 
 	*payload = NULL;
@@ -259,8 +265,6 @@ int DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length, by
 	}
 
 	DoIdle(ddcmpLine);
-
-	return ans;
 }
 
 static void InitialiseBuffer(buffer_t *buffer, byte *data, int length)
@@ -574,12 +578,16 @@ static void ProcessDataMessage(ddcmp_line_t *ddcmpLine)
 	count = GetDataMessageCount(&cb->currentMessage);
 	flags = GetMessageFlags(&cb->currentMessage);
 	resp = ByteAt(&cb->currentMessage, 3);
-	num = ByteAt(&cb->currentMessage, 4);
+	num = GetMessageNum(&cb->currentMessage);
 	addr = ByteAt(&cb->currentMessage, 5);
 	ddcmpLine->Log(LogInfo, "Received DATA message. Len=%d, Flags=%s%s, R=%d, N=%d, A=%d\n", count, LOGFLAGS(flags), resp, num, addr);
 	if (num == cb->R + 1)
 	{
-		cb->R = num;
+		ProcessEvent(ddcmpLine, ReceiveDataMsgInSequence);
+	}
+	else
+	{
+		ProcessEvent(ddcmpLine, ReceiveDataMsgOutOfSequence);
 	}
 }
 
@@ -643,7 +651,7 @@ static void ProcessRepMessage(ddcmp_line_t *ddcmpLine)
 	int num;
 
 	flags = GetMessageFlags(&cb->currentMessage);
-	num = ByteAt(&cb->currentMessage, 4);
+	num = GetMessageNum(&cb->currentMessage);
 	addr = ByteAt(&cb->currentMessage, 5);
 
 	ddcmpLine->Log(LogInfo, "Received REP message. Flags=%s%s, N=%d, A=%d\n", LOGFLAGS(flags), num, addr);
@@ -671,6 +679,11 @@ static unsigned int GetDataMessageCount(buffer_t *message)
 static unsigned int GetMessageFlags(buffer_t *message)
 {
 	return (ByteAt(message, 2) >> 6) & 3;
+}
+
+static byte GetMessageNum(buffer_t *message)
+{
+	return ByteAt(message, 4);
 }
 
 static void SendAck(ddcmp_line_t *ddcmpLine)
@@ -762,10 +775,23 @@ static void SetSnakAction(ddcmp_line_t *ddcmpLine)
 	cb->SACKNAK = SNAK;
 }
 
-static void SetNakReason3(ddcmp_line_t *ddcmpLine)
+static void SetNakReason3Action(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Set NAK reason 3 action\n");
 	cb->NAKReason = 3;
 }
 
+static void SetReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine)
+{
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	ddcmpLine->Log(LogVerbose, "Set received sequence number action\n");
+	cb->R = GetMessageNum(&cb->currentMessage);
+}
+
+static void GiveMessageToUserAction(ddcmp_line_t *ddcmpLine)
+{
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	ddcmpLine->Log(LogFatal, "Give message to user action\n");
+	ddcmpLine->NotifyDataMessage(ddcmpLine->context, &cb->currentMessage.data[8], GetDataMessageCount(&cb->currentMessage));
+}

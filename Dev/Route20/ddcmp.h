@@ -40,12 +40,13 @@ typedef struct ddcmp_line
 
 	void (*SendData)(void *context, byte *data, int length);
 	void (*NotifyHalt)(void *context);
+	void (*NotifyDataMessage)(void *context, byte *data, int length);
     void (*Log)(LogLevel level, char *format, ...);
 } ddcmp_line_t;
 
 void DdcmpStart(ddcmp_line_t *ddcmpLine);
 void DdcmpHalt(ddcmp_line_t *ddcmpLine);
-int DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length, byte **payload, int *payloadLength);
+void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length, byte **payload, int *payloadLength);
 
 #define DDCMP
 #endif
