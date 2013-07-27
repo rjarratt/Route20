@@ -295,6 +295,7 @@ static int ExtendBuffer(buffer_t *originalBuffer, buffer_t *buffer, int length)
 	if (RemainingBytesInBuffer(originalBuffer) >= length)
 	{
 	    buffer->length += length;
+		AdvanceBufferPostion(originalBuffer, length);
 		ans = 1;
 	}
 
@@ -400,7 +401,7 @@ static int SynchronizeMessageFrame(ddcmp_line_t *ddcmpLine, buffer_t *buffer)
 
 	if (skipCount > 0)
 	{
-		ddcmpLine->Log(LogFatal, "Synch skipped %d bytes\n", skipCount);
+		ddcmpLine->Log(LogVerbose, "Synch skipped %d bytes\n", skipCount);
 	}
 
 	return ans;
