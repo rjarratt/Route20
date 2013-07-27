@@ -38,9 +38,19 @@ in this Software without prior written authorization from the author.
 #include "dns.h"
 #include "timer.h"
 
+typedef struct
+{
+	rtimer_t *timer;
+	void *timerContext;
+	void (*timerHandler)(void *timerContext);
+} ddcmp_sock_timer_t;
+
 static void ProcessDnsTimer(rtimer_t *timer, char *name, void *context);
 static void ProcessDnsResponse(byte *address, void *context);
 static int  CheckSourceAddress(sockaddr_t *receivedFrom, ddcmp_sock_t *context);
+static void DdcmpTimerHandler(rtimer_t *timer, char *name, void *context);
+static void *DdcmpCreateOneShotTimer(void *timerContext, char *name, int seconds, void (*timerHandler)(void *timerContext));
+static void DdcmpCancelOneShotTimer(void *timerHandle);
 static void DdcmpSendData(void *context, byte *data, int length);
 static void DdcmpNotifyHalt(void *context);
 static void DdcmpNotifyDataMessage(void *context, byte *data, int length);
@@ -60,6 +70,8 @@ int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit)
 
 	memset(&sockContext->line, 0, sizeof(sockContext->line));
 	sockContext->line.context = sockContext;
+	sockContext->line.CreateOneShotTimer = DdcmpCreateOneShotTimer;
+	sockContext->line.CancelOneShotTimer = DdcmpCancelOneShotTimer;
 	sockContext->line.SendData = DdcmpSendData;
 	sockContext->line.NotifyHalt = DdcmpNotifyHalt;
 	sockContext->line.NotifyDataMessage = DdcmpNotifyDataMessage;
@@ -164,6 +176,36 @@ static int CheckSourceAddress(sockaddr_t *receivedFrom, ddcmp_sock_t *context)
 	//}
 	
 	return ans;
+}
+
+static void DdcmpTimerHandler(rtimer_t *timer, char *name, void *context)
+{
+	ddcmp_sock_timer_t *sockTimerContext = (ddcmp_sock_timer_t *)context;
+	sockTimerContext->timerHandler(sockTimerContext->timerContext);
+	free(sockTimerContext);
+}
+
+static void *DdcmpCreateOneShotTimer(void *timerContext, char *name, int seconds, void (*timerHandler)(void *timerContext))
+{
+    ddcmp_sock_timer_t *sockTimerContext;
+    time_t now;
+	
+	time(&now);
+
+	sockTimerContext = (ddcmp_sock_timer_t *)malloc(sizeof(ddcmp_sock_timer_t));
+	sockTimerContext->timerContext = timerContext;
+	sockTimerContext->timerHandler = timerHandler;
+
+	sockTimerContext->timer = CreateTimer(name, now + seconds, 0, sockTimerContext, DdcmpTimerHandler);
+
+	return (void *)sockTimerContext;
+}
+
+static void DdcmpCancelOneShotTimer(void *timerHandle)
+{
+	ddcmp_sock_timer_t *sockTimerContext = (ddcmp_sock_timer_t *)timerHandle;
+	StopTimer(sockTimerContext->timer);
+	free(sockTimerContext);
 }
 
 static void DdcmpSendData(void *context, byte *data, int length)

@@ -38,6 +38,8 @@ typedef struct ddcmp_line
 
 	void *controlBlock;
 
+	void *(*CreateOneShotTimer)(void *timerContext, char *name, int seconds, void (*timerHandler)(void *timerContext));
+	void (*CancelOneShotTimer)(void *timerHandle);
 	void (*SendData)(void *context, byte *data, int length);
 	void (*NotifyHalt)(void *context);
 	void (*NotifyDataMessage)(void *context, byte *data, int length);
