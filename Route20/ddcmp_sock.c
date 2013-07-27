@@ -54,6 +54,7 @@ int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit)
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)ddcmpCircuit->context;
 	sockaddr_t *destinationAddress;
 
+	memset(&sockContext->line, 0, sizeof(sockContext->line));
 	sockContext->line.context = sockContext;
 	sockContext->line.SendData = DdcmpSendData;
 	sockContext->line.NotifyHalt = DdcmpNotifyHalt;
@@ -92,7 +93,7 @@ packet_t *DdcmpSockReadPacket(ddcmp_circuit_t *ddcmpCircuit)
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)ddcmpCircuit->context;
 	packet_t *packet = NULL;
 
-	bufferLength = ReadFromStreamSocket(&sockContext->socket, (char *)buffer, MAX_DDCMP_MSG_LEN);
+	bufferLength = ReadFromStreamSocket(&sockContext->socket, buffer, MAX_DDCMP_MSG_LEN);
 
 	if (DdcmpProcessReceivedData(&sockContext->line, buffer, bufferLength, &sockPacket.rawData, &sockPacket.rawLen))
 	{
