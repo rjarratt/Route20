@@ -30,6 +30,7 @@
 // TODO: implement partial buffers
 // TODO: Implement SELECT for half-duplex
 // TODO: Send NAK if CRC is wrong (2.5.3.1)
+// TODO: Send NAK if last message not read (rather than have fatal error) with reason about buffer space.
 
 #include <stdlib.h>
 #include "ddcmp.h"
@@ -221,13 +222,10 @@ void DdcmpHalt(ddcmp_line_t *ddcmpLine)
 	ProcessEvent(ddcmpLine, UserRequestsHalt);
 }
 
-void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length, byte **payload, int *payloadLength)
+void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	buffer_t buffer;
-
-	*payload = NULL;
-	*payloadLength = 0;
 
 	InitialiseBuffer(&buffer, data, length);
 
@@ -806,6 +804,6 @@ static void SetReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine)
 static void GiveMessageToUserAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogFatal, "Give message to user action\n");
+	ddcmpLine->Log(LogVerbose, "Give message to user action\n");
 	ddcmpLine->NotifyDataMessage(ddcmpLine->context, &cb->currentMessage.data[8], GetDataMessageCount(&cb->currentMessage));
 }

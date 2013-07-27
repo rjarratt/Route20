@@ -112,7 +112,7 @@ packet_t *DdcmpSockReadPacket(ddcmp_circuit_t *ddcmpCircuit)
 
 	bufferLength = ReadFromStreamSocket(&sockContext->socket, buffer, MAX_DDCMP_MSG_LEN);
 
-	DdcmpProcessReceivedData(&sockContext->line, buffer, bufferLength, &sockPacket.rawData, &sockPacket.rawLen);
+	DdcmpProcessReceivedData(&sockContext->line, buffer, bufferLength);
 
 	if (sockContext->buffer != NULL)
 	{
