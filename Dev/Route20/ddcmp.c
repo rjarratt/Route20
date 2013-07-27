@@ -107,7 +107,7 @@ typedef struct
 	DdcmpEvent evt;
 	DdcmpLineState currentState;
 	DdcmpLineState newState;
-	void (*action[MAX_STATE_TABLE_ACTIONS])(ddcmp_line_t *line);
+	int (*action[MAX_STATE_TABLE_ACTIONS])(ddcmp_line_t *line);
 } state_table_entry_t;
 
 #define LOGFLAGS(flags) flags & 2 ? "S" : "", flags & 1 ? "Q" : ""
@@ -145,18 +145,18 @@ static byte GetMessageNum(buffer_t *message);
 static void SendAck(ddcmp_line_t *ddcmpLine);
 static void SendNak(ddcmp_line_t *ddcmpLine);
 
-static void StopTimerAction(ddcmp_line_t *ddcmpLine);
-static void StartTimerAction(ddcmp_line_t *ddcmpLine);
-static void SendStartAction(ddcmp_line_t *ddcmpLine);
-static void SendAckAction(ddcmp_line_t *ddcmpLine);
-static void SendStackAction(ddcmp_line_t *ddcmpLine);
-static void ResetVariablesAction(ddcmp_line_t *ddcmpLine);
-static void NotifyHaltAction(ddcmp_line_t *ddcmpLine);
-static void SetSackAction(ddcmp_line_t *ddcmpLine);
-static void SetSnakAction(ddcmp_line_t *ddcmpLine);
-static void SetNakReason3Action(ddcmp_line_t *ddcmpLine);
-static void SetReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine);
-static void GiveMessageToUserAction(ddcmp_line_t *ddcmpLine);
+static int StopTimerAction(ddcmp_line_t *ddcmpLine);
+static int StartTimerAction(ddcmp_line_t *ddcmpLine);
+static int SendStartAction(ddcmp_line_t *ddcmpLine);
+static int SendAckAction(ddcmp_line_t *ddcmpLine);
+static int SendStackAction(ddcmp_line_t *ddcmpLine);
+static int ResetVariablesAction(ddcmp_line_t *ddcmpLine);
+static int NotifyHaltAction(ddcmp_line_t *ddcmpLine);
+static int SetSackAction(ddcmp_line_t *ddcmpLine);
+static int SetSnakAction(ddcmp_line_t *ddcmpLine);
+static int SetNakReason3Action(ddcmp_line_t *ddcmpLine);
+static int SetReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine);
+static int GiveMessageToUserAction(ddcmp_line_t *ddcmpLine);
 
 static byte station = 1;
 
@@ -191,7 +191,7 @@ static state_table_entry_t stateTable[] =
 	{ ReceiveRepNumEqualsR,        DdcmpLineRunning,  DdcmpLineRunning,  { SetSackAction } },
 	{ ReceiveRepNumNotEqualsR,     DdcmpLineRunning,  DdcmpLineRunning,  { SetNakReason3Action, SetSnakAction } },
 	{ UserRequestsHalt,            DdcmpLineRunning,  DdcmpLineHalted,   { StopTimerAction} },
-	{ ReceiveDataMsgInSequence,    DdcmpLineRunning,  DdcmpLineRunning,  { SetReceivedSequenceNumberAction, GiveMessageToUserAction, SetSackAction } },
+	{ ReceiveDataMsgInSequence,    DdcmpLineRunning,  DdcmpLineRunning,  { GiveMessageToUserAction, SetReceivedSequenceNumberAction, SetSackAction } },
 	{ ReceiveDataMsgOutOfSequence, DdcmpLineRunning,  DdcmpLineRunning,  { NULL } },
 
 	{ Undefined,                DdcmpLineAny,      DdcmpLineAny,      NULL }
@@ -519,6 +519,7 @@ static void ProcessEvent(ddcmp_line_t *ddcmpLine, DdcmpEvent evt)
 
 	if (entry->evt != Undefined)
 	{
+		int ok = 1;
 		if (cb->state != entry->newState)
 		{
 			ddcmpLine->Log(LogVerbose, "Changing line state from %s to %s\n", lineStateString[(int)cb->state], lineStateString[(int)entry->newState]);
@@ -526,11 +527,11 @@ static void ProcessEvent(ddcmp_line_t *ddcmpLine, DdcmpEvent evt)
 
 		cb->state = entry->newState;
 
-		for (i = 0; i < MAX_STATE_TABLE_ACTIONS; i++)
+		for (i = 0; i < MAX_STATE_TABLE_ACTIONS && ok; i++)
 		{
 			if (entry->action[i] != NULL)
 			{
-				entry->action[i](ddcmpLine);
+				ok = entry->action[i](ddcmpLine);
 			}
 		}
 	}
@@ -715,45 +716,50 @@ static void SendNak(ddcmp_line_t *ddcmpLine)
 	cb->SACKNAK = NotSet;
 }
 
-static void StopTimerAction(ddcmp_line_t *ddcmpLine)
+static int StopTimerAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Stop timer action\n");
 	ddcmpLine->CancelOneShotTimer(cb->replyTimerHandle);
+	return 1;
 }
 
-static void StartTimerAction(ddcmp_line_t *ddcmpLine)
+static int StartTimerAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Start timer action\n");
 	cb->replyTimerHandle = ddcmpLine->CreateOneShotTimer(ddcmpLine, "Reply timer", 3, ReplyTimerHandler);
+	return 1;
 }
 
-static void SendStartAction(ddcmp_line_t *ddcmpLine)
+static int SendStartAction(ddcmp_line_t *ddcmpLine)
 {
 	byte start[] = { 0x05, CONTROL_STRT, 0xC0, 0x00, 0x00, 0x00 };
 	start[5] = station;
 	ddcmpLine->Log(LogVerbose, "Send start action\n");
 	ddcmpLine->Log(LogInfo, "Sending STRT. A=%d\n", station);
 	SendMessage(ddcmpLine, start, sizeof(start));
+	return 1;
 }
 
-static void SendAckAction(ddcmp_line_t *ddcmpLine)
+static int SendAckAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmpLine->Log(LogVerbose, "Send ack action\n");
 	SendAck(ddcmpLine);
+	return 1;
 }
 
-static void SendStackAction(ddcmp_line_t *ddcmpLine)
+static int SendStackAction(ddcmp_line_t *ddcmpLine)
 {
 	byte stack[] = { 0x05, CONTROL_STACK, 0xC0, 0x00, 0x00, 0x00 };
 	stack[5] = station;
 	ddcmpLine->Log(LogVerbose, "Send stack action\n");
 	ddcmpLine->Log(LogInfo, "Sending STACK. A=%d\n", station);
 	SendMessage(ddcmpLine, stack, sizeof(stack));
+	return 1;
 }
 
-static void ResetVariablesAction(ddcmp_line_t *ddcmpLine)
+static int ResetVariablesAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Reset variables action\n");
@@ -762,48 +768,63 @@ static void ResetVariablesAction(ddcmp_line_t *ddcmpLine)
 	cb->A = 0;
 	cb->T = 1;
 	cb->X = 0;
+	return 1;
 }
 
-static void NotifyHaltAction(ddcmp_line_t *ddcmpLine)
+static int NotifyHaltAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmpLine->Log(LogVerbose, "Notify halt action\n");
 	if (ddcmpLine->NotifyHalt != NULL)
 	{
 		ddcmpLine->NotifyHalt(ddcmpLine->context);
 	}
+
+	return 1;
 }
 
-static void SetSackAction(ddcmp_line_t *ddcmpLine)
+static int SetSackAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Set SACK action\n");
 	cb->SACKNAK = SACK;
+	return 1;
 }
 
-static void SetSnakAction(ddcmp_line_t *ddcmpLine)
+static int SetSnakAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Set SNAK action\n");
 	cb->SACKNAK = SNAK;
+	return 1;
 }
 
-static void SetNakReason3Action(ddcmp_line_t *ddcmpLine)
+static int SetNakReason3Action(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Set NAK reason 3 action\n");
 	cb->NAKReason = 3;
+	return 1;
 }
 
-static void SetReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine)
+static int SetReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Set received sequence number action\n");
 	cb->R = GetMessageNum(&cb->currentMessage);
+	return 1;
 }
 
-static void GiveMessageToUserAction(ddcmp_line_t *ddcmpLine)
+static int GiveMessageToUserAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	int ans = 1;
 	ddcmpLine->Log(LogVerbose, "Give message to user action\n");
-	ddcmpLine->NotifyDataMessage(ddcmpLine->context, &cb->currentMessage.data[8], GetDataMessageCount(&cb->currentMessage));
+	if (!ddcmpLine->NotifyDataMessage(ddcmpLine->context, &cb->currentMessage.data[8], GetDataMessageCount(&cb->currentMessage)))
+	{
+		cb->NAKReason = 8;
+		cb->SACKNAK = SNAK;
+		ans = 0;
+	}
+
+	return ans;
 }
