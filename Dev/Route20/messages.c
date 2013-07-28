@@ -28,6 +28,7 @@
 
 #include <memory.h>
 #include <stdlib.h>
+#include <string.h>
 #include "messages.h"
 #include "adjacency.h"
 #include "decnet.h"
@@ -43,6 +44,7 @@ typedef struct
 	rslist_t *rslist;
 } rslistargs_t;
 
+static int PhaseIIMessageType(packet_t *packet);
 static void SetMessageFlags(packet_t *packet, byte flags);
 static int IsShortDataPacket(packet_t *packet);
 static int IsLongDataPacket(packet_t *packet);
@@ -64,6 +66,11 @@ int ControlMessageType(packet_t *packet)
 	return (MessageFlags(packet) & 0x0E) >> 1;
 }
 
+int IsPhaseIIMessage(packet_t *packet)
+{
+	return (byte)packet->payload[0] == 0x58;
+}
+
 int IsControlMessage(packet_t *packet)
 {
 	return MessageFlags(packet) & 0x01;
@@ -72,6 +79,11 @@ int IsControlMessage(packet_t *packet)
 int IsInitializationMessage(packet_t *packet)
 {
 	return IsControlMessage(packet) && ControlMessageType(packet) == 0;
+}
+
+int IsPhaseIINodeInitializationMessage(packet_t *packet)
+{
+	return PhaseIIMessageType(packet) == 1;
 }
 
 int IsVerificationMessage(packet_t *packet)
@@ -316,6 +328,25 @@ void ExtractRoutingInfo(uint16 routingInfo, int *hops, int *cost)
 	*cost = routingInfo & 0x03FF;
 }
 
+node_init_phaseii_t *ParseNodeInitPhaseIIMessage(packet_t *packet)
+{
+	static node_init_phaseii_t msg;
+	int i = 0;
+
+	msg.msgflg = packet->payload[i++];
+	msg.starttype = packet->payload[i++];
+	msg.nodeaddr = packet->payload[i++];
+	memset(msg.nodename, 0, sizeof(msg.nodename));
+	strncpy(msg.nodename, (char *)&packet->payload[i + 1], packet->payload[i]);
+	i += packet->payload[i] + 1;
+	memcpy(&msg.functions, &packet->payload[i], 14);
+	msg.blksize = LittleEndianToUint16(msg.blksize);
+	msg.nspsize = LittleEndianToUint16(msg.nspsize);
+	msg.maxlnks = LittleEndianToUint16(msg.maxlnks);
+
+	return &msg;
+}
+
 routing_msg_t *ParseRoutingMessage(packet_t *packet)
 {
 	routing_msg_t *msg = NULL;
@@ -515,6 +546,11 @@ packet_t *CreateLongDataMessage(decnet_address_t *srcNode, decnet_address_t *dst
 	ans.rawLen = ans.payloadLen;
 
 	return &ans;
+}
+
+static int PhaseIIMessageType(packet_t *packet)
+{
+	return packet->payload[1];
 }
 
 static void SetMessageFlags(packet_t *packet, byte flags)

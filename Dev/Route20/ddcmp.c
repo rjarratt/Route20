@@ -52,6 +52,7 @@ typedef enum
 	Undefined,
 	UserRequestsHalt,
 	UserRequestsStartup,
+	UserRequestsDataSend,
 	ReceiveStack,
 	ReceiveStrt,
 	TimerExpires,
@@ -265,6 +266,20 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 	}
 
 	DoIdle(ddcmpLine);
+}
+
+int DdcmpSendDataMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
+{
+	int ans = 0;
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	if (cb->state == DdcmpLineRunning)
+	{
+		InitialiseBuffer(&cb->currentMessage, data, length);
+		ProcessEvent(ddcmpLine, UserRequestsDataSend);
+		ans = 1;
+	}
+
+	return ans;
 }
 
 static void InitialiseBuffer(buffer_t *buffer, byte *data, int length)

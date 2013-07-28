@@ -68,6 +68,8 @@ static void PurgeAdjacenciesCallback(rtimer_t *, char *, void *);
 static void LogCircuitStats(rtimer_t *, char *, void *);
 static void ProcessCircuitEvent(void *context);
 static void ProcessPacket(circuit_t *circuit, packet_t *packet);
+static void ProcessPhaseIIMessage(circuit_t *circuit, packet_t *packet);
+static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet);
 static int RouterHelloIsForThisNode(decnet_address_t *from, int iinfo);
 static int EndnodeHelloIsForThisNode(decnet_address_t *from, int iinfo);
 static int VersionSupported(byte tiver[3]);
@@ -769,150 +771,176 @@ static void ProcessPacket(circuit_t *circuit, packet_t *packet)
 		static int n = 0;
 		if (GetMessageBody(packet))
 		{
-			if (IsInitializationMessage(packet))
+			if (IsPhaseIIMessage(packet))
 			{
-				LogMessage(circuit, packet, "Initialization");
-				//if (1 /* TODO check valid */)
-				//{
-				//	initialization_msg_t *msg = (initialization_msg_t *)packet->payload;
-				//	decnet_address_t from;
-				//	GetDecnetAddressFromId(msg->srcnode, &from);
-				//	Log(LogMessages, LogVerbose, "Initialization. From ");
-				//	LogDecnetAddress(LogMessages, LogVerbose, &from);
-				//	Log(LogMessages, LogVerbose, "Block %d, Ver %d.%d.%d\n", msg->blksize, msg->tiver[0], msg->tiver[1], msg->tiver[2]);
-				//}
+				ProcessPhaseIIMessage(circuit, packet);
 			}
-			else if (IsVerificationMessage(packet))
+			else
 			{
-				LogMessage(circuit, packet, "Verification");
+				ProcessPhaseIVMessage(circuit, packet);
 			}
-			else if (IsHelloAndTestMessage(packet))
-			{
-				LogMessage(circuit, packet, "Hello and Test");
-			}
-			else if (IsLevel1RoutingMessage(packet))
-			{
-				if ((nodeInfo.level == 1 || nodeInfo.level == 2))
-				{
-					routing_msg_t *msg;
-					LogMessage(circuit, packet, "Level 1 Routing");
-					msg = ParseRoutingMessage(packet);
-					if (msg != NULL)
-					{
-						if (CompareDecnetAddress(&msg->srcnode, &nodeInfo.address))
-						{
-					        LogLoopbackMessage(circuit, packet, "Level 1 Routing");
-						}
-						else if (msg->srcnode.area == nodeInfo.address.area)
-						{
-							ProcessLevel1RoutingMessage(msg);
-						}
+		}
+	}
+}
 
-						FreeRoutingMessage(msg);
+static void ProcessPhaseIIMessage(circuit_t *circuit, packet_t *packet)
+{
+	if (IsPhaseIINodeInitializationMessage(packet))
+	{
+		node_init_phaseii_t *msg = ParseNodeInitPhaseIIMessage(packet);
+		LogMessage(circuit, packet, "Node Init (PhaseII)");
+		Log(LogMessages, LogInfo, "From %d %s, BlkSize=%d, Routver=%d.%d.%d\n", msg->nodeaddr, msg->nodename, msg->blksize, msg->routver[0], msg->routver[1], msg->routver[2] );
+	}
+	else
+	{
+		DumpPacket(packet, "Discarding unknown Phase II packet.");
+	}
+}
+
+static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
+{
+	if (IsInitializationMessage(packet))
+	{
+		LogMessage(circuit, packet, "Initialization");
+		//if (1 /* TODO check valid */)
+		//{
+		//	initialization_msg_t *msg = (initialization_msg_t *)packet->payload;
+		//	decnet_address_t from;
+		//	GetDecnetAddressFromId(msg->srcnode, &from);
+		//	Log(LogMessages, LogVerbose, "Initialization. From ");
+		//	LogDecnetAddress(LogMessages, LogVerbose, &from);
+		//	Log(LogMessages, LogVerbose, "Block %d, Ver %d.%d.%d\n", msg->blksize, msg->tiver[0], msg->tiver[1], msg->tiver[2]);
+		//}
+	}
+	else if (IsVerificationMessage(packet))
+	{
+		LogMessage(circuit, packet, "Verification");
+	}
+	else if (IsHelloAndTestMessage(packet))
+	{
+		LogMessage(circuit, packet, "Hello and Test");
+	}
+	else if (IsLevel1RoutingMessage(packet))
+	{
+		if ((nodeInfo.level == 1 || nodeInfo.level == 2))
+		{
+			routing_msg_t *msg;
+			LogMessage(circuit, packet, "Level 1 Routing");
+			msg = ParseRoutingMessage(packet);
+			if (msg != NULL)
+			{
+				if (CompareDecnetAddress(&msg->srcnode, &nodeInfo.address))
+				{
+					LogLoopbackMessage(circuit, packet, "Level 1 Routing");
+				}
+				else if (msg->srcnode.area == nodeInfo.address.area)
+				{
+					ProcessLevel1RoutingMessage(msg);
+				}
+
+				FreeRoutingMessage(msg);
+			}
+		}
+	}
+	else if (IsLevel2RoutingMessage(packet))
+	{
+		if (nodeInfo.level == 2)
+		{
+			routing_msg_t *msg;
+			LogMessage(circuit, packet, "Level 2 Routing");
+			msg = ParseRoutingMessage(packet);
+			if (CompareDecnetAddress(&msg->srcnode, &nodeInfo.address))
+			{
+				LogLoopbackMessage(circuit, packet, "Level 2 Routing");
+			}
+			else if (msg != NULL)
+			{
+				ProcessLevel2RoutingMessage(msg);
+				FreeRoutingMessage(msg);
+			}
+		}
+	}
+	else if (IsEthernetRouterHelloMessage(packet))
+	{
+		LogMessage(circuit, packet, "Ethernet Router Hello");
+		if (IsValidRouterHelloMessage(packet))
+		{
+			ethernet_router_hello_t *msg = (ethernet_router_hello_t *)packet->payload;
+			decnet_address_t from;
+			GetDecnetAddress(&msg->id, &from);
+			if (CompareDecnetAddress(&from, &nodeInfo.address))
+			{
+				LogLoopbackMessage(circuit, packet, "Ethernet Router Hello");
+			}
+			else
+			{
+				if (RouterHelloIsForThisNode(&from, msg->iinfo))
+				{
+					if (VersionSupported(msg->tiver))
+					{
+						AdjacencyType at = GetRouterLevel(msg->iinfo) == 1 ? Level1RouterAdjacency : Level2RouterAdjacency;
+						CheckRouterAdjacency(&from, circuit, at, msg->timer, msg->priority, msg->rslist, msg->rslistlen/sizeof(rslist_t));
 					}
 				}
 			}
-			else if (IsLevel2RoutingMessage(packet))
+		}
+	}
+	else if (IsEthernetEndNodeHelloMessage(packet))
+	{
+		LogMessage(circuit, packet, "Ethernet Endnode Hello");
+		if (IsValidEndnodeHelloMessage(packet))
+		{
+			ethernet_endnode_hello_t *msg = (ethernet_endnode_hello_t *)packet->payload;
+			decnet_address_t from;
+			GetDecnetAddress(&msg->id, &from);
+			if (CompareDecnetAddress(&from, &nodeInfo.address))
 			{
-				if (nodeInfo.level == 2)
+				LogLoopbackMessage(circuit, packet, "Ethernet Endnode Hello");
+			}
+			else if (EndnodeHelloIsForThisNode(&from, msg->iinfo))
+			{
+				if (VersionSupported(msg->tiver))
 				{
-					routing_msg_t *msg;
-					LogMessage(circuit, packet, "Level 2 Routing");
-					msg = ParseRoutingMessage(packet);
-					if (CompareDecnetAddress(&msg->srcnode, &nodeInfo.address))
-					{
-						LogLoopbackMessage(circuit, packet, "Level 2 Routing");
-					}
-					else if (msg != NULL)
-					{
-						ProcessLevel2RoutingMessage(msg);
-						FreeRoutingMessage(msg);
-					}
+					CheckEndnodeAdjacency(&from, circuit, msg->timer);
 				}
 			}
-			else if (IsEthernetRouterHelloMessage(packet))
+		}
+	}
+	else if (IsDataMessage(packet))
+	{
+		LogMessage(circuit, packet, "Data message");
+		if (IsValidDataPacket(packet))
+		{
+			decnet_address_t srcNode;
+			decnet_address_t dstNode;
+			byte flags;
+			int visits;
+			byte *data;
+			int dataLength;
+
+			ExtractDataPacketData(packet, &srcNode, &dstNode, &flags, &visits, &data, &dataLength);
+
+			if (CompareDecnetAddress(&srcNode, &nodeInfo.address))
 			{
-				LogMessage(circuit, packet, "Ethernet Router Hello");
-				if (IsValidRouterHelloMessage(packet))
-				{
-					ethernet_router_hello_t *msg = (ethernet_router_hello_t *)packet->payload;
-					decnet_address_t from;
-					GetDecnetAddress(&msg->id, &from);
-					if (CompareDecnetAddress(&from, &nodeInfo.address))
-					{
-						LogLoopbackMessage(circuit, packet, "Ethernet Router Hello");
-					}
-					else
-					{
-						if (RouterHelloIsForThisNode(&from, msg->iinfo))
-						{
-							if (VersionSupported(msg->tiver))
-							{
-								AdjacencyType at = GetRouterLevel(msg->iinfo) == 1 ? Level1RouterAdjacency : Level2RouterAdjacency;
-								CheckRouterAdjacency(&from, circuit, at, msg->timer, msg->priority, msg->rslist, msg->rslistlen/sizeof(rslist_t));
-							}
-						}
-					}
-				}
+				LogLoopbackMessage(circuit, packet, "Data message");
 			}
-			else if (IsEthernetEndNodeHelloMessage(packet))
+			else if (CompareDecnetAddress(&dstNode, &nodeInfo.address))
 			{
-				LogMessage(circuit, packet, "Ethernet Endnode Hello");
-				if (IsValidEndnodeHelloMessage(packet))
+				if (processHigherLevelProtocolPacket != NULL)
 				{
-					ethernet_endnode_hello_t *msg = (ethernet_endnode_hello_t *)packet->payload;
-					decnet_address_t from;
-					GetDecnetAddress(&msg->id, &from);
-					if (CompareDecnetAddress(&from, &nodeInfo.address))
-					{
-						LogLoopbackMessage(circuit, packet, "Ethernet Endnode Hello");
-					}
-					else if (EndnodeHelloIsForThisNode(&from, msg->iinfo))
-					{
-						if (VersionSupported(msg->tiver))
-						{
-							CheckEndnodeAdjacency(&from, circuit, msg->timer);
-						}
-					}
-				}
-			}
-			else if (IsDataMessage(packet))
-			{
-				LogMessage(circuit, packet, "Data message");
-				if (IsValidDataPacket(packet))
-				{
-					decnet_address_t srcNode;
-					decnet_address_t dstNode;
-					byte flags;
-					int visits;
-					byte *data;
-					int dataLength;
 
-					ExtractDataPacketData(packet, &srcNode, &dstNode, &flags, &visits, &data, &dataLength);
-
-					if (CompareDecnetAddress(&srcNode, &nodeInfo.address))
-					{
-						LogLoopbackMessage(circuit, packet, "Data message");
-					}
-					else if (CompareDecnetAddress(&dstNode, &nodeInfo.address))
-					{
-						if (processHigherLevelProtocolPacket != NULL)
-						{
-
-							processHigherLevelProtocolPacket(&srcNode, data, dataLength);
-						}
-					}
-					else
-					{
-						ForwardPacket(packet);
-					}
+					processHigherLevelProtocolPacket(&srcNode, data, dataLength);
 				}
 			}
 			else
 			{
-				DumpPacket(packet, "Discarding unknown packet.");
+				ForwardPacket(packet);
 			}
 		}
+	}
+	else
+	{
+		DumpPacket(packet, "Discarding unknown packet.");
 	}
 }
 
