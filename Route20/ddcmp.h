@@ -49,6 +49,7 @@ typedef struct ddcmp_line
 void DdcmpStart(ddcmp_line_t *ddcmpLine);
 void DdcmpHalt(ddcmp_line_t *ddcmpLine);
 void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length);
+int  DdcmpSendDataMessage(ddcmp_line_t *ddcmpLine, byte *data, int length);
 
 #define DDCMP
 #endif

@@ -161,12 +161,29 @@ typedef struct
 	byte                   body[MAX_DATA_MESSAGE_BODY_SIZE];
 } long_data_packet_padded_t;
 
+typedef struct
+{
+	byte       msgflg;
+	byte       starttype;
+	byte       nodeaddr;
+	char       nodename[7];
+	byte       functions;
+	byte       requests;
+	uint16     blksize;
+	uint16     nspsize;
+	uint16     maxlnks;
+	byte       routver[3];
+	byte       commver[3];
+} node_init_phaseii_t;
+
 #pragma pack(pop)
 
 byte MessageFlags(packet_t *packet);
 int ControlMessageType(packet_t *packet);
+int IsPhaseIIMessage(packet_t *packet);
 int IsControlMessage(packet_t *packet);
 int IsInitializationMessage(packet_t *packet);
+int IsPhaseIINodeInitializationMessage(packet_t *packet);
 int IsVerificationMessage(packet_t *packet);
 int IsHelloAndTestMessage(packet_t *packet);
 int IsLevel1RoutingMessage(packet_t *packet);
@@ -185,6 +202,7 @@ packet_t *CreateLongDataMessage(decnet_address_t *srcNode, decnet_address_t *dst
 int IsValidRouterHelloMessage(packet_t *packet);
 int IsValidEndnodeHelloMessage(packet_t *packet);
 void ExtractRoutingInfo(uint16 routingInfo, int *hops, int *cost);
+node_init_phaseii_t *ParseNodeInitPhaseIIMessage(packet_t *packet);
 routing_msg_t *ParseRoutingMessage(packet_t *packet);
 void FreeRoutingMessage(routing_msg_t *msg);
 int IsValidDataPacket(packet_t *packet);
