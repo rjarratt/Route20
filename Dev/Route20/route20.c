@@ -351,6 +351,7 @@ static char *ReadNodeConfig(FILE *f, int *ans)
 	char *name;
 	char *value;
 	int addressPresent = 0;
+	int namePresent = 0;
 
 	nodeInfo.priority = 64;
 	nodeInfo.level = 2;
@@ -383,11 +384,16 @@ static char *ReadNodeConfig(FILE *f, int *ans)
 					Log(LogGeneral, LogError, "Node address must be in the form <area>.<node>\n");
 				}
 			}
+			else if (stricmp(name, "name") == 0)
+			{
+				strncpy(nodeInfo.name, value, sizeof(nodeInfo.name) - 1);
+				nodeInfo.name[sizeof(nodeInfo.name) - 1] = '\0';
+				namePresent = 1;
+			}
 			else if (stricmp(name, "priority") == 0)
 			{
 				nodeInfo.priority = (byte)atoi(value);
 			}
-
 		}
 	}
 
@@ -395,6 +401,11 @@ static char *ReadNodeConfig(FILE *f, int *ans)
 	{
 		*ans = 0;
 		Log(LogGeneral, LogError, "Node address must be defined in the configuration file\n");
+	}
+	else if (!namePresent)
+	{
+		*ans = 0;
+		Log(LogGeneral, LogError, "Node name must be defined in the configuration file\n");
 	}
 
 	return line;

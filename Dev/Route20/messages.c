@@ -634,10 +634,12 @@ packet_t *CreateNodeInitPhaseIIMessage(decnet_address_t address)
 	}
 	else
 	{
+		int sysverlen;
 		msg.msgflg = PHASEII_MSGFLG;
 		msg.starttype = 1;
 		msg.nodeaddr = address.node & 0xFF;
-		msg.nodenameLen = 0;
+		msg.nodenameLen = 5;
+		memcpy(msg.nodename, nodeInfo.name, strlen(nodeInfo.name));
 		msg.functions = 0x7;
 		msg.requests = 0;
 		msg.blksize = Uint16ToLittleEndian(4096);
@@ -650,12 +652,13 @@ packet_t *CreateNodeInitPhaseIIMessage(decnet_address_t address)
 		msg.commver[1] = 0;
 		msg.commver[2] = 0;
 		strcpy(msg.sysver, "user-mode DECnet router");
-		msg.sysverLen = strlen(msg.sysver);
+		sysverlen = strlen(msg.sysver);
+		msg.sysverLen = sysverlen;
 
-		memmove(msg.nodename + msg.nodenameLen, &msg.functions, 15+msg.sysverLen);
+		memmove(msg.nodename + msg.nodenameLen, &msg.functions, 15 + sysverlen);
 
 		pkt.payload = (byte *)&msg;
-	    pkt.payloadLen = 4 + msg.nodenameLen + 15 + msg.sysverLen;
+	    pkt.payloadLen = 4 + msg.nodenameLen + 15 + sysverlen;
         pkt.rawData = pkt.payload;
 	    pkt.rawLen = pkt.payloadLen;
 

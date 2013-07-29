@@ -30,12 +30,11 @@
 // TODO: implement partial buffers
 // TODO: Implement SELECT for half-duplex
 // TODO: Send NAK if CRC is wrong (2.5.3.1)
-// TODO: Send NAK if last message not read (rather than have fatal error) with reason about buffer space.
 
 #include <stdlib.h>
 #include "ddcmp.h"
 
-#define MAX_STATE_TABLE_ACTIONS 3
+#define MAX_STATE_TABLE_ACTIONS 4
 
 #define ENQ 5u
 #define SOH 129u
@@ -52,7 +51,7 @@ typedef enum
 	Undefined,
 	UserRequestsHalt,
 	UserRequestsStartup,
-	UserRequestsDataSend,
+	UserRequestsDataSendAndReadyToSend,
 	ReceiveStack,
 	ReceiveStrt,
 	TimerExpires,
@@ -96,6 +95,7 @@ typedef struct
 	byte T;
 	byte X;
 	SendAckNakFlagState SACKNAK;
+	int SREP;
 	byte NAKReason;
 	buffer_t currentMessage;
 	void *replyTimerHandle;
@@ -155,9 +155,13 @@ static int ResetVariablesAction(ddcmp_line_t *ddcmpLine);
 static int NotifyHaltAction(ddcmp_line_t *ddcmpLine);
 static int SetSackAction(ddcmp_line_t *ddcmpLine);
 static int SetSnakAction(ddcmp_line_t *ddcmpLine);
+static int ClearSackSnakAction(ddcmp_line_t *ddcmpLine);
 static int SetNakReason3Action(ddcmp_line_t *ddcmpLine);
 static int SetReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine);
 static int GiveMessageToUserAction(ddcmp_line_t *ddcmpLine);
+static int SendNextMessageAction(ddcmp_line_t *ddcmpLine);
+static int IncrementNAction(ddcmp_line_t *ddcmpLine);
+static int IncrementTAction(ddcmp_line_t *ddcmpLine);
 
 static byte station = 1;
 
@@ -172,28 +176,30 @@ static char * lineStateString[] =
 
 static state_table_entry_t stateTable[] =
 {
-	{ UserRequestsHalt,            DdcmpLineAny,      DdcmpLineHalted,   { StopTimerAction} },
+	{ UserRequestsHalt,                   DdcmpLineAny,      DdcmpLineHalted,   { StopTimerAction} },
 
-	{ UserRequestsStartup,         DdcmpLineHalted,   DdcmpLineIStrt,    { SendStartAction, ResetVariablesAction, StartTimerAction } },
+	{ UserRequestsStartup,                DdcmpLineHalted,   DdcmpLineIStrt,    { SendStartAction, ResetVariablesAction, StartTimerAction } },
 
-	{ ReceiveStack,                DdcmpLineIStrt,    DdcmpLineRunning,  { SendAckAction, StopTimerAction } },
-	{ ReceiveStrt,                 DdcmpLineIStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
-	{ TimerExpires,                DdcmpLineIStrt,    DdcmpLineIStrt,    { SendStartAction, StartTimerAction } },
+	{ ReceiveStack,                       DdcmpLineIStrt,    DdcmpLineRunning,  { SendAckAction, StopTimerAction } },
+	{ ReceiveStrt,                        DdcmpLineIStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
+	{ TimerExpires,                       DdcmpLineIStrt,    DdcmpLineIStrt,    { SendStartAction, StartTimerAction } },
 
-	{ ReceiveAckResp0,             DdcmpLineAStrt,    DdcmpLineRunning,  { StopTimerAction } },
-	{ ReceiveDataResp0,            DdcmpLineAStrt,    DdcmpLineRunning,  { StopTimerAction } },
-	{ ReceiveStack,                DdcmpLineAStrt,    DdcmpLineRunning,  { SendAckAction, StopTimerAction } },
-	{ ReceiveStrt,                 DdcmpLineAStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
-	{ TimerExpires,                DdcmpLineAStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
+	{ ReceiveAckResp0,                    DdcmpLineAStrt,    DdcmpLineRunning,  { StopTimerAction } },
+	{ ReceiveDataResp0,                   DdcmpLineAStrt,    DdcmpLineRunning,  { StopTimerAction } },
+	{ ReceiveStack,                       DdcmpLineAStrt,    DdcmpLineRunning,  { SendAckAction, StopTimerAction } },
+	{ ReceiveStrt,                        DdcmpLineAStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
+	{ TimerExpires,                       DdcmpLineAStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
 
-	{ ReceiveStrt,                 DdcmpLineRunning,  DdcmpLineHalted,   { SendStackAction, StartTimerAction, NotifyHaltAction } },
-	{ ReceiveStack,                DdcmpLineRunning,  DdcmpLineRunning,  { SendAckAction } },
+	{ ReceiveStrt,                        DdcmpLineRunning,  DdcmpLineHalted,   { SendStackAction, StartTimerAction, NotifyHaltAction } },
+	{ ReceiveStack,                       DdcmpLineRunning,  DdcmpLineRunning,  { SendAckAction } },
 
-	{ ReceiveRepNumEqualsR,        DdcmpLineRunning,  DdcmpLineRunning,  { SetSackAction } },
-	{ ReceiveRepNumNotEqualsR,     DdcmpLineRunning,  DdcmpLineRunning,  { SetNakReason3Action, SetSnakAction } },
-	{ UserRequestsHalt,            DdcmpLineRunning,  DdcmpLineHalted,   { StopTimerAction} },
-	{ ReceiveDataMsgInSequence,    DdcmpLineRunning,  DdcmpLineRunning,  { GiveMessageToUserAction, SetReceivedSequenceNumberAction, SetSackAction } },
-	{ ReceiveDataMsgOutOfSequence, DdcmpLineRunning,  DdcmpLineRunning,  { NULL } },
+	{ ReceiveRepNumEqualsR,               DdcmpLineRunning,  DdcmpLineRunning,  { SetSackAction } },
+	{ ReceiveRepNumNotEqualsR,            DdcmpLineRunning,  DdcmpLineRunning,  { SetNakReason3Action, SetSnakAction } },
+	{ UserRequestsHalt,                   DdcmpLineRunning,  DdcmpLineHalted,   { StopTimerAction} },
+	{ ReceiveDataMsgInSequence,           DdcmpLineRunning,  DdcmpLineRunning,  { GiveMessageToUserAction, SetReceivedSequenceNumberAction, SetSackAction } },
+	{ ReceiveDataMsgOutOfSequence,        DdcmpLineRunning,  DdcmpLineRunning,  { NULL } },
+
+	{ UserRequestsDataSendAndReadyToSend, DdcmpLineRunning,  DdcmpLineRunning,  { SendNextMessageAction, IncrementNAction, IncrementTAction, ClearSackSnakAction } },
 
 	{ Undefined,                DdcmpLineAny,      DdcmpLineAny,      NULL }
 };
@@ -275,7 +281,10 @@ int DdcmpSendDataMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
 	if (cb->state == DdcmpLineRunning)
 	{
 		InitialiseBuffer(&cb->currentMessage, data, length);
-		ProcessEvent(ddcmpLine, UserRequestsDataSend);
+		if (cb->T == cb->N + 1 && cb->SACKNAK != SNAK && !cb->SREP)
+		{
+			ProcessEvent(ddcmpLine, UserRequestsDataSendAndReadyToSend);
+		}
 		ans = 1;
 	}
 
@@ -722,7 +731,7 @@ static void SendAck(ddcmp_line_t *ddcmpLine)
 static void SendNak(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	byte nak[] = { 0x05, CONTROL_NAK, 0x00, 0x00, 0x00, 0x00 };
+	byte nak[] = { ENQ, CONTROL_NAK, 0x00, 0x00, 0x00, 0x00 };
 	nak[2] = cb->NAKReason;
 	nak[3] = cb->R;
 	nak[5] = station;
@@ -749,7 +758,7 @@ static int StartTimerAction(ddcmp_line_t *ddcmpLine)
 
 static int SendStartAction(ddcmp_line_t *ddcmpLine)
 {
-	byte start[] = { 0x05, CONTROL_STRT, 0xC0, 0x00, 0x00, 0x00 };
+	byte start[] = { ENQ, CONTROL_STRT, 0xC0, 0x00, 0x00, 0x00 };
 	start[5] = station;
 	ddcmpLine->Log(LogVerbose, "Send start action\n");
 	ddcmpLine->Log(LogInfo, "Sending STRT. A=%d\n", station);
@@ -766,7 +775,7 @@ static int SendAckAction(ddcmp_line_t *ddcmpLine)
 
 static int SendStackAction(ddcmp_line_t *ddcmpLine)
 {
-	byte stack[] = { 0x05, CONTROL_STACK, 0xC0, 0x00, 0x00, 0x00 };
+	byte stack[] = { ENQ, CONTROL_STACK, 0xC0, 0x00, 0x00, 0x00 };
 	stack[5] = station;
 	ddcmpLine->Log(LogVerbose, "Send stack action\n");
 	ddcmpLine->Log(LogInfo, "Sending STACK. A=%d\n", station);
@@ -813,6 +822,14 @@ static int SetSnakAction(ddcmp_line_t *ddcmpLine)
 	return 1;
 }
 
+static int ClearSackSnakAction(ddcmp_line_t *ddcmpLine)
+{
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	ddcmpLine->Log(LogVerbose, "Clear SACK/SNAK action\n");
+	cb->SACKNAK = NotSet;
+	return 1;
+}
+
 static int SetNakReason3Action(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
@@ -842,4 +859,37 @@ static int GiveMessageToUserAction(ddcmp_line_t *ddcmpLine)
 	}
 
 	return ans;
+}
+
+static int SendNextMessageAction(ddcmp_line_t *ddcmpLine)
+{
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	byte hdr[6];
+	ddcmpLine->Log(LogVerbose, "Send next message action\n");
+	ddcmpLine->Log(LogInfo, "Sending Data. N=%d, R=%d\n", cb->N +1, cb->R);
+	hdr[0] = SOH;
+	hdr[1] = cb->currentMessage.length & 0xFF;
+	hdr[2] = (cb->currentMessage.length >> 8) & 0x3F;
+	hdr[3] = cb->R;
+	hdr[4] = cb->N + 1;
+	hdr[5] = station;
+	SendMessage(ddcmpLine, hdr, sizeof(hdr));
+	SendMessage(ddcmpLine, cb->currentMessage.data, cb->currentMessage.length);
+	return 1;
+}
+
+static int IncrementNAction(ddcmp_line_t *ddcmpLine)
+{
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	ddcmpLine->Log(LogVerbose, "Increment N action\n");
+	cb->N = cb->N + 1;
+	return 1;
+}
+
+static int IncrementTAction(ddcmp_line_t *ddcmpLine)
+{
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	ddcmpLine->Log(LogVerbose, "Increment T action\n");
+	cb->T = cb->N + 1;
+	return 1;
 }
