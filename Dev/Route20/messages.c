@@ -37,6 +37,7 @@
 #include "platform.h"
 
 #define LEVEL2_SEGMENT_OFFSET 4
+#define PHASEII_MSGFLG 0x58
 
 typedef struct
 {
@@ -68,7 +69,7 @@ int ControlMessageType(packet_t *packet)
 
 int IsPhaseIIMessage(packet_t *packet)
 {
-	return (byte)packet->payload[0] == 0x58;
+	return (byte)packet->payload[0] == PHASEII_MSGFLG;
 }
 
 int IsControlMessage(packet_t *packet)
@@ -328,23 +329,96 @@ void ExtractRoutingInfo(uint16 routingInfo, int *hops, int *cost)
 	*cost = routingInfo & 0x03FF;
 }
 
-node_init_phaseii_t *ParseNodeInitPhaseIIMessage(packet_t *packet)
+node_init_phaseii_t *ValidateAndParseNodeInitPhaseIIMessage(packet_t *packet)
 {
 	static node_init_phaseii_t msg;
-	int i = 0;
+	node_init_phaseii_t *ans = NULL;
+	int valid = 0;
+	byte nodenameLen = 0;
+	byte sysverLen = 0;
 
-	msg.msgflg = packet->payload[i++];
-	msg.starttype = packet->payload[i++];
-	msg.nodeaddr = packet->payload[i++];
-	memset(msg.nodename, 0, sizeof(msg.nodename));
-	strncpy(msg.nodename, (char *)&packet->payload[i + 1], packet->payload[i]);
-	i += packet->payload[i] + 1;
-	memcpy(&msg.functions, &packet->payload[i], 14);
-	msg.blksize = LittleEndianToUint16(msg.blksize);
-	msg.nspsize = LittleEndianToUint16(msg.nspsize);
-	msg.maxlnks = LittleEndianToUint16(msg.maxlnks);
+	if (packet->payloadLen < 4)
+	{
+		Log(LogMessages, LogError, "Phase II Node Initialization message too short\n");
+	}
+	else
+	{
+		nodenameLen = packet->payload[3];
+		if (nodenameLen > 6)
+		{
+		    Log(LogMessages, LogError, "Phase II Node Initialization node name too long\n");
+		}
+		else if (packet->payloadLen < 4 + nodenameLen + 15)
+		{
+		    Log(LogMessages, LogError, "Phase II Node Initialization message too short\n");
+		}
+		else
+		{
+			sysverLen = packet->payload[4 + nodenameLen + 14];
+			if (sysverLen > 32)
+			{
+		        Log(LogMessages, LogError, "Phase II Node Initialization sysver too long\n");
+			}
+			else if (packet->payloadLen < 4 + nodenameLen + 15 + sysverLen)
+			{
+		        Log(LogMessages, LogError, "Phase II Node Initialization message too short\n");
+			}
+			else
+			{
+				valid = 1;
+			}
+		}
+	}
 
-	return &msg;
+	if (valid)
+	{
+	    int i = 0;
+		valid = 0;
+
+		memset(&msg, 0, sizeof(msg));
+		msg.msgflg = packet->payload[i++];
+		msg.starttype = packet->payload[i++];
+		msg.nodeaddr = packet->payload[i++];
+		strncpy(msg.nodename, (char *)&packet->payload[i + 1], nodenameLen);
+		i += nodenameLen + 1;
+		memcpy(&msg.functions, &packet->payload[i], 14);
+		msg.blksize = LittleEndianToUint16(msg.blksize);
+		msg.nspsize = LittleEndianToUint16(msg.nspsize);
+		msg.maxlnks = LittleEndianToUint16(msg.maxlnks);
+		strncpy(msg.sysver, (char *)&packet->payload[4 + nodenameLen + 15 + sysverLen], sysverLen);
+
+		if (msg.nodeaddr <= 2 || msg.nodeaddr >= 241)
+		{
+			Log(LogMessages, LogError, "Phase II Node Initialization node address invalid\n");
+		}
+		else if (msg.functions != 0 && msg.functions != 7)
+		{
+			Log(LogMessages, LogError, "Phase II Node Initialization functions value invalid\n");
+		}
+		else if ((msg.requests & 0xF8) != 0)
+		{
+			Log(LogMessages, LogError, "Phase II Node Initialization requests value invalid\n");
+		}
+		else if (msg.nspsize > msg.blksize)
+		{
+			Log(LogMessages, LogError, "Phase II Node Initialization NSP size too big\n");
+		}
+		else if (msg.maxlnks > 4095)
+		{
+			Log(LogMessages, LogError, "Phase II Node Initialization max links too big\n");
+		}
+		else
+		{
+			valid = 1;
+		}
+	}
+
+	if (valid)
+	{
+		ans = &msg;
+	}
+
+	return ans;
 }
 
 routing_msg_t *ParseRoutingMessage(packet_t *packet)
@@ -548,9 +622,58 @@ packet_t *CreateLongDataMessage(decnet_address_t *srcNode, decnet_address_t *dst
 	return &ans;
 }
 
+packet_t *CreateNodeInitPhaseIIMessage(decnet_address_t address)
+{
+	static node_init_phaseii_t msg;
+	static packet_t pkt;
+	packet_t *ans = NULL;
+
+	if (address.node <= 1 || address.node >= 241)
+	{
+		Log(LogMessages, LogError, "router node address out of range for Phase II messages\n");
+	}
+	else
+	{
+		msg.msgflg = PHASEII_MSGFLG;
+		msg.starttype = 1;
+		msg.nodeaddr = address.node & 0xFF;
+		msg.nodenameLen = 0;
+		msg.functions = 0x7;
+		msg.requests = 0;
+		msg.blksize = Uint16ToLittleEndian(4096);
+		msg.nspsize = Uint16ToLittleEndian(256); // TODO: not sure what to set for NSP size
+		msg.maxlnks = Uint16ToLittleEndian(4095);
+		msg.routver[0] = 3;
+		msg.routver[1] = 0;
+		msg.routver[2] = 0;
+		msg.commver[0] = 3;
+		msg.commver[1] = 0;
+		msg.commver[2] = 0;
+		strcpy(msg.sysver, "user-mode DECnet router");
+		msg.sysverLen = strlen(msg.sysver);
+
+		memmove(msg.nodename + msg.nodenameLen, &msg.functions, 15+msg.sysverLen);
+
+		pkt.payload = (byte *)&msg;
+	    pkt.payloadLen = 4 + msg.nodenameLen + 15 + msg.sysverLen;
+        pkt.rawData = pkt.payload;
+	    pkt.rawLen = pkt.payloadLen;
+
+		ans = &pkt;
+	}
+
+	return ans;
+}
+
 static int PhaseIIMessageType(packet_t *packet)
 {
-	return packet->payload[1];
+	int ans = -1;
+	if (packet->payloadLen > 1)
+	{
+		ans = packet->payload[1];
+	}
+
+	return ans;
 }
 
 static void SetMessageFlags(packet_t *packet, byte flags)
