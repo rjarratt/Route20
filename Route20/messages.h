@@ -166,7 +166,8 @@ typedef struct
 	byte       msgflg;
 	byte       starttype;
 	byte       nodeaddr;
-	char       nodename[7];
+	byte       nodenameLen;
+	char       nodename[6];
 	byte       functions;
 	byte       requests;
 	uint16     blksize;
@@ -174,6 +175,8 @@ typedef struct
 	uint16     maxlnks;
 	byte       routver[3];
 	byte       commver[3];
+	byte       sysverLen;
+	char       sysver[32];
 } node_init_phaseii_t;
 
 #pragma pack(pop)
@@ -198,11 +201,12 @@ packet_t *CreateEthernetHello(decnet_address_t address);
 packet_t *CreateLevel1RoutingMessage(int from, int count);
 packet_t *CreateLevel2RoutingMessage(void);
 packet_t *CreateLongDataMessage(decnet_address_t *srcNode, decnet_address_t *dstNode, byte flags, int visits, byte *data, int dataLength);
+packet_t *CreateNodeInitPhaseIIMessage(decnet_address_t address);
 
 int IsValidRouterHelloMessage(packet_t *packet);
 int IsValidEndnodeHelloMessage(packet_t *packet);
 void ExtractRoutingInfo(uint16 routingInfo, int *hops, int *cost);
-node_init_phaseii_t *ParseNodeInitPhaseIIMessage(packet_t *packet);
+node_init_phaseii_t *ValidateAndParseNodeInitPhaseIIMessage(packet_t *packet);
 routing_msg_t *ParseRoutingMessage(packet_t *packet);
 void FreeRoutingMessage(routing_msg_t *msg);
 int IsValidDataPacket(packet_t *packet);

@@ -38,6 +38,7 @@ in this Software without prior written authorization from the author.
 #include "adjacency.h"
 #include "timer.h"
 #include "init_layer.h"
+#include "ddcmp_init_layer.h"
 #include "routing_database.h"
 #include "decision.h"
 #include "forwarding.h"
@@ -787,9 +788,15 @@ static void ProcessPhaseIIMessage(circuit_t *circuit, packet_t *packet)
 {
 	if (IsPhaseIINodeInitializationMessage(packet))
 	{
-		node_init_phaseii_t *msg = ParseNodeInitPhaseIIMessage(packet);
+		node_init_phaseii_t *msg = NULL;
 		LogMessage(circuit, packet, "Node Init (PhaseII)");
-		Log(LogMessages, LogInfo, "From %d %s, BlkSize=%d, Routver=%d.%d.%d\n", msg->nodeaddr, msg->nodename, msg->blksize, msg->routver[0], msg->routver[1], msg->routver[2] );
+		msg = ValidateAndParseNodeInitPhaseIIMessage(packet);
+		if (msg != NULL)
+		{
+		    Log(LogMessages, LogInfo, "From %d %s, Funcs=0x%02X Reqs=0x%02X, BlkSize=%d NspSize=%d, Routver=%d.%d.%d Commver=%d.%d.%d Sysver=%s\n", msg->nodeaddr, msg->nodename, msg->functions, msg->requests, msg->blksize, msg->nspsize, msg->routver[0], msg->routver[1], msg->routver[2], msg->commver[0], msg->commver[1], msg->commver[2], msg->sysver);
+			//check version support
+			DdcmpInitProcessPhaseIINodeInitializationMessage(circuit, msg);
+		}
 	}
 	else
 	{

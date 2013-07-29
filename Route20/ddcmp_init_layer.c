@@ -72,10 +72,27 @@ void DdcmpInitLayerStop(void)
 	for(i = 0; i < ddcmpCircuitCount; i++)
 	{
 		circuit_t *circuit = ddcmpCircuits[i];
-		ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)ddcmpCircuits[i]->context;
+		ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
 		ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
 		circuit->Close(circuit);
 		DdcmpHalt(&ddcmpSock->line);
+	}
+}
+
+void DdcmpInitProcessPhaseIINodeInitializationMessage(circuit_t *circuit, node_init_phaseii_t *msg)
+{
+	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+	ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
+	packet_t *pkt;
+	if (msg->requests & 0x01)
+	{
+		// TODO: implement verification message required
+	}
+
+	pkt = CreateNodeInitPhaseIIMessage(nodeInfo.address);
+	if (pkt != NULL)
+	{
+		DdcmpSendDataMessage(&ddcmpSock->line, pkt->payload, pkt->payloadLen);
 	}
 }
 

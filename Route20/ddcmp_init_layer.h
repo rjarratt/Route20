@@ -26,10 +26,14 @@
 
   ------------------------------------------------------------------------------*/
 
+#include "messages.h"
+
 #if !defined(DDCMP_INIT_LAYER_H)
 
 void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount);
 void DdcmpInitLayerStop(void);
+
+void DdcmpInitProcessPhaseIINodeInitializationMessage(circuit_t *circuit, node_init_phaseii_t *msg);
 
 #define DDCMP_INIT_LAYER_H
 #endif
