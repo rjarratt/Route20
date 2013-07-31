@@ -31,6 +31,7 @@
 #if !defined(DDCMP_H)
 
 #define MAX_DDCMP_BUFFER_LENGTH 8192
+#define MAX_DDCMP_DATA_LENGTH (MAX_DDCMP_BUFFER_LENGTH - 10)
 
 typedef struct ddcmp_line
 {
