@@ -32,9 +32,11 @@
 // TODO: Send NAK if CRC is wrong (2.5.3.1)
 
 #include <stdlib.h>
+#include <memory.h>
 #include "ddcmp.h"
 
 #define MAX_STATE_TABLE_ACTIONS 6
+#define MAX_TRANSMIT_QUEUE_LEN  1
 
 #define ENQ 5u
 #define SOH 129u
@@ -61,7 +63,9 @@ typedef enum
 	ReceiveRepNumNotEqualsR,
 	ReceiveDataMsgInSequence,
 	ReceiveDataMsgOutOfSequence,
-	ReceiveAckForOutstandingMsg
+	ReceiveAckForOutstandingMsg,
+	ReceiveNakForOutstandingMsg,
+	ReadyToRetransmitMsg
 } DdcmpEvent;
 
 typedef enum
@@ -100,8 +104,6 @@ typedef struct
 	byte NAKReason;
 	buffer_t currentMessage;
 	void *replyTimerHandle;
-
-	byte residualData[MAX_DDCMP_BUFFER_LENGTH]; /* unprocessed incomplete data from last processed buffer of data */
 } ddcmp_line_control_block_t;
 
 typedef struct
@@ -142,6 +144,7 @@ static void ProcessDataMessage(ddcmp_line_t *ddcmpLine);
 static void ProcessStartMessage(ddcmp_line_t *ddcmpLine);
 static void ProcessStackMessage(ddcmp_line_t *ddcmpLine);
 static void ProcessAckMessage(ddcmp_line_t *ddcmpLine);
+static void ProcessNakMessage(ddcmp_line_t *ddcmpLine);
 static void ProcessRepMessage(ddcmp_line_t *ddcmpLine);
 static unsigned int GetDataMessageCount(buffer_t *message);
 static unsigned int GetMessageFlags(buffer_t *message);
@@ -164,16 +167,19 @@ static int ClearSackSnakAction(ddcmp_line_t *ddcmpLine);
 static int SetNakReason3Action(ddcmp_line_t *ddcmpLine);
 static int SetReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine);
 static int GiveMessageToUserAction(ddcmp_line_t *ddcmpLine);
-static int SendNextMessageAction(ddcmp_line_t *ddcmpLine);
+static int SendMessageAction(ddcmp_line_t *ddcmpLine);
 static int IncrementNAction(ddcmp_line_t *ddcmpLine);
 static int IncrementTAction(ddcmp_line_t *ddcmpLine);
 static int SetAVarAction(ddcmp_line_t *ddcmpLine);
 static int SetTVarFromAckAction(ddcmp_line_t *ddcmpLine);
+static int SetTVarFromNakAction(ddcmp_line_t *ddcmpLine);
 static int SetXVarFromMsgNumAction(ddcmp_line_t *ddcmpLine);
 static int CheckAckWaitTimerAction(ddcmp_line_t *ddcmpLine);
 static int SetSrepAction(ddcmp_line_t *ddcmpLine);
 
 static byte station = 1;
+
+static byte transmit_queue[MAX_TRANSMIT_QUEUE_LEN][MAX_DDCMP_BUFFER_LENGTH]; /* TODO: turn into circular buffer */
 
 static char * lineStateString[] =
 {
@@ -210,8 +216,10 @@ static state_table_entry_t stateTable[] =
 	{ ReceiveDataMsgOutOfSequence,        DdcmpLineRunning,  DdcmpLineRunning,  { NULL } },
 	{ ReceiveAckResp0,                    DdcmpLineRunning,  DdcmpLineRunning,  { SetAVarAction, SetTVarFromAckAction, CheckAckWaitTimerAction } },
 	{ ReceiveAckForOutstandingMsg,        DdcmpLineRunning,  DdcmpLineRunning,  { SetAVarAction, SetTVarFromAckAction, CheckAckWaitTimerAction } },
+	{ ReceiveNakForOutstandingMsg,        DdcmpLineRunning,  DdcmpLineRunning,  { SetAVarAction, SetTVarFromNakAction, StopTimerAction } },
 
-	{ UserRequestsDataSendAndReadyToSend, DdcmpLineRunning,  DdcmpLineRunning,  { SendNextMessageAction, IncrementNAction, IncrementTAction, ClearSackSnakAction, SetXVarFromMsgNumAction, CheckAckWaitTimerAction } },
+	{ ReadyToRetransmitMsg,               DdcmpLineRunning,  DdcmpLineRunning,  { SendMessageAction, IncrementTAction, ClearSackSnakAction, SetXVarFromMsgNumAction, CheckAckWaitTimerAction } },
+	{ UserRequestsDataSendAndReadyToSend, DdcmpLineRunning,  DdcmpLineRunning,  { SendMessageAction, IncrementNAction, IncrementTAction, ClearSackSnakAction, SetXVarFromMsgNumAction, CheckAckWaitTimerAction } },
 	{ TimerExpires,                       DdcmpLineRunning,  DdcmpLineRunning,  { SetSrepAction } },
 
 	{ Undefined,                          DdcmpLineAny,      DdcmpLineAny,      NULL }
@@ -293,7 +301,15 @@ int DdcmpSendDataMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	if (cb->state == DdcmpLineRunning)
 	{
-		InitialiseBuffer(&cb->currentMessage, data, length);
+	    byte *hdr = &transmit_queue[0][0];
+		memcpy(&transmit_queue[0][8], data, length); /* TODO: should check length and allow for CRC */
+		hdr[0] = SOH;
+		hdr[1] = length & 0xFF;
+		hdr[2] = (length >> 8) & 0x3F;
+		hdr[3] = cb->R;
+		hdr[4] = cb->N + 1;
+		hdr[5] = station;
+		InitialiseBuffer(&cb->currentMessage, &transmit_queue[0][0], 8 + length +2);
 		if (cb->T == cb->N + 1 && cb->SACKNAK != SNAK && !cb->SREP)
 		{
 			ProcessEvent(ddcmpLine, UserRequestsDataSendAndReadyToSend);
@@ -407,11 +423,10 @@ static uint16 Crc16(uint16 crc, buffer_t *buffer)
 static void DoIdle(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	if (cb->SACKNAK == SACK)
-	{
-		SendAck(ddcmpLine);
-	}
-	else if (cb->SACKNAK == SNAK)
+
+	/* Order is as per note 5 of section 5.3.9 of the spec */
+
+    if (cb->SACKNAK == SNAK)
 	{
 		SendNak(ddcmpLine);
 	}
@@ -419,6 +434,17 @@ static void DoIdle(ddcmp_line_t *ddcmpLine)
 	if (cb->SREP)
 	{
 		SendRep(ddcmpLine);
+	}
+
+	if (cb->SACKNAK != SNAK && !cb->SREP && cb->T < (cb->N + 1))
+	{
+		cb->currentMessage.data = &transmit_queue[0][0]; // TODO: tidy up current message stuff, perhaps remove position stuff from buffer, calc CRC up front, check for buffer avail before next message is sent.
+		ProcessEvent(ddcmpLine, ReadyToRetransmitMsg);
+	}
+
+	if (cb->SACKNAK == SACK)
+	{
+		SendAck(ddcmpLine);
 	}
 }
 
@@ -542,6 +568,9 @@ static int SendMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
 static void ReplyTimerHandler(void *timerContext)
 {
 	ddcmp_line_t *ddcmpLine = (ddcmp_line_t *)timerContext;
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	cb->replyTimerHandle = NULL;
+	ddcmpLine->Log(LogVerbose, "Processing timer expiry\n");
 	ProcessEvent(ddcmpLine, TimerExpires);
 	DoIdle(ddcmpLine);
 }
@@ -551,6 +580,7 @@ static void StartTimer(ddcmp_line_t *ddcmpLine, int seconds)
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	if (cb->replyTimerHandle == NULL)
 	{
+	    ddcmpLine->Log(LogVerbose, "Starting timer for %d seconds\n", seconds);
 		cb->replyTimerHandle = ddcmpLine->CreateOneShotTimer(ddcmpLine, "Reply timer", seconds, ReplyTimerHandler);
 	}
 }
@@ -560,6 +590,7 @@ static void StopTimer(ddcmp_line_t *ddcmpLine)
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	if (cb->replyTimerHandle != NULL)
 	{
+	    ddcmpLine->Log(LogVerbose, "Stopping timer\n");
 		ddcmpLine->CancelOneShotTimer(cb->replyTimerHandle);
 		cb->replyTimerHandle = NULL;
 	}
@@ -611,6 +642,11 @@ static void ProcessControlMessage(ddcmp_line_t *ddcmpLine)
 	case CONTROL_ACK:
 		{
 			ProcessAckMessage(ddcmpLine);
+			break;
+		}
+	case CONTROL_NAK:
+		{
+			ProcessNakMessage(ddcmpLine);
 			break;
 		}
 	case CONTROL_REP:
@@ -714,6 +750,25 @@ static void ProcessAckMessage(ddcmp_line_t *ddcmpLine)
 	else if (cb->A < resp && resp <= cb->N)
 	{
 	    ProcessEvent(ddcmpLine, ReceiveAckForOutstandingMsg);
+	}
+}
+
+static void ProcessNakMessage(ddcmp_line_t *ddcmpLine)
+{
+	// TODO: proper message validation
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	int flags;
+	int addr;
+	int resp;
+
+	flags = GetMessageFlags(&cb->currentMessage);
+	resp = GetMessageResp(&cb->currentMessage);
+	addr = ByteAt(&cb->currentMessage, 5);
+
+	ddcmpLine->Log(LogInfo, "Received NAK message. Flags=%s%s, R=%d, A=%d\n", LOGFLAGS(flags), resp, addr);
+	if (cb->A <= resp || resp > cb->N)
+	{
+	    ProcessEvent(ddcmpLine, ReceiveNakForOutstandingMsg);
 	}
 }
 
@@ -920,20 +975,16 @@ static int GiveMessageToUserAction(ddcmp_line_t *ddcmpLine)
 	return ans;
 }
 
-static int SendNextMessageAction(ddcmp_line_t *ddcmpLine)
+static int SendMessageAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	byte hdr[6];
+	int num = GetMessageNum(&cb->currentMessage);
+	int resp = GetMessageResp(&cb->currentMessage);
+	int length = GetDataMessageCount(&cb->currentMessage);
 	ddcmpLine->Log(LogVerbose, "Send next message action\n");
-	ddcmpLine->Log(LogInfo, "Sending Data. N=%d, R=%d\n", cb->N +1, cb->R);
-	hdr[0] = SOH;
-	hdr[1] = cb->currentMessage.length & 0xFF;
-	hdr[2] = (cb->currentMessage.length >> 8) & 0x3F;
-	hdr[3] = cb->R;
-	hdr[4] = cb->N + 1;
-	hdr[5] = station;
-	SendMessage(ddcmpLine, hdr, sizeof(hdr));
-	SendMessage(ddcmpLine, cb->currentMessage.data, cb->currentMessage.length);
+	ddcmpLine->Log(LogInfo, "Sending Data. N=%d, R=%d\n", num, resp);
+	SendMessage(ddcmpLine, &transmit_queue[0][0], 6);
+	SendMessage(ddcmpLine, &transmit_queue[0][8], length);
 	return 1;
 }
 
@@ -970,6 +1021,14 @@ static int SetTVarFromAckAction(ddcmp_line_t *ddcmpLine)
 		cb->T = cb-> A + 1;
 	}
 
+	return 1;
+}
+
+static int SetTVarFromNakAction(ddcmp_line_t *ddcmpLine)
+{
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	ddcmpLine->Log(LogVerbose, "Set T variable from nak action\n");
+	cb->T = cb-> A + 1;
 	return 1;
 }
 

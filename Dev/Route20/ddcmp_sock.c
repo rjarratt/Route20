@@ -26,14 +26,12 @@ in this Software without prior written authorization from the author.
 
 ------------------------------------------------------------------------------*/
 
-#define ENQ 5
-#define MAX_DDCMP_MSG_LEN 8192
-
 #include <memory.h>
 #include "platform.h"
 #include "route20.h"
 #include "socket.h"
 //#include "eth_decnet.h"
+#include "ddcmp.h"
 #include "ddcmp_sock.h"
 #include "dns.h"
 #include "timer.h"
@@ -105,12 +103,12 @@ int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit)
 packet_t *DdcmpSockReadPacket(ddcmp_circuit_t *ddcmpCircuit)
 {
 	static packet_t sockPacket;
-	byte buffer[MAX_DDCMP_MSG_LEN];
+	byte buffer[MAX_DDCMP_BUFFER_LENGTH];
 	int bufferLength;
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)ddcmpCircuit->context;
 	packet_t *packet = NULL;
 
-	bufferLength = ReadFromStreamSocket(&sockContext->socket, buffer, MAX_DDCMP_MSG_LEN);
+	bufferLength = ReadFromStreamSocket(&sockContext->socket, buffer, MAX_DDCMP_BUFFER_LENGTH);
 
 	DdcmpProcessReceivedData(&sockContext->line, buffer, bufferLength);
 
