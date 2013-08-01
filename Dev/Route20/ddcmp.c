@@ -150,10 +150,12 @@ static void FreeTransmitQueueEntry();
 
 static ddcmp_line_control_block_t *GetControlBlock(ddcmp_line_t *ddcmpLine);
 static uint16 Crc16(uint16 crc, buffer_t *buffer);
+static void AddCrc16ToBuffer(byte *data, int length);
 static void DoIdle(ddcmp_line_t *ddcmpLine);
 static int SynchronizeMessageFrame(ddcmp_line_t *ddcmpLine, buffer_t *buffer);
 static int ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buffer);
-static int SendMessage(ddcmp_line_t *ddcmpLine, byte *data, int length);
+static int SendMessageAddingCrc16(ddcmp_line_t *ddcmpLine, byte *data, int length);
+static int SendRawMessage(ddcmp_line_t *ddcmpLine, byte *data, int length);
 static void ReplyTimerHandler(void *timerContext);
 static void StartTimer(ddcmp_line_t *ddcmpLine, int seconds);
 static void StopTimer(ddcmp_line_t *ddcmpLine);
@@ -322,18 +324,24 @@ int DdcmpSendDataMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
 {
 	int ans = 0;
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	if (cb->state == DdcmpLineRunning)
+	if (length > (MAX_DDCMP_BUFFER_LENGTH - 6 - 2 - 2))
+	{
+		ddcmpLine->Log(LogError, "Request to send message longer than maximum permitted buffer length, requested data length is %d\n", length);
+	}
+	else if (cb->state == DdcmpLineRunning)
 	{
 		transmit_queue_entry_t *entry = AllocateNextTransmitQueueEntry();
 		if (entry != NULL)
 		{
-			memcpy(entry->data, data, length); /* TODO: should check length and allow for CRC */
 			entry->header[0] = SOH;
 			entry->header[1] = length & 0xFF;
 			entry->header[2] = (length >> 8) & 0x3F;
 			entry->header[3] = cb->R;
 			entry->header[4] = cb->N + 1;
 			entry->header[5] = station;
+			AddCrc16ToBuffer(entry->header, 6);
+			memcpy(entry->data, data, length);
+			AddCrc16ToBuffer(entry->data, length);
 			InitialiseBuffer(&entry->buffer, entry->header, 8 + length +2);
 			memcpy(&cb->currentMessage, &entry->buffer, sizeof(buffer_t)); // TODO: still need to rationalise use of currentMessage.
 			if (cb->T == cb->N + 1 && cb->SACKNAK != SNAK && !cb->SREP)
@@ -517,6 +525,16 @@ static uint16 Crc16(uint16 crc, buffer_t *buffer)
 	return crc;
 }
 
+static void AddCrc16ToBuffer(byte *data, int length)
+{
+	buffer_t buf;
+	uint16 crc16;
+	InitialiseBuffer(&buf, data, length);
+	crc16 = Crc16(0, &buf);
+	data[length] = crc16 & 0xFF;
+	data[length + 1] = crc16 >> 8;
+}
+
 static void DoIdle(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
@@ -536,7 +554,7 @@ static void DoIdle(ddcmp_line_t *ddcmpLine)
 	if (cb->SACKNAK != SNAK && !cb->SREP && cb->T < (cb->N + 1))
 	{
 		transmit_queue_entry_t *entry = GetNextTransmitQueueEntryToSend();
-		memcpy(&cb->currentMessage, &entry->buffer, sizeof(buffer_t)); // TODO: still need to rationalise use of currentMessage, perhaps remove position stuff from buffer, calc CRC up front.
+		memcpy(&cb->currentMessage, &entry->buffer, sizeof(buffer_t)); // TODO: still need to rationalise use of currentMessage, perhaps remove position stuff from buffer.
 		ProcessEvent(ddcmpLine, ReadyToRetransmitMsg);
 	}
 
@@ -647,7 +665,7 @@ static int ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buffer)
 	return ans;
 }
 
-static int SendMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
+static int SendMessageAddingCrc16(ddcmp_line_t *ddcmpLine, byte *data, int length)
 {
 	byte crc[2];
 	uint16 crc16;
@@ -660,6 +678,12 @@ static int SendMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
 	ddcmpLine->SendData(ddcmpLine->context, data, length);
 	ddcmpLine->SendData(ddcmpLine->context, crc, 2);
 
+	return 1;
+}
+
+static int SendRawMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
+{
+	ddcmpLine->SendData(ddcmpLine->context, data, length);
 	return 1;
 }
 
@@ -926,7 +950,7 @@ static void SendAck(ddcmp_line_t *ddcmpLine)
 	ack[3] = cb->R;
 	ack[5] = station;
 	ddcmpLine->Log(LogInfo, "Sending ACK. Num=%d\n", cb->R);
-	SendMessage(ddcmpLine, ack, sizeof(ack));
+	SendMessageAddingCrc16(ddcmpLine, ack, sizeof(ack));
 	cb->SACKNAK = NotSet;
 }
 
@@ -938,7 +962,7 @@ static void SendNak(ddcmp_line_t *ddcmpLine)
 	nak[3] = cb->R;
 	nak[5] = station;
 	ddcmpLine->Log(LogInfo, "Sending NAK. Num=%d, Reason=%d\n", cb->R, cb->NAKReason);
-	SendMessage(ddcmpLine, nak, sizeof(nak));
+	SendMessageAddingCrc16(ddcmpLine, nak, sizeof(nak));
 	cb->SACKNAK = NotSet;
 }
 
@@ -949,7 +973,7 @@ static void SendRep(ddcmp_line_t *ddcmpLine)
 	rep[4] = cb->N;
 	rep[5] = station;
 	ddcmpLine->Log(LogInfo, "Sending REP. Num=%d\n", cb->N);
-	SendMessage(ddcmpLine, rep, sizeof(rep));
+	SendMessageAddingCrc16(ddcmpLine, rep, sizeof(rep));
 	cb->SREP = 0;
 	StartTimer(ddcmpLine, 15);
 }
@@ -974,7 +998,7 @@ static int SendStartAction(ddcmp_line_t *ddcmpLine)
 	start[5] = station;
 	ddcmpLine->Log(LogVerbose, "Send start action\n");
 	ddcmpLine->Log(LogInfo, "Sending STRT. A=%d\n", station);
-	SendMessage(ddcmpLine, start, sizeof(start));
+	SendMessageAddingCrc16(ddcmpLine, start, sizeof(start));
 	return 1;
 }
 
@@ -991,7 +1015,7 @@ static int SendStackAction(ddcmp_line_t *ddcmpLine)
 	stack[5] = station;
 	ddcmpLine->Log(LogVerbose, "Send stack action\n");
 	ddcmpLine->Log(LogInfo, "Sending STACK. A=%d\n", station);
-	SendMessage(ddcmpLine, stack, sizeof(stack));
+	SendMessageAddingCrc16(ddcmpLine, stack, sizeof(stack));
 	return 1;
 }
 
@@ -1079,11 +1103,9 @@ static int SendMessageAction(ddcmp_line_t *ddcmpLine)
 	transmit_queue_entry_t * entry = GetNextTransmitQueueEntryToSend();
 	int num = GetMessageNum(&cb->currentMessage);
 	int resp = GetMessageResp(&cb->currentMessage);
-	int length = GetDataMessageCount(&cb->currentMessage);
 	ddcmpLine->Log(LogVerbose, "Send next message action\n");
 	ddcmpLine->Log(LogInfo, "Sending Data. N=%d, R=%d\n", num, resp);
-	SendMessage(ddcmpLine, entry->header, 6);
-	SendMessage(ddcmpLine, entry->data, length);
+	SendRawMessage(ddcmpLine, entry->buffer.data, entry->buffer.length);
 	return 1;
 }
 
@@ -1165,7 +1187,6 @@ static int SetSrepAction(ddcmp_line_t *ddcmpLine)
 
 static int CompleteMessageAction(ddcmp_line_t *ddcmpLine)
 {
-	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Complete message action\n");
 	FreeTransmitQueueEntry();
 	return 1;
