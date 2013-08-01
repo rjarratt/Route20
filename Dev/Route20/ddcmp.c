@@ -65,7 +65,8 @@ typedef enum
 	ReceiveDataMsgOutOfSequence,
 	ReceiveAckForOutstandingMsg,
 	ReceiveNakForOutstandingMsg,
-	ReadyToRetransmitMsg
+	ReadyToRetransmitMsg,
+	ReceiveMaintenanceMessage
 } DdcmpEvent;
 
 typedef enum
@@ -246,6 +247,8 @@ static state_table_entry_t stateTable[] =
 	{ UserRequestsDataSendAndReadyToSend, DdcmpLineRunning,  DdcmpLineRunning,  { SendMessageAction, IncrementNAction, IncrementTAction, ClearSackSnakAction, SetXVarFromMsgNumAction, CheckAckWaitTimerAction } },
 	{ TimerExpires,                       DdcmpLineRunning,  DdcmpLineRunning,  { SetSrepAction } },
 
+	{ ReceiveMaintenanceMessage,          DdcmpLineAny,      DdcmpLineHalted,   { NotifyHaltAction } },
+
 	{ Undefined,                          DdcmpLineAny,      DdcmpLineAny,      NULL }
 };
 
@@ -303,7 +306,8 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 					}
 				case DLE:
 					{
-						ddcmpLine->Log(LogVerbose, "Data message received, total length=%d\n", cb->currentMessage.length);
+						ddcmpLine->Log(LogError, "Maintenance message received, halting as maintenance mode is not supported\n", cb->currentMessage.length);
+						ProcessEvent(ddcmpLine, ReceiveMaintenanceMessage);
 						break;
 					}
 
