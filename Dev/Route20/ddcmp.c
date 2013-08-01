@@ -30,6 +30,7 @@
 // TODO: implement partial buffers
 // TODO: Implement SELECT for half-duplex
 // TODO: Send NAK if CRC is wrong (2.5.3.1)
+// TODO: perhaps remove position stuff from buffer.
 
 #include <stdlib.h>
 #include <memory.h>
@@ -117,7 +118,7 @@ typedef struct
 	SendAckNakFlagState SACKNAK;
 	int SREP;
 	byte NAKReason;
-	buffer_t currentMessage;
+	buffer_t *currentMessage;
 	void *replyTimerHandle;
 } ddcmp_line_control_block_t;
 
@@ -282,6 +283,7 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	buffer_t buffer;
+	buffer_t extractedBuffer;
 
 	InitialiseBuffer(&buffer, data, length);
 
@@ -289,9 +291,10 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 	{
 	    if (SynchronizeMessageFrame(ddcmpLine, &buffer))
 		{
+			cb->currentMessage = &extractedBuffer;
 			if (ExtractMessage(ddcmpLine, &buffer))
 			{
-				switch (CurrentByte(&cb->currentMessage))
+				switch (CurrentByte(cb->currentMessage))
 				{
 				case ENQ:
 					{
@@ -306,7 +309,7 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 					}
 				case DLE:
 					{
-						ddcmpLine->Log(LogError, "Maintenance message received, halting as maintenance mode is not supported\n", cb->currentMessage.length);
+						ddcmpLine->Log(LogError, "Maintenance message received, halting as maintenance mode is not supported\n");
 						ProcessEvent(ddcmpLine, ReceiveMaintenanceMessage);
 						break;
 					}
@@ -347,9 +350,9 @@ int DdcmpSendDataMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
 			memcpy(entry->data, data, length);
 			AddCrc16ToBuffer(entry->data, length);
 			InitialiseBuffer(&entry->buffer, entry->header, 8 + length +2);
-			memcpy(&cb->currentMessage, &entry->buffer, sizeof(buffer_t)); // TODO: still need to rationalise use of currentMessage.
 			if (cb->T == cb->N + 1 && cb->SACKNAK != SNAK && !cb->SREP)
 			{
+			    cb->currentMessage = &entry->buffer;
 				ProcessEvent(ddcmpLine, UserRequestsDataSendAndReadyToSend);
 			}
 			ans = 1;
@@ -557,9 +560,16 @@ static void DoIdle(ddcmp_line_t *ddcmpLine)
 
 	if (cb->SACKNAK != SNAK && !cb->SREP && cb->T < (cb->N + 1))
 	{
-		transmit_queue_entry_t *entry = GetNextTransmitQueueEntryToSend();
-		memcpy(&cb->currentMessage, &entry->buffer, sizeof(buffer_t)); // TODO: still need to rationalise use of currentMessage, perhaps remove position stuff from buffer.
-		ProcessEvent(ddcmpLine, ReadyToRetransmitMsg);
+		transmit_queue_entry_t *entry;
+		do
+		{
+			entry = GetNextTransmitQueueEntryToSend();
+			if (entry != NULL)
+			{
+				cb->currentMessage = &entry->buffer;
+				ProcessEvent(ddcmpLine, ReadyToRetransmitMsg);
+			}
+		} while (entry != NULL);
 	}
 
 	if (cb->SACKNAK == SACK)
@@ -608,9 +618,9 @@ static int ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buffer)
 	{
 	case ENQ:
 		{
-			if (BufferFromSegment(buffer, 8, &cb->currentMessage))
+			if (BufferFromSegment(buffer, 8, cb->currentMessage))
 			{
-				if (Crc16(0, &cb->currentMessage) == 0)
+				if (Crc16(0, cb->currentMessage) == 0)
 				{
 					ans = 1;
 				}
@@ -626,18 +636,18 @@ static int ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buffer)
 	case DLE:
 		{
 			int savePos = CurrentBufferPosition(buffer);
-			if (BufferFromSegment(buffer, 8, &cb->currentMessage))
+			if (BufferFromSegment(buffer, 8, cb->currentMessage))
 			{
-				if (Crc16(0, &cb->currentMessage) == 0)
+				if (Crc16(0, cb->currentMessage) == 0)
 				{
-					unsigned int count = GetDataMessageCount(&cb->currentMessage);
-					SetBufferPosition(&cb->currentMessage, 8);
+					unsigned int count = GetDataMessageCount(cb->currentMessage);
+					SetBufferPosition(cb->currentMessage, 8);
 
-					if (ExtendBuffer(buffer, &cb->currentMessage, count + 2))
+					if (ExtendBuffer(buffer, cb->currentMessage, count + 2))
 					{
-						if (Crc16( 0, &cb->currentMessage) == 0)
+						if (Crc16( 0, cb->currentMessage) == 0)
 						{
-							ResetBuffer(&cb->currentMessage);
+							ResetBuffer(cb->currentMessage);
 							ans = 1;
 						}
 						else
@@ -760,9 +770,9 @@ static void ProcessControlMessage(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	byte msgType;
-	MoveToNextByte(&cb->currentMessage);
-	msgType = CurrentByte(&cb->currentMessage);
-	MoveToNextByte(&cb->currentMessage);
+	MoveToNextByte(cb->currentMessage);
+	msgType = CurrentByte(cb->currentMessage);
+	MoveToNextByte(cb->currentMessage);
 	switch (msgType)
 	{
 	case CONTROL_ACK:
@@ -806,11 +816,11 @@ static void ProcessDataMessage(ddcmp_line_t *ddcmpLine)
 	int resp;
 	byte num;
 	int addr;
-	count = GetDataMessageCount(&cb->currentMessage);
-	flags = GetMessageFlags(&cb->currentMessage);
-	resp = GetMessageResp(&cb->currentMessage);
-	num = GetMessageNum(&cb->currentMessage);
-	addr = ByteAt(&cb->currentMessage, 5);
+	count = GetDataMessageCount(cb->currentMessage);
+	flags = GetMessageFlags(cb->currentMessage);
+	resp = GetMessageResp(cb->currentMessage);
+	num = GetMessageNum(cb->currentMessage);
+	addr = ByteAt(cb->currentMessage, 5);
 	ddcmpLine->Log(LogInfo, "Received DATA message. Len=%d, Flags=%s%s, R=%d, N=%d, A=%d\n", count, LOGFLAGS(flags), resp, num, addr);
 
 	if (cb->A < resp && resp <= cb->N)
@@ -835,8 +845,8 @@ static void ProcessStartMessage(ddcmp_line_t *ddcmpLine)
 	int flags;
 	int addr;
 
-	flags = GetMessageFlags(&cb->currentMessage);
-	addr = ByteAt(&cb->currentMessage, 5);
+	flags = GetMessageFlags(cb->currentMessage);
+	addr = ByteAt(cb->currentMessage, 5);
 
 	ddcmpLine->Log(LogInfo, "Received STRT message. Flags=%s%s, A=%d\n", LOGFLAGS(flags), addr);
 	ProcessEvent(ddcmpLine, ReceiveStrt);
@@ -849,8 +859,8 @@ static void ProcessStackMessage(ddcmp_line_t *ddcmpLine)
 	int flags;
 	int addr;
 
-	flags = GetMessageFlags(&cb->currentMessage);
-	addr = ByteAt(&cb->currentMessage, 5);
+	flags = GetMessageFlags(cb->currentMessage);
+	addr = ByteAt(cb->currentMessage, 5);
 
 	ddcmpLine->Log(LogInfo, "Received STACK message. Flags=%s%s, A=%d\n", LOGFLAGS(flags), addr);
 	ProcessEvent(ddcmpLine, ReceiveStack);
@@ -864,9 +874,9 @@ static void ProcessAckMessage(ddcmp_line_t *ddcmpLine)
 	int addr;
 	int resp;
 
-	flags = GetMessageFlags(&cb->currentMessage);
-	resp = GetMessageResp(&cb->currentMessage);
-	addr = ByteAt(&cb->currentMessage, 5);
+	flags = GetMessageFlags(cb->currentMessage);
+	resp = GetMessageResp(cb->currentMessage);
+	addr = ByteAt(cb->currentMessage, 5);
 
 	ddcmpLine->Log(LogInfo, "Received ACK message. Flags=%s%s, R=%d, A=%d\n", LOGFLAGS(flags), resp, addr);
 	if (resp == 0)
@@ -887,9 +897,9 @@ static void ProcessNakMessage(ddcmp_line_t *ddcmpLine)
 	int addr;
 	int resp;
 
-	flags = GetMessageFlags(&cb->currentMessage);
-	resp = GetMessageResp(&cb->currentMessage);
-	addr = ByteAt(&cb->currentMessage, 5);
+	flags = GetMessageFlags(cb->currentMessage);
+	resp = GetMessageResp(cb->currentMessage);
+	addr = ByteAt(cb->currentMessage, 5);
 
 	ddcmpLine->Log(LogInfo, "Received NAK message. Flags=%s%s, R=%d, A=%d\n", LOGFLAGS(flags), resp, addr);
 	if (cb->A <= resp || resp > cb->N)
@@ -906,9 +916,9 @@ static void ProcessRepMessage(ddcmp_line_t *ddcmpLine)
 	int addr;
 	int num;
 
-	flags = GetMessageFlags(&cb->currentMessage);
-	num = GetMessageNum(&cb->currentMessage);
-	addr = ByteAt(&cb->currentMessage, 5);
+	flags = GetMessageFlags(cb->currentMessage);
+	num = GetMessageNum(cb->currentMessage);
+	addr = ByteAt(cb->currentMessage, 5);
 
 	ddcmpLine->Log(LogInfo, "Received REP message. Flags=%s%s, N=%d, A=%d\n", LOGFLAGS(flags), num, addr);
 
@@ -1091,7 +1101,7 @@ static int GiveMessageToUserAction(ddcmp_line_t *ddcmpLine)
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	int ans = 1;
 	ddcmpLine->Log(LogVerbose, "Give message to user action\n");
-	if (!ddcmpLine->NotifyDataMessage(ddcmpLine->context, &cb->currentMessage.data[8], GetDataMessageCount(&cb->currentMessage)))
+	if (!ddcmpLine->NotifyDataMessage(ddcmpLine->context, &cb->currentMessage->data[8], GetDataMessageCount(cb->currentMessage)))
 	{
 		cb->NAKReason = 8;
 		cb->SACKNAK = SNAK;
@@ -1105,8 +1115,8 @@ static int SendMessageAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	transmit_queue_entry_t * entry = GetNextTransmitQueueEntryToSend();
-	int num = GetMessageNum(&cb->currentMessage);
-	int resp = GetMessageResp(&cb->currentMessage);
+	int num = GetMessageNum(cb->currentMessage);
+	int resp = GetMessageResp(cb->currentMessage);
 	ddcmpLine->Log(LogVerbose, "Send next message action\n");
 	ddcmpLine->Log(LogInfo, "Sending Data. N=%d, R=%d\n", num, resp);
 	SendRawMessage(ddcmpLine, entry->buffer.data, entry->buffer.length);
@@ -1133,7 +1143,7 @@ static int SetAVarAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Set A variable action\n");
-	cb->A = GetMessageResp(&cb->currentMessage);
+	cb->A = GetMessageResp(cb->currentMessage);
 	return 1;
 }
 
@@ -1161,7 +1171,7 @@ static int SetXVarFromMsgNumAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Set T variable from ack action\n");
-	cb->X = GetMessageNum(&cb->currentMessage);
+	cb->X = GetMessageNum(cb->currentMessage);
 	return 1;
 }
 
