@@ -27,13 +27,15 @@
 
   ------------------------------------------------------------------------------*/
 
-// TODO: implement partial buffers
+// TODO: Implement blocked send in socket
+// TODO: Make sure buffers cannot overflow if receive malformed message (test with a buffer size that is too small).
 // TODO: Implement SELECT for half-duplex
 // TODO: Send NAK if CRC is wrong (2.5.3.1)
 // TODO: perhaps remove position stuff from buffer.
 
 #include <stdlib.h>
 #include <memory.h>
+#include <string.h>
 #include "ddcmp.h"
 
 #define MAX_STATE_TABLE_ACTIONS 6
@@ -86,6 +88,13 @@ typedef enum
 	SNAK
 } SendAckNakFlagState;
 
+typedef enum
+{
+	Incomplete,
+	CompleteBad,
+	CompleteGood
+} ExtractBufferResult;
+
 typedef struct
 {
 	byte *data;
@@ -120,6 +129,9 @@ typedef struct
 	byte NAKReason;
 	buffer_t *currentMessage;
 	void *replyTimerHandle;
+	byte partialBufferData[MAX_DDCMP_BUFFER_LENGTH];
+	buffer_t partialBuffer;
+	int partialBufferIsSynchronized;
 } ddcmp_line_control_block_t;
 
 typedef struct
@@ -144,6 +156,9 @@ static int BufferStillHasData(buffer_t *buffer);
 static int RemainingBytesInBuffer(buffer_t *buffer);
 static int CurrentBufferPosition(buffer_t *buffer);
 static void SetBufferPosition(buffer_t *buffer, int position);
+static void AppendBuffer(buffer_t *dst, buffer_t *src);
+static void TruncateUsedBufferPortion(buffer_t *buffer);
+static void LogBuffer(ddcmp_line_t *line, LogLevel level, buffer_t *buffer);
 
 static void InitialiseTransmitQueue(void);
 static transmit_queue_entry_t *AllocateNextTransmitQueueEntry(void);
@@ -155,7 +170,7 @@ static uint16 Crc16(uint16 crc, buffer_t *buffer);
 static void AddCrc16ToBuffer(byte *data, int length);
 static void DoIdle(ddcmp_line_t *ddcmpLine);
 static int SynchronizeMessageFrame(ddcmp_line_t *ddcmpLine, buffer_t *buffer);
-static int ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buffer);
+static ExtractBufferResult ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buffer);
 static int SendMessageAddingCrc16(ddcmp_line_t *ddcmpLine, byte *data, int length);
 static int SendRawMessage(ddcmp_line_t *ddcmpLine, byte *data, int length);
 static void ReplyTimerHandler(void *timerContext);
@@ -266,11 +281,16 @@ void DdcmpStart(ddcmp_line_t *ddcmpLine)
 	{
 		ddcmpLine->controlBlock = (ddcmp_line_control_block_t *)calloc(1, sizeof(ddcmp_line_control_block_t));
 	}
+	else
+	{
+		memset(ddcmpLine->controlBlock, 0, sizeof(ddcmp_line_control_block_t));
+	}
 
 	InitialiseTransmitQueue();
 	cb = GetControlBlock(ddcmpLine);
 	cb->state = DdcmpLineHalted;
 	cb->SACKNAK = NotSet;
+	InitialiseBuffer(&cb->partialBuffer, cb->partialBufferData, 0);
 	ProcessEvent(ddcmpLine, UserRequestsStartup);
 }
 
@@ -282,17 +302,29 @@ void DdcmpHalt(ddcmp_line_t *ddcmpLine)
 void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	buffer_t buffer;
+	buffer_t incomingBuffer;
 	buffer_t extractedBuffer;
 
-	InitialiseBuffer(&buffer, data, length);
+	InitialiseBuffer(&incomingBuffer, data, length);
+	AppendBuffer(&cb->partialBuffer, &incomingBuffer);
+	//ddcmpLine->Log(LogFatal, "Partial(Pos:%d of %d): ", cb->partialBuffer.position, cb->partialBuffer.length);
+	//LogBuffer(ddcmpLine, LogFatal, &cb->partialBuffer);
+	//ddcmpLine->Log(LogFatal, "\n");
 
-	while(BufferStillHasData(&buffer))
+	while(BufferStillHasData(&cb->partialBuffer))
 	{
-	    if (SynchronizeMessageFrame(ddcmpLine, &buffer))
+		if (!cb->partialBufferIsSynchronized)
 		{
-			cb->currentMessage = &extractedBuffer;
-			if (ExtractMessage(ddcmpLine, &buffer))
+			cb->partialBufferIsSynchronized = SynchronizeMessageFrame(ddcmpLine, &cb->partialBuffer);
+			TruncateUsedBufferPortion(&cb->partialBuffer);
+		}
+
+	    if (cb->partialBufferIsSynchronized)
+		{
+			ExtractBufferResult extractResult;
+			cb->currentMessage = &extractedBuffer; /* set up location to store buffer to */
+			extractResult = ExtractMessage(ddcmpLine, &cb->partialBuffer);
+			if (extractResult == CompleteGood)
 			{
 				switch (CurrentByte(cb->currentMessage))
 				{
@@ -320,6 +352,15 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 						break;
 					}
 				}
+			}
+			
+			if (extractResult == Incomplete)
+			{
+				break;
+			}
+			else
+			{
+				TruncateUsedBufferPortion(&cb->partialBuffer);
 			}
 		}
 	}
@@ -440,6 +481,32 @@ static int CurrentBufferPosition(buffer_t *buffer)
 static void SetBufferPosition(buffer_t *buffer, int position)
 {
 	buffer->position = position;
+}
+
+static void AppendBuffer(buffer_t *dst, buffer_t *src)
+{
+	int len = RemainingBytesInBuffer(src);
+	memcpy(&dst->data[dst->length], &src->data[src->position], len); // TODO: check for buffer overflow, will need a buffer size field in the buffer type
+	dst->length += len;
+	AdvanceBufferPostion(src, len);
+}
+
+static void TruncateUsedBufferPortion(buffer_t *buffer)
+{
+	int len = RemainingBytesInBuffer(buffer);
+	memmove(buffer->data, buffer->data + buffer->position, len);
+	buffer->length = len;
+	buffer->position = 0;
+}
+
+static void LogBuffer(ddcmp_line_t *line, LogLevel level, buffer_t *buffer)
+{
+	int i;
+	int len = RemainingBytesInBuffer(buffer);
+	for (i = 0; i < len; i++)
+	{
+		line->Log(level, "%02X ", ByteAt(buffer, buffer->position + i));
+	}
 }
 
 static void InitialiseTransmitQueue(void)
@@ -610,10 +677,11 @@ static int SynchronizeMessageFrame(ddcmp_line_t *ddcmpLine, buffer_t *buffer)
 	return ans;
 }
 
-static int ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buffer)
+static ExtractBufferResult ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buffer)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	int ans = 0;
+	ExtractBufferResult ans = Incomplete;
+	int savePos = CurrentBufferPosition(buffer);
 	switch (CurrentByte(buffer))
 	{
 	case ENQ:
@@ -622,12 +690,17 @@ static int ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buffer)
 			{
 				if (Crc16(0, cb->currentMessage) == 0)
 				{
-					ans = 1;
+					ans = CompleteGood;
 				}
 				else
 				{
+					ans = CompleteBad;
 					ddcmpLine->Log(LogWarning, "CRC error on recieved message\n");
 				}
+			}
+			else
+			{
+				ans = Incomplete;
 			}
 			break;
 		}
@@ -635,7 +708,6 @@ static int ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buffer)
 	case SOH:
 	case DLE:
 		{
-			int savePos = CurrentBufferPosition(buffer);
 			if (BufferFromSegment(buffer, 8, cb->currentMessage))
 			{
 				if (Crc16(0, cb->currentMessage) == 0)
@@ -648,33 +720,43 @@ static int ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buffer)
 						if (Crc16( 0, cb->currentMessage) == 0)
 						{
 							ResetBuffer(cb->currentMessage);
-							ans = 1;
+							ans = CompleteGood;
 						}
 						else
 						{
+							ans = CompleteBad;
 							ddcmpLine->Log(LogWarning, "CRC error on recieved data block\n");
 						}
 					}
 					else
 					{
-						SetBufferPosition(buffer, savePos);
+						ans = Incomplete;
 					}
 				}
 				else
 				{
+					ans = CompleteBad;
 					ddcmpLine->Log(LogWarning, "CRC error on recieved message header\n");
 				}
+			}
+			else
+			{
+				ans = Incomplete;
 			}
 			break;
 		}
 
 	default:
 		{
-			ans = 0;
+			ans = CompleteBad;
 			break;
 		}
 	}
 
+	if (ans == Incomplete)
+	{
+		SetBufferPosition(buffer, savePos);
+	}
 
 	return ans;
 }
