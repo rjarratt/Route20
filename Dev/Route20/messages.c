@@ -162,6 +162,64 @@ int GetRouterLevel(int iinfo)
 	return ans;
 }
 
+int VersionSupported(byte tiver[3])
+{
+	int ans = 0;
+	if (tiver[0] >= 2) /* greater than or equal to 2.0.0 */
+	{
+		ans = 1;
+	}
+
+	if (ans == 0)
+	{
+		Log(LogMessages, LogWarning, "Received message for unsupported routing specification version %d.%d.%d\n", tiver[0], tiver[1], tiver[2]);
+	}
+
+	return ans;
+}
+
+packet_t *CreateInitialization(decnet_address_t address)
+{
+    static initialization_msg_t msg;
+    static packet_t ans;
+
+	memset(&msg, 0, sizeof(msg));
+
+    msg.flags = 0x01;
+	msg.tiver[0] = 2;
+	msg.tiver[1] = 0;
+	msg.tiver[2] = 0;
+	msg.srcnode = Uint16ToLittleEndian(GetDecnetId(nodeInfo.address));
+	msg.tiinfo = (nodeInfo.level == 2) ? 1 : 2;
+	msg.blksize = Uint16ToLittleEndian(576);
+	msg.timer = Uint16ToLittleEndian(T3);
+
+	ans.payload = (byte *)&msg;
+	ans.payloadLen = sizeof(initialization_msg_t);
+	ans.rawData = ans.payload;
+	ans.rawLen = ans.payloadLen;
+
+	return &ans;
+}
+
+packet_t *CreateVerification(decnet_address_t address)
+{
+    static verification_msg_t msg;
+    static packet_t ans;
+
+	memset(&msg, 0, sizeof(msg));
+
+    msg.flags = 0x03;
+	msg.srcnode = Uint16ToLittleEndian(GetDecnetId(nodeInfo.address));
+
+	ans.payload = (byte *)&msg;
+	ans.payloadLen = sizeof(verification_msg_t);
+	ans.rawData = ans.payload;
+	ans.rawLen = ans.payloadLen;
+
+	return &ans;
+}
+
 packet_t *CreateEthernetHello(decnet_address_t address)
 {
 	static ethernet_router_hello_t msg;
@@ -421,6 +479,37 @@ node_init_phaseii_t *ValidateAndParseNodeInitPhaseIIMessage(packet_t *packet)
 	return ans;
 }
 
+int IsValidInitializationMessage(packet_t *packet)
+{
+    int valid = 0;
+    if (packet->payloadLen < sizeof(initialization_msg_t))
+    {
+		Log(LogMessages, LogError, "Initialization message too short\n");
+    }
+    else
+    {
+        initialization_msg_t *msg = (initialization_msg_t *)packet->payload;
+        if (msg->reserved != 0)
+        {
+		    Log(LogMessages, LogError, "Initialization message contains non-zero reserved field\n");
+        }
+        else
+        {
+            valid = 1;
+        }
+    }
+
+    return valid;
+}
+
+initialization_msg_t *ParseInitializationMessage(packet_t *packet)
+{
+    initialization_msg_t *msg = (initialization_msg_t *)packet->payload;
+    msg->blksize = LittleEndianToUint16(msg->blksize);
+    msg->timer = LittleEndianToUint16(msg->timer);
+    return msg;
+}
+
 routing_msg_t *ParseRoutingMessage(packet_t *packet)
 {
 	routing_msg_t *msg = NULL;
@@ -653,7 +742,7 @@ packet_t *CreateNodeInitPhaseIIMessage(decnet_address_t address, char *name)
 		msg.commver[2] = 0;
 		strcpy(msg.sysver, "user-mode DECnet router");
 		sysverlen = strlen(msg.sysver);
-		msg.sysverLen = sysverlen;
+		msg.sysverLen = (byte)sysverlen;
 
 		memmove(msg.nodename + msg.nodenameLen, &msg.functions, 15 + sysverlen);
 

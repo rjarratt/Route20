@@ -41,6 +41,7 @@ ddcmp_circuit_t *DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationH
 	ddcmp_circuit_t *ans = (ddcmp_circuit_t *)malloc(sizeof(ddcmp_circuit_t));
 	ddcmp_sock_t *context = (ddcmp_sock_t *)malloc(sizeof(ddcmp_sock_t));
 	
+    context->ddcmpCircuit = ans;
 	context->destinationHostName = (char *)malloc(strlen(destinationHostName) + 1);
 	strcpy(context->destinationHostName, destinationHostName);
 
@@ -63,9 +64,9 @@ int DdcmpCircuitOpen(circuit_t *circuit)
 
 int DdcmpCircuitStart(circuit_t *circuit)
 {
-	//time_t now;
-	//time(&now);
-	//CreateTimer("AllRoutersHello", now, T3, circuit, HandleHelloTimer);
+    packet_t *pkt = CreateInitialization(nodeInfo.address);
+    Log(LogDdcmpInit, LogInfo, "Sending Initialization message on %s\n", circuit->name);
+    circuit->WritePacket(circuit, NULL, NULL, pkt);
 	return 0;
 }
 
@@ -75,26 +76,26 @@ packet_t *DdcmpCircuitReadPacket(circuit_t *circuit)
 	packet_t *ans;
 
 	ans = context->ReadPacket(context);
-	//if (ans != NULL)
-	//{
-	//	circuit->stats.validRawPacketsReceived++;
-	//	if (!ans->IsDecnet(ans))
-	//	{
-	//		ans = NULL;
-	//	}
-	//	else
-	//	{
-	//		circuit->stats.decnetPacketsReceived++;
-	//		if (!IsAddressedToThisNode(ans))
-	//		{
-	//			ans = NULL;
-	//		}
-	//		else
-	//		{
-	//			circuit->stats.decnetToThisNodePacketsReceived++;
-	//		}
-	//	}
-	//}
+	if (ans != NULL)
+	{
+		circuit->stats.validRawPacketsReceived++;
+		//if (!ans->IsDecnet(ans))
+		//{
+		//	ans = NULL;
+		//}
+		//else
+		//{
+		//	circuit->stats.decnetPacketsReceived++;
+		//	if (!IsAddressedToThisNode(ans))
+		//	{
+		//		ans = NULL;
+		//	}
+		//	else
+		//	{
+		//		circuit->stats.decnetToThisNodePacketsReceived++;
+		//	}
+		//}
+	}
 
 	return ans;
 }
@@ -102,25 +103,9 @@ packet_t *DdcmpCircuitReadPacket(circuit_t *circuit)
 int DdcmpCircuitWritePacket(circuit_t *circuit, decnet_address_t *from, decnet_address_t *to, packet_t *packet)
 {
 	int ans = 0;
-	//int len;
-	//ddcmp_circuit_t *context = (ddcmp_circuit_t *)circuit->context;
-	//packet_t toSend;
-
-	//toSend.rawLen = packet->payloadLen + 16;
-	//toSend.rawData = (byte *)malloc(toSend.rawLen);
-	//toSend.payloadLen = packet->payloadLen;
-	//toSend.payload = toSend.rawData + 16;
-
-	//SetDecnetAddress((decnet_ddcmp_address_t *)toSend.rawData, *to);
-	//SetDecnetAddress((decnet_ddcmp_address_t *)&toSend.rawData[6], *from);
-	//toSend.rawData[12] = 0x60;
-	//toSend.rawData[13] = 0x03;
-	//len = Uint16ToLittleEndian((uint16)packet->payloadLen);
-	//memcpy(&toSend.rawData[14], &len, 2);
-	//memcpy(toSend.payload, packet->payload, packet->payloadLen);
-	//ans = context->WritePacket(context, &toSend);
-	//free(toSend.rawData);
-	//circuit->stats.packetsSent++;
+	ddcmp_circuit_t *context = (ddcmp_circuit_t *)circuit->context;
+    ans = context->WritePacket(context, packet);
+	circuit->stats.packetsSent++;
 	return ans;
 }
 
