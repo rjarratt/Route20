@@ -313,7 +313,7 @@ static AdjacencyState GetNewAdjacencyState(rslist_t *routers, int routersCount)
 static void PurgeLowestPriorityAdjacency(void)
 {
 	int i;
-	adjacency_t *selectedAdjacency;
+	adjacency_t *selectedAdjacency = NULL;
 	int lowestPriority = INT_MAX;
 	int lowestId = INT_MAX;
 	int slotToDelete;

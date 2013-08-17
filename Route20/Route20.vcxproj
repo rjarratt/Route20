@@ -62,7 +62,7 @@
       <PrecompiledHeaderOutputFile>
       </PrecompiledHeaderOutputFile>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
-      <DisableSpecificWarnings>4100;4200;4127;4206</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4100;4200;4127;4206;4706</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -85,6 +85,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_MBCS</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>C:\Users\Rob\Documents\DEC\DECEmulation\WinPCap Developer Pack WpdPack_4_1_2\WpdPack\Include</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4706</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
