@@ -198,6 +198,7 @@ static int SendStartAction(ddcmp_line_t *ddcmpLine);
 static int SendAckAction(ddcmp_line_t *ddcmpLine);
 static int SendStackAction(ddcmp_line_t *ddcmpLine);
 static int ResetVariablesAction(ddcmp_line_t *ddcmpLine);
+static int NotifyRunningAction(ddcmp_line_t *ddcmpLine);
 static int NotifyHaltAction(ddcmp_line_t *ddcmpLine);
 static int SetSackAction(ddcmp_line_t *ddcmpLine);
 static int SetSnakAction(ddcmp_line_t *ddcmpLine);
@@ -237,13 +238,13 @@ static state_table_entry_t stateTable[] =
 
 	{ UserRequestsStartup,                DdcmpLineHalted,   DdcmpLineIStrt,    { SendStartAction, ResetVariablesAction, StartTimerAction } },
 
-	{ ReceiveStack,                       DdcmpLineIStrt,    DdcmpLineRunning,  { SendAckAction, StopTimerAction } },
+	{ ReceiveStack,                       DdcmpLineIStrt,    DdcmpLineRunning,  { SendAckAction, StopTimerAction, NotifyRunningAction } },
 	{ ReceiveStrt,                        DdcmpLineIStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
 	{ TimerExpires,                       DdcmpLineIStrt,    DdcmpLineIStrt,    { SendStartAction, StartTimerAction } },
 
-	{ ReceiveAckResp0,                    DdcmpLineAStrt,    DdcmpLineRunning,  { StopTimerAction } },
-	{ ReceiveDataResp0, /*notused?*/      DdcmpLineAStrt,    DdcmpLineRunning,  { StopTimerAction } },
-	{ ReceiveStack,                       DdcmpLineAStrt,    DdcmpLineRunning,  { SendAckAction, StopTimerAction } },
+	{ ReceiveAckResp0,                    DdcmpLineAStrt,    DdcmpLineRunning,  { StopTimerAction, NotifyRunningAction } },
+	{ ReceiveDataResp0, /*notused?*/      DdcmpLineAStrt,    DdcmpLineRunning,  { StopTimerAction, NotifyRunningAction } },
+	{ ReceiveStack,                       DdcmpLineAStrt,    DdcmpLineRunning,  { SendAckAction, StopTimerAction, NotifyRunningAction } },
 	{ ReceiveStrt,                        DdcmpLineAStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
 	{ TimerExpires,                       DdcmpLineAStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
 
@@ -1124,6 +1125,17 @@ static int ResetVariablesAction(ddcmp_line_t *ddcmpLine)
 	cb->A = 0;
 	cb->T = 1;
 	cb->X = 0;
+	return 1;
+}
+
+static int NotifyRunningAction(ddcmp_line_t *ddcmpLine)
+{
+	ddcmpLine->Log(LogVerbose, "Notify running action\n");
+	if (ddcmpLine->NotifyRunning != NULL)
+	{
+		ddcmpLine->NotifyRunning(ddcmpLine->context);
+	}
+
 	return 1;
 }
 

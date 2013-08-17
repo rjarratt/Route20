@@ -43,6 +43,7 @@ typedef struct ddcmp_line
 	void (*CancelOneShotTimer)(void *timerHandle);
 	void (*SendData)(void *context, byte *data, int length);
 	void (*NotifyHalt)(void *context);
+	void (*NotifyRunning)(void *context);
 	int  (*NotifyDataMessage)(void *context, byte *data, int length);
     void (*Log)(LogLevel level, char *format, ...);
 } ddcmp_line_t;
