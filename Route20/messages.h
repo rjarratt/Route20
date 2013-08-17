@@ -56,13 +56,21 @@ typedef struct
 
 typedef struct
 {
-	byte          srcnode[2];
+	byte          flags;
+	uint16        srcnode;
 	byte          tiinfo;
 	uint16        blksize;
 	byte          tiver[3];
 	uint16        timer;
-
+    byte          reserved;
 } initialization_msg_t;
+
+typedef struct
+{
+	byte          flags;
+	uint16        srcnode;
+    byte          fcnval;
+} verification_msg_t;
 
 typedef struct
 {
@@ -196,7 +204,11 @@ int IsEthernetEndNodeHelloMessage(packet_t *packet);
 int IsDataMessage(packet_t *packet);
 int GetMessageBody(packet_t *packet);
 int GetRouterLevel(int iinfo);
+int VersionSupported(byte tiver[3]);
 
+
+packet_t *CreateInitialization(decnet_address_t address);
+packet_t *CreateVerification(decnet_address_t address);
 packet_t *CreateEthernetHello(decnet_address_t address);
 packet_t *CreateLevel1RoutingMessage(int from, int count);
 packet_t *CreateLevel2RoutingMessage(void);
@@ -207,6 +219,8 @@ int IsValidRouterHelloMessage(packet_t *packet);
 int IsValidEndnodeHelloMessage(packet_t *packet);
 void ExtractRoutingInfo(uint16 routingInfo, int *hops, int *cost);
 node_init_phaseii_t *ValidateAndParseNodeInitPhaseIIMessage(packet_t *packet);
+int IsValidInitializationMessage(packet_t *packet);
+initialization_msg_t *ParseInitializationMessage(packet_t *packet);
 routing_msg_t *ParseRoutingMessage(packet_t *packet);
 void FreeRoutingMessage(routing_msg_t *msg);
 int IsValidDataPacket(packet_t *packet);

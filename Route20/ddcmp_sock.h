@@ -40,6 +40,7 @@
 
 typedef struct
 {
+    ddcmp_circuit_t *ddcmpCircuit;
 	socket_t socket;
 	char *destinationHostName;
 	sockaddr_t destinationAddress;

@@ -73,7 +73,6 @@ static void ProcessPhaseIIMessage(circuit_t *circuit, packet_t *packet);
 static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet);
 static int RouterHelloIsForThisNode(decnet_address_t *from, int iinfo);
 static int EndnodeHelloIsForThisNode(decnet_address_t *from, int iinfo);
-static int VersionSupported(byte tiver[3]);
 static void LogMessage(circuit_t *circuit, packet_t *packet, char *messageName);
 static void LogLoopbackMessage(circuit_t *circuit, packet_t *packet, char *messageName);
 
@@ -108,7 +107,12 @@ int Initialise(char *configFileName)
 		for (i = 1; i <= numCircuits; i++)
 		{
 			ans &= (*(Circuits[i].Open))(&Circuits[i]);
-			(*(Circuits[i].Start))(&Circuits[i]);
+			if (Circuits[i].circuitType == EthernetCircuit)
+            {
+                /* non-ethernet circuits start when the line is up */
+                /* TODO: change to have a Line Up event that starts all circuits rather than have this condition, makes it more general */
+                (*(Circuits[i].Start))(&Circuits[i]);
+            }
 		}
 		time(&now);
 		CreateTimer("PurgeAdjacencies", now + 1, 1, NULL, PurgeAdjacenciesCallback);
@@ -322,6 +326,10 @@ static char *ReadLoggingConfig(FILE *f, int *ans)
 			else if (stricmp(name, "ddcmp") == 0)
 			{
 				ParseLogLevel(value, &LoggingLevels[LogDdcmp]);
+			}
+			else if (stricmp(name, "ddcmpinit") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogDdcmpInit]);
 			}
 			else if (stricmp(name, "sock") == 0)
 			{
@@ -820,15 +828,11 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 	if (IsInitializationMessage(packet))
 	{
 		LogMessage(circuit, packet, "Initialization");
-		//if (1 /* TODO check valid */)
-		//{
-		//	initialization_msg_t *msg = (initialization_msg_t *)packet->payload;
-		//	decnet_address_t from;
-		//	GetDecnetAddressFromId(msg->srcnode, &from);
-		//	Log(LogMessages, LogVerbose, "Initialization. From ");
-		//	LogDecnetAddress(LogMessages, LogVerbose, &from);
-		//	Log(LogMessages, LogVerbose, "Block %d, Ver %d.%d.%d\n", msg->blksize, msg->tiver[0], msg->tiver[1], msg->tiver[2]);
-		//}
+		if (IsValidInitializationMessage(packet))
+		{
+			initialization_msg_t *msg = ParseInitializationMessage(packet);
+            DdcmpInitProcessInitializationMessage(circuit, msg);
+		}
 	}
 	else if (IsVerificationMessage(packet))
 	{
@@ -987,22 +991,6 @@ static int EndnodeHelloIsForThisNode(decnet_address_t *from, int iinfo)
 	if (fromLevel == 3 && (nodeInfo.level == 1 || nodeInfo.level == 2))
 	{
 		ans = from->area == nodeInfo.address.area;
-	}
-
-	return ans;
-}
-
-static int VersionSupported(byte tiver[3])
-{
-	int ans = 0;
-	if (tiver[0] >= 2) /* greater than or equal to 2.0.0 */
-	{
-		ans = 1;
-	}
-
-	if (ans == 0)
-	{
-		Log(LogMessages, LogWarning, "Received message for unsupported routing specification version %d.%d.%d\n", tiver[0], tiver[1], tiver[2]);
 	}
 
 	return ans;

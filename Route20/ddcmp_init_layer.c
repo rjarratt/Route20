@@ -79,6 +79,48 @@ void DdcmpInitLayerStop(void)
 	}
 }
 
+void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_msg_t *msg)
+{
+    decnet_address_t from;
+    GetDecnetAddressFromId((byte *)&msg->srcnode, &from);
+    
+    Log(LogMessages, LogVerbose, "Initialization. From ");
+    LogDecnetAddress(LogMessages, LogVerbose, &from);
+    Log(LogMessages, LogVerbose, " Node: %d", msg->tiinfo & 0x03);
+    Log(LogMessages, LogVerbose, " Verify: %s", (msg->tiinfo & 0x04) ? "Y" : "N");
+    Log(LogMessages, LogVerbose, " Block Req: %s", (msg->tiinfo & 0x08) ? "Y" : "N");
+    Log(LogMessages, LogVerbose, " Block size %d, Ver %d.%d.%d", msg->blksize, msg->tiver[0], msg->tiver[1], msg->tiver[2]);
+    Log(LogMessages, LogVerbose, " Timer: %d\n", msg->timer);
+
+    if (from.node > NN)
+    {
+        Log(LogDdcmpInit, LogError, "Initialization received for node number outside maximum allowed\n");
+    }
+    else if (nodeInfo.level == 1 && nodeInfo.address.area != from.area)
+    {
+        Log(LogDdcmpInit, LogError, "Initialization received from another area when configured as Level 1 router\n");
+    }
+    else if (nodeInfo.level == 2 && (GetRouterLevel(msg->tiinfo) == 1 && nodeInfo.address.area != from.area))
+    {
+        Log(LogDdcmpInit, LogError, "Initialization received from non Level 2 node in another area\n");
+    }
+    else if (0) /* TODO: spec section 7.5 has some conditions on block size */
+    {
+        Log(LogDdcmpInit, LogError, "Initialization received for invalid block size\n");
+    }
+    else if (VersionSupported(msg->tiver))
+    {
+        packet_t *packet = CreateVerification(nodeInfo.address);
+        Log(LogDdcmpInit, LogInfo, "Initialization received\n");
+        if (msg->tiinfo & 0x04)
+        {
+            Log(LogDdcmpInit, LogInfo, "Sending verification message\n");
+            circuit->WritePacket(circuit, NULL, NULL, packet);
+        }
+
+    }
+}
+
 void DdcmpInitProcessPhaseIINodeInitializationMessage(circuit_t *circuit, node_init_phaseii_t *msg)
 {
 	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
@@ -89,7 +131,7 @@ void DdcmpInitProcessPhaseIINodeInitializationMessage(circuit_t *circuit, node_i
 		// TODO: implement verification message required
 	}
 
-	pkt = CreateNodeInitPhaseIIMessage(nodeInfo.address);
+	pkt = CreateNodeInitPhaseIIMessage(nodeInfo.address, nodeInfo.name);
 	if (pkt != NULL)
 	{
 		DdcmpSendDataMessage(&ddcmpSock->line, pkt->payload, pkt->payloadLen);
