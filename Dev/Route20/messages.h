@@ -201,7 +201,7 @@ packet_t *CreateEthernetHello(decnet_address_t address);
 packet_t *CreateLevel1RoutingMessage(int from, int count);
 packet_t *CreateLevel2RoutingMessage(void);
 packet_t *CreateLongDataMessage(decnet_address_t *srcNode, decnet_address_t *dstNode, byte flags, int visits, byte *data, int dataLength);
-packet_t *CreateNodeInitPhaseIIMessage(decnet_address_t address);
+packet_t *CreateNodeInitPhaseIIMessage(decnet_address_t address, char *name);
 
 int IsValidRouterHelloMessage(packet_t *packet);
 int IsValidEndnodeHelloMessage(packet_t *packet);
