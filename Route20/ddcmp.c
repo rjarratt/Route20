@@ -247,7 +247,7 @@ static state_table_entry_t stateTable[] =
 	{ ReceiveStrt,                        DdcmpLineAStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
 	{ TimerExpires,                       DdcmpLineAStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },
 
-	{ ReceiveStrt,                        DdcmpLineRunning,  DdcmpLineHalted,   { SendStackAction, StartTimerAction, NotifyHaltAction } },
+	{ ReceiveStrt,                        DdcmpLineRunning,  DdcmpLineHalted,   { NotifyHaltAction } },
 	{ ReceiveStack,                       DdcmpLineRunning,  DdcmpLineRunning,  { SendAckAction } },
 
 	{ ReceiveRepNumEqualsR,               DdcmpLineRunning,  DdcmpLineRunning,  { SetSackAction } },
