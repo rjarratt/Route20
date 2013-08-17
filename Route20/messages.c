@@ -622,7 +622,7 @@ packet_t *CreateLongDataMessage(decnet_address_t *srcNode, decnet_address_t *dst
 	return &ans;
 }
 
-packet_t *CreateNodeInitPhaseIIMessage(decnet_address_t address)
+packet_t *CreateNodeInitPhaseIIMessage(decnet_address_t address, char *name)
 {
 	static node_init_phaseii_t msg;
 	static packet_t pkt;
@@ -639,7 +639,7 @@ packet_t *CreateNodeInitPhaseIIMessage(decnet_address_t address)
 		msg.starttype = 1;
 		msg.nodeaddr = address.node & 0xFF;
 		msg.nodenameLen = 5;
-		memcpy(msg.nodename, nodeInfo.name, strlen(nodeInfo.name));
+		memcpy(msg.nodename, name, strlen(name));
 		msg.functions = 0x7;
 		msg.requests = 0;
 		msg.blksize = Uint16ToLittleEndian(4096);
