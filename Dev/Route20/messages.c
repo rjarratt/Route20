@@ -220,6 +220,25 @@ packet_t *CreateVerification(decnet_address_t address)
 	return &ans;
 }
 
+packet_t *CreateHelloAndTest(decnet_address_t address)
+{
+    static hello_and_test_msg_t msg;
+    static packet_t ans;
+
+	memset(&msg, 0, sizeof(msg));
+
+    msg.flags = 0x05;
+	msg.srcnode = Uint16ToLittleEndian(GetDecnetId(nodeInfo.address));
+    msg.testdataLength = 0;
+
+	ans.payload = (byte *)&msg;
+	ans.payloadLen = sizeof(hello_and_test_msg_t);
+	ans.rawData = ans.payload;
+	ans.rawLen = ans.payloadLen;
+
+	return &ans;
+}
+
 packet_t *CreateEthernetHello(decnet_address_t address)
 {
 	static ethernet_router_hello_t msg;
@@ -496,6 +515,39 @@ int IsValidInitializationMessage(packet_t *packet)
         else
         {
             valid = 1;
+        }
+    }
+
+    return valid;
+}
+
+int IsValidHelloAndTestMessage(packet_t *packet)
+{
+    int valid = 0;
+    if (packet->payloadLen < sizeof(hello_and_test_msg_t))
+    {
+		Log(LogMessages, LogError, "Hello And Test message too short\n");
+    }
+    else
+    {
+        hello_and_test_msg_t *msg = (hello_and_test_msg_t *)packet->payload;
+        if (msg->testdataLength > 128)
+        {
+		    Log(LogMessages, LogError, "Hello And Test message contains too much test data\n");
+        }
+        else
+        {
+            int i;
+            valid = 1;
+            for (i = 0; i < msg->testdataLength; i++)
+            {
+                if (msg->testdata[i] != 0252)
+                {
+                    valid = 0;
+		            Log(LogMessages, LogError, "Hello And Test message contains invalid test data\n");
+                    break;
+                }
+            }
         }
     }
 

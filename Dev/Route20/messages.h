@@ -74,6 +74,14 @@ typedef struct
 
 typedef struct
 {
+	byte          flags;
+	uint16        srcnode;
+    byte          testdataLength;
+    byte          testdata[0];
+} hello_and_test_msg_t;
+
+typedef struct
+{
 	byte   flags;
 	uint16 srcNode;
 	byte   res;
@@ -209,17 +217,19 @@ int VersionSupported(byte tiver[3]);
 
 packet_t *CreateInitialization(decnet_address_t address);
 packet_t *CreateVerification(decnet_address_t address);
+packet_t *CreateHelloAndTest(decnet_address_t address);
 packet_t *CreateEthernetHello(decnet_address_t address);
 packet_t *CreateLevel1RoutingMessage(int from, int count);
 packet_t *CreateLevel2RoutingMessage(void);
 packet_t *CreateLongDataMessage(decnet_address_t *srcNode, decnet_address_t *dstNode, byte flags, int visits, byte *data, int dataLength);
 packet_t *CreateNodeInitPhaseIIMessage(decnet_address_t address, char *name);
 
+int IsValidInitializationMessage(packet_t *packet);
+int IsValidHelloAndTestMessage(packet_t *packet);
 int IsValidRouterHelloMessage(packet_t *packet);
 int IsValidEndnodeHelloMessage(packet_t *packet);
 void ExtractRoutingInfo(uint16 routingInfo, int *hops, int *cost);
 node_init_phaseii_t *ValidateAndParseNodeInitPhaseIIMessage(packet_t *packet);
-int IsValidInitializationMessage(packet_t *packet);
 initialization_msg_t *ParseInitializationMessage(packet_t *packet);
 routing_msg_t *ParseRoutingMessage(packet_t *packet);
 void FreeRoutingMessage(routing_msg_t *msg);
