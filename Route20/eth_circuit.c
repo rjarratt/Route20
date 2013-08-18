@@ -158,9 +158,7 @@ static void HandleHelloTimer(rtimer_t *timer, char *name, void *context)
 {
 	packet_t *packet;
 
-	time_t now;
 	circuit_t *circuit = (circuit_t *)context;
-	time(&now);
 	/*Log(LogInfo, "Hello Timer to All Routers %s\n", circuit->name);*/
 	packet = CreateEthernetHello(nodeInfo.address);
 	circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet);

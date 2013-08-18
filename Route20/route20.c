@@ -841,6 +841,10 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 	else if (IsHelloAndTestMessage(packet))
 	{
 		LogMessage(circuit, packet, "Hello and Test");
+        if (IsValidHelloAndTestMessage(packet))
+        {
+            // TODO: adjacency liveness code needed here.
+        }
 	}
 	else if (IsLevel1RoutingMessage(packet))
 	{

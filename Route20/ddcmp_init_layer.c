@@ -39,12 +39,14 @@ in this Software without prior written authorization from the author.
 #include "ddcmp_circuit.h"
 #include "ddcmp_sock.h"
 #include "messages.h"
+#include "timer.h"
 
 static circuit_t * ddcmpCircuits[NC];
 static int ddcmpCircuitCount;
 
 static socket_t * TcpAcceptCallback(sockaddr_t *receivedFrom);
 static void TcpConnectCallback(socket_t *sock);
+static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context);
 
 void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount)
 {
@@ -114,8 +116,14 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
         Log(LogDdcmpInit, LogInfo, "Initialization received\n");
         if (msg->tiinfo & 0x04)
         {
+            time_t now;
             Log(LogDdcmpInit, LogInfo, "Sending verification message\n");
             circuit->WritePacket(circuit, NULL, NULL, packet);
+
+            time(&now);
+            CreateTimer("HelloAndTest", now, T3, circuit, HandleHelloAndTestTimer);
+            // TODO: Cancel timer when adjacency down, circuit halted etc.
+            // TODO: Check possible DDCMP seq no wrap error causing circuit to drop
         }
 
     }
@@ -179,3 +187,13 @@ static void TcpConnectCallback(socket_t *sock)
 		}
 	}
 }
+
+static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context)
+{
+	packet_t *packet;
+	circuit_t *circuit = (circuit_t *)context;
+	Log(LogDdcmpInit, LogInfo, "Sending Hello And Test on %s\n", circuit->name);
+	packet = CreateHelloAndTest(nodeInfo.address);
+	circuit->WritePacket(circuit, NULL, NULL, packet);
+}
+
