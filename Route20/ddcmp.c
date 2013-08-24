@@ -408,6 +408,7 @@ int DdcmpSendDataMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
                 ProcessEvent(ddcmpLine, UserRequestsDataSendAndReadyToSend);
                 ans = 1;
             }
+        }
 	}
 
 	DoIdle(ddcmpLine);
@@ -1009,8 +1010,8 @@ static void ProcessAckMessage(ddcmp_line_t *ddcmpLine)
 	// TODO: proper message validation
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	int flags;
-	int addr;
-	int resp;
+	byte addr;
+	byte resp;
 
 	flags = GetMessageFlags(cb->currentMessage);
 	resp = GetMessageResp(cb->currentMessage);
@@ -1359,7 +1360,7 @@ static int SetSrepAction(ddcmp_line_t *ddcmpLine)
 static int CompleteMessageAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	int resp = GetMessageResp(cb->currentMessage);
+	byte resp = GetMessageResp(cb->currentMessage);
 	ddcmpLine->Log(LogVerbose, "Complete message action\n");
 	
 	while (1)
@@ -1371,7 +1372,7 @@ static int CompleteMessageAction(ddcmp_line_t *ddcmpLine)
 		}
 		else
         {
-            int N = GetMessageNum(&entry->buffer);
+            byte N = GetMessageNum(&entry->buffer);
             if (Mod256Cmp(N, resp) <= 0)
             {
                 FreeTransmitQueueEntry(&cb->transmitQueueCtrl);
