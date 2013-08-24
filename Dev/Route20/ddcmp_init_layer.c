@@ -182,6 +182,7 @@ static void TcpConnectCallback(socket_t *sock)
 		{
 			ddcmpCircuit->circuit->waitHandle = sock->waitHandle;
 			RegisterEventHandler(ddcmpCircuit->circuit->waitHandle, ddcmpCircuit->circuit, ddcmpCircuit->circuit->WaitEventHandler);
+	        Log(LogDdcmpInit, LogInfo, "Starting DDCMP line %s\n", ddcmpCircuit->circuit->name);
 			DdcmpStart(&ddcmpSock->line);
 			break;
 		}

@@ -39,7 +39,7 @@
 #include "ddcmp.h"
 
 #define MAX_STATE_TABLE_ACTIONS 6
-#define MAX_TRANSMIT_QUEUE_LEN  1
+#define MAX_TRANSMIT_QUEUE_LEN 5
 
 #define ENQ 5u
 #define SOH 129u
@@ -108,11 +108,20 @@ typedef struct
 typedef struct transmit_queue_entry
 {
 	struct transmit_queue_entry *next;
+	int                          slotNumber;
 	buffer_t                     buffer;
 	int                          slotInUse;
 	byte                         header[8];
 	byte                         data[MAX_DDCMP_DATA_LENGTH];
 } transmit_queue_entry_t;
+
+typedef struct
+{
+	transmit_queue_entry_t transmitQueue[MAX_TRANSMIT_QUEUE_LEN];
+	transmit_queue_entry_t *firstUnacknowledgedTransmitQueueEntry; /* transmit queue entry for the first transmit unacknowledged queue entry that needs to be transmitted */
+	transmit_queue_entry_t *currentTransmitQueueEntry; /* transmit queue entry for the current transmit queue entry that needs to be transmitted */
+	transmit_queue_entry_t *lastAllocatedTransmitQueueEntry; /* last transmit queue entry that was allocated */
+} transmit_queue_ctrl_t;
 
 #pragma pack(pop)
 
@@ -132,6 +141,7 @@ typedef struct
 	byte partialBufferData[MAX_DDCMP_BUFFER_LENGTH];
 	buffer_t partialBuffer;
 	int partialBufferIsSynchronized;
+	transmit_queue_ctrl_t transmitQueueCtrl;
 } ddcmp_line_control_block_t;
 
 typedef struct
@@ -160,12 +170,14 @@ static void AppendBuffer(buffer_t *dst, buffer_t *src);
 static void TruncateUsedBufferPortion(buffer_t *buffer);
 static void LogBuffer(ddcmp_line_t *line, LogLevel level, buffer_t *buffer);
 
-static void InitialiseTransmitQueue(void);
-static transmit_queue_entry_t *AllocateNextTransmitQueueEntry(void);
-static transmit_queue_entry_t *GetNextTransmitQueueEntryToSend(void);
-static void FreeTransmitQueueEntry();
+static void InitialiseTransmitQueue(transmit_queue_ctrl_t *transmitQueueCtrl);
+static transmit_queue_entry_t *AllocateNextTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl);
+static transmit_queue_entry_t *GetFirstUnacknowledgedTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl);
+static transmit_queue_entry_t *GetCurrentTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl);
+static void FreeTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl);
 
 static ddcmp_line_control_block_t *GetControlBlock(ddcmp_line_t *ddcmpLine);
+static int Mod256Cmp(byte a, byte b);
 static uint16 Crc16(uint16 crc, buffer_t *buffer);
 static void AddCrc16ToBuffer(byte *data, int length);
 static void DoIdle(ddcmp_line_t *ddcmpLine);
@@ -176,6 +188,7 @@ static int SendRawMessage(ddcmp_line_t *ddcmpLine, byte *data, int length);
 static void ReplyTimerHandler(void *timerContext);
 static void StartTimer(ddcmp_line_t *ddcmpLine, int seconds);
 static void StopTimer(ddcmp_line_t *ddcmpLine);
+static int IsTimerRunning(ddcmp_line_t *ddcmpLine);
 static void ProcessEvent(ddcmp_line_t *ddcmpLine, DdcmpEvent evt);
 static void ProcessControlMessage(ddcmp_line_t *ddcmpLine);
 static void ProcessDataMessage(ddcmp_line_t *ddcmpLine);
@@ -188,6 +201,7 @@ static unsigned int GetDataMessageCount(buffer_t *message);
 static unsigned int GetMessageFlags(buffer_t *message);
 static byte GetMessageNum(buffer_t *message);
 static byte GetMessageResp(buffer_t *message);
+static void UpdateTransmitHeader(buffer_t *message, ddcmp_line_control_block_t *cb);
 static void SendAck(ddcmp_line_t *ddcmpLine);
 static void SendNak(ddcmp_line_t *ddcmpLine);
 static void SendRep(ddcmp_line_t *ddcmpLine);
@@ -218,10 +232,6 @@ static int SetSrepAction(ddcmp_line_t *ddcmpLine);
 static int CompleteMessageAction(ddcmp_line_t *ddcmpLine);
 
 static byte station = 1;
-
-static transmit_queue_entry_t transmitQueue[MAX_TRANSMIT_QUEUE_LEN];
-static transmit_queue_entry_t *currentTransmitQueueEntry; /* transmit queue entry for the first transmit queue entry that needs to be transmitted */
-static transmit_queue_entry_t *lastAllocatedTransmitQueueEntry; /* last transmit queue entry that was allocated */
 
 static char * lineStateString[] =
 {
@@ -287,8 +297,8 @@ void DdcmpStart(ddcmp_line_t *ddcmpLine)
 		memset(ddcmpLine->controlBlock, 0, sizeof(ddcmp_line_control_block_t));
 	}
 
-	InitialiseTransmitQueue();
 	cb = GetControlBlock(ddcmpLine);
+	InitialiseTransmitQueue(&cb->transmitQueueCtrl);
 	cb->state = DdcmpLineHalted;
 	cb->SACKNAK = NotSet;
 	InitialiseBuffer(&cb->partialBuffer, cb->partialBufferData, 0);
@@ -379,27 +389,28 @@ int DdcmpSendDataMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
 	}
 	else if (cb->state == DdcmpLineRunning)
 	{
-		transmit_queue_entry_t *entry = AllocateNextTransmitQueueEntry();
-		if (entry != NULL)
-		{
-			entry->header[0] = SOH;
-			entry->header[1] = length & 0xFF;
-			entry->header[2] = (length >> 8) & 0x3F;
-			entry->header[3] = cb->R;
-			entry->header[4] = cb->N + 1;
-			entry->header[5] = station;
-			AddCrc16ToBuffer(entry->header, 6);
-			memcpy(entry->data, data, length);
-			AddCrc16ToBuffer(entry->data, length);
-			InitialiseBuffer(&entry->buffer, entry->header, 8 + length +2);
-			if (cb->T == cb->N + 1 && cb->SACKNAK != SNAK && !cb->SREP)
-			{
-			    cb->currentMessage = &entry->buffer;
-				ProcessEvent(ddcmpLine, UserRequestsDataSendAndReadyToSend);
-			}
-			ans = 1;
-		}
+		if (cb->T == ((cb->N + (byte)1) & 0xFF) && cb->SACKNAK != SNAK && !cb->SREP)
+        {
+            transmit_queue_entry_t *entry = AllocateNextTransmitQueueEntry(&cb->transmitQueueCtrl);
+            if (entry != NULL)
+            {
+                entry->header[0] = SOH;
+                entry->header[1] = length & 0xFF;
+                entry->header[2] = (length >> 8) & 0x3F;
+                entry->header[3] = cb->R;
+                entry->header[4] = cb->N + (byte)1;
+                entry->header[5] = station;
+                AddCrc16ToBuffer(entry->header, 6);
+                memcpy(entry->data, data, length);
+                AddCrc16ToBuffer(entry->data, length);
+                InitialiseBuffer(&entry->buffer, entry->header, 8 + length +2);
+                cb->currentMessage = &entry->buffer;
+                ProcessEvent(ddcmpLine, UserRequestsDataSendAndReadyToSend);
+                ans = 1;
+            }
 	}
+
+	DoIdle(ddcmpLine);
 
 	return ans;
 }
@@ -510,35 +521,37 @@ static void LogBuffer(ddcmp_line_t *line, LogLevel level, buffer_t *buffer)
 	}
 }
 
-static void InitialiseTransmitQueue(void)
+static void InitialiseTransmitQueue(transmit_queue_ctrl_t *transmitQueueCtrl)
 {
 	int i;
-	lastAllocatedTransmitQueueEntry = NULL;
-	currentTransmitQueueEntry = &transmitQueue[0];
+	transmitQueueCtrl->lastAllocatedTransmitQueueEntry = NULL;
+	transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry = &transmitQueueCtrl->transmitQueue[0];
+	transmitQueueCtrl->currentTransmitQueueEntry = &transmitQueueCtrl->transmitQueue[0];
 	for (i = 0; i < MAX_TRANSMIT_QUEUE_LEN; i++)
 	{
-		transmitQueue[i].slotInUse = 0;
+		transmitQueueCtrl->transmitQueue[i].slotNumber = i;
+		transmitQueueCtrl->transmitQueue[i].slotInUse = 0;
 		if (i + 1 < MAX_TRANSMIT_QUEUE_LEN)
 		{
-			transmitQueue[i].next = &transmitQueue[i + 1];
+			transmitQueueCtrl->transmitQueue[i].next = &transmitQueueCtrl->transmitQueue[i + 1];
 		}
 		else
 		{
-			transmitQueue[i].next = &transmitQueue[0];
+			transmitQueueCtrl->transmitQueue[i].next = &transmitQueueCtrl->transmitQueue[0];
 		}
 	}
 }
 
-static transmit_queue_entry_t *AllocateNextTransmitQueueEntry(void)
+static transmit_queue_entry_t *AllocateNextTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl)
 {
 	transmit_queue_entry_t *ans = NULL;
-	if (lastAllocatedTransmitQueueEntry == NULL)
+	if (transmitQueueCtrl->lastAllocatedTransmitQueueEntry == NULL)
 	{
-		ans = &transmitQueue[0];
+		ans = &transmitQueueCtrl->transmitQueue[0];
 	}
 	else
 	{
-		transmit_queue_entry_t *temp = lastAllocatedTransmitQueueEntry;
+		transmit_queue_entry_t *temp = transmitQueueCtrl->lastAllocatedTransmitQueueEntry;
 		do
 		{
 			if (temp->slotInUse)
@@ -551,38 +564,76 @@ static transmit_queue_entry_t *AllocateNextTransmitQueueEntry(void)
 				break;
 			}
 		}
-		while (temp != lastAllocatedTransmitQueueEntry);
+		while (temp != transmitQueueCtrl->lastAllocatedTransmitQueueEntry);
 	}
 
 	if (ans != NULL)
 	{
-		lastAllocatedTransmitQueueEntry = ans;
-		lastAllocatedTransmitQueueEntry->slotInUse = 1;
+		transmitQueueCtrl->lastAllocatedTransmitQueueEntry = ans;
+		transmitQueueCtrl->lastAllocatedTransmitQueueEntry->slotInUse = 1;
 	}
 
 	return ans;
 }
 
-static transmit_queue_entry_t *GetNextTransmitQueueEntryToSend(void)
+static transmit_queue_entry_t *GetFirstUnacknowledgedTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl)
 {
-	transmit_queue_entry_t *ans = NULL;
-	if (currentTransmitQueueEntry->slotInUse)
+    transmit_queue_entry_t *ans = NULL;
+	if (transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry->slotInUse)
 	{
-		ans = currentTransmitQueueEntry;
+		ans = transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry;
+		transmitQueueCtrl->currentTransmitQueueEntry = ans;
 	}
 
 	return ans;
 }
 
-static void FreeTransmitQueueEntry()
+static transmit_queue_entry_t *GetCurrentTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl)
 {
-	currentTransmitQueueEntry->slotInUse = 0;
-	currentTransmitQueueEntry = currentTransmitQueueEntry->next;
+    transmit_queue_entry_t *ans = NULL;
+	if (transmitQueueCtrl->currentTransmitQueueEntry->slotInUse)
+	{
+		ans = transmitQueueCtrl->currentTransmitQueueEntry;
+	}
+
+	return ans;
+}
+
+static void FreeTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl)
+{
+	transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry->slotInUse = 0;
+    if (transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry != transmitQueueCtrl->lastAllocatedTransmitQueueEntry)
+    {
+	    transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry = transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry->next;
+    }
 }
 
 static ddcmp_line_control_block_t *GetControlBlock(ddcmp_line_t *ddcmpLine)
 {
 	return (ddcmp_line_control_block_t *)ddcmpLine->controlBlock;
+}
+
+static int Mod256Cmp(byte a, byte b)
+{
+    int ans;
+    if (a == b)
+    {
+        ans = 0;
+    }
+    else if (a > b && (b + 256 - a) <= MAX_TRANSMIT_QUEUE_LEN)
+    {
+        ans = -1;
+    }
+    else if (a > b)
+    {
+        ans = 1;
+    }
+    else
+    {
+        ans = -1;
+    }
+
+    return ans;
 }
 
 static uint16 Crc16(uint16 crc, buffer_t *buffer)
@@ -626,18 +677,14 @@ static void DoIdle(ddcmp_line_t *ddcmpLine)
 		SendRep(ddcmpLine);
 	}
 
-	if (cb->SACKNAK != SNAK && !cb->SREP && cb->T < (cb->N + 1))
+	if (cb->SACKNAK != SNAK && !cb->SREP && cb->T < (cb->N + (byte)1) && !IsTimerRunning(ddcmpLine))
 	{
-		transmit_queue_entry_t *entry;
-		do
+		transmit_queue_entry_t *entry = GetFirstUnacknowledgedTransmitQueueEntry(&cb->transmitQueueCtrl);
+		if (entry != NULL)
 		{
-			entry = GetNextTransmitQueueEntryToSend();
-			if (entry != NULL)
-			{
-				cb->currentMessage = &entry->buffer;
-				ProcessEvent(ddcmpLine, ReadyToRetransmitMsg);
-			}
-		} while (entry != NULL);
+			cb->currentMessage = &entry->buffer;
+			ProcessEvent(ddcmpLine, ReadyToRetransmitMsg);
+		}
 	}
 
 	if (cb->SACKNAK == SACK)
@@ -815,6 +862,12 @@ static void StopTimer(ddcmp_line_t *ddcmpLine)
 	}
 }
 
+static int IsTimerRunning(ddcmp_line_t *ddcmpLine)
+{
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	return cb->replyTimerHandle != NULL;
+}
+
 static void ProcessEvent(ddcmp_line_t *ddcmpLine, DdcmpEvent evt)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
@@ -846,6 +899,8 @@ static void ProcessEvent(ddcmp_line_t *ddcmpLine, DdcmpEvent evt)
 				ok = entry->action[i](ddcmpLine);
 			}
 		}
+
+		ddcmpLine->Log(LogVerbose, "Variables after processing event. N=%d, A=%d, R=%d, T=%d, X=%d\n", cb->N, cb->A, cb->R, cb->T, cb->X);
 	}
 }
 
@@ -904,14 +959,14 @@ static void ProcessDataMessage(ddcmp_line_t *ddcmpLine)
 	resp = GetMessageResp(cb->currentMessage);
 	num = GetMessageNum(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
-	ddcmpLine->Log(LogInfo, "Received DATA message. Len=%d, Flags=%s%s, R=%d, N=%d, A=%d\n", count, LOGFLAGS(flags), resp, num, addr);
+	ddcmpLine->Log(LogVerbose, "Received DATA message. Len=%d, Flags=%s%s, R=%d, N=%d, Addr=%d\n", count, LOGFLAGS(flags), resp, num, addr);
 
 	if (cb->A < resp && resp <= cb->N)
 	{
 		ProcessEvent(ddcmpLine, ReceiveAckForOutstandingMsg);
 	}
 
-	if (num == cb->R + 1)
+	if (num == cb->R + (byte)1)
 	{
 		ProcessEvent(ddcmpLine, ReceiveDataMsgInSequence);
 	}
@@ -931,7 +986,7 @@ static void ProcessStartMessage(ddcmp_line_t *ddcmpLine)
 	flags = GetMessageFlags(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogInfo, "Received STRT message. Flags=%s%s, A=%d\n", LOGFLAGS(flags), addr);
+	ddcmpLine->Log(LogVerbose, "Received STRT message. Flags=%s%s, Addr=%d\n", LOGFLAGS(flags), addr);
 	ProcessEvent(ddcmpLine, ReceiveStrt);
 }
 
@@ -945,7 +1000,7 @@ static void ProcessStackMessage(ddcmp_line_t *ddcmpLine)
 	flags = GetMessageFlags(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogInfo, "Received STACK message. Flags=%s%s, A=%d\n", LOGFLAGS(flags), addr);
+	ddcmpLine->Log(LogVerbose, "Received STACK message. Flags=%s%s, Addr=%d\n", LOGFLAGS(flags), addr);
 	ProcessEvent(ddcmpLine, ReceiveStack);
 }
 
@@ -961,12 +1016,12 @@ static void ProcessAckMessage(ddcmp_line_t *ddcmpLine)
 	resp = GetMessageResp(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogInfo, "Received ACK message. Flags=%s%s, R=%d, A=%d\n", LOGFLAGS(flags), resp, addr);
+	ddcmpLine->Log(LogVerbose, "Received ACK message. Flags=%s%s, R=%d, Addr=%d\n", LOGFLAGS(flags), resp, addr);
 	if (resp == 0)
 	{
 	    ProcessEvent(ddcmpLine, ReceiveAckResp0);
 	}
-	else if (cb->A < resp && resp <= cb->N)
+	else if (Mod256Cmp(cb->A, resp) < 0 && Mod256Cmp(resp, cb->N) <= 0)
 	{
 	    ProcessEvent(ddcmpLine, ReceiveAckForOutstandingMsg);
 	}
@@ -984,7 +1039,7 @@ static void ProcessNakMessage(ddcmp_line_t *ddcmpLine)
 	resp = GetMessageResp(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogInfo, "Received NAK message. Flags=%s%s, R=%d, A=%d\n", LOGFLAGS(flags), resp, addr);
+	ddcmpLine->Log(LogVerbose, "Received NAK message. Flags=%s%s, R=%d, Addr=%d\n", LOGFLAGS(flags), resp, addr);
 	if (cb->A <= resp || resp > cb->N)
 	{
 	    ProcessEvent(ddcmpLine, ReceiveNakForOutstandingMsg);
@@ -1003,7 +1058,7 @@ static void ProcessRepMessage(ddcmp_line_t *ddcmpLine)
 	num = GetMessageNum(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogInfo, "Received REP message. Flags=%s%s, N=%d, A=%d\n", LOGFLAGS(flags), num, addr);
+	ddcmpLine->Log(LogVerbose, "Received REP message. Flags=%s%s, N=%d, Addr=%d\n", LOGFLAGS(flags), num, addr);
 
 	if (num == cb->R)
 	{
@@ -1040,13 +1095,19 @@ static byte GetMessageResp(buffer_t *message)
 	return ByteAt(message, 3);
 }
 
+static void UpdateTransmitHeader(buffer_t *message, ddcmp_line_control_block_t *cb)
+{
+	message->data[3] = cb->R;
+	AddCrc16ToBuffer(message->data, 6);
+}
+
 static void SendAck(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	byte ack[] = { 0x05, CONTROL_ACK, 0x00, 0x00, 0x00, 0x00 };
 	ack[3] = cb->R;
 	ack[5] = station;
-	ddcmpLine->Log(LogInfo, "Sending ACK. Num=%d\n", cb->R);
+	ddcmpLine->Log(LogVerbose, "Sending ACK. Num=%d\n", cb->R);
 	SendMessageAddingCrc16(ddcmpLine, ack, sizeof(ack));
 	cb->SACKNAK = NotSet;
 }
@@ -1058,7 +1119,7 @@ static void SendNak(ddcmp_line_t *ddcmpLine)
 	nak[2] = cb->NAKReason;
 	nak[3] = cb->R;
 	nak[5] = station;
-	ddcmpLine->Log(LogInfo, "Sending NAK. Num=%d, Reason=%d\n", cb->R, cb->NAKReason);
+	ddcmpLine->Log(LogVerbose, "Sending NAK. Num=%d, Reason=%d\n", cb->R, cb->NAKReason);
 	SendMessageAddingCrc16(ddcmpLine, nak, sizeof(nak));
 	cb->SACKNAK = NotSet;
 }
@@ -1069,7 +1130,7 @@ static void SendRep(ddcmp_line_t *ddcmpLine)
 	byte rep[] = { ENQ, CONTROL_REP, 0x00, 0x00, 0x00, 0x00 };
 	rep[4] = cb->N;
 	rep[5] = station;
-	ddcmpLine->Log(LogInfo, "Sending REP. Num=%d\n", cb->N);
+	ddcmpLine->Log(LogVerbose, "Sending REP. Num=%d\n", cb->N);
 	SendMessageAddingCrc16(ddcmpLine, rep, sizeof(rep));
 	cb->SREP = 0;
 	StartTimer(ddcmpLine, 15);
@@ -1094,7 +1155,7 @@ static int SendStartAction(ddcmp_line_t *ddcmpLine)
 	byte start[] = { ENQ, CONTROL_STRT, 0xC0, 0x00, 0x00, 0x00 };
 	start[5] = station;
 	ddcmpLine->Log(LogVerbose, "Send start action\n");
-	ddcmpLine->Log(LogInfo, "Sending STRT. A=%d\n", station);
+	ddcmpLine->Log(LogVerbose, "Sending STRT. Addr=%d\n", station);
 	SendMessageAddingCrc16(ddcmpLine, start, sizeof(start));
 	return 1;
 }
@@ -1111,7 +1172,7 @@ static int SendStackAction(ddcmp_line_t *ddcmpLine)
 	byte stack[] = { ENQ, CONTROL_STACK, 0xC0, 0x00, 0x00, 0x00 };
 	stack[5] = station;
 	ddcmpLine->Log(LogVerbose, "Send stack action\n");
-	ddcmpLine->Log(LogInfo, "Sending STACK. A=%d\n", station);
+	ddcmpLine->Log(LogVerbose, "Sending STACK. Addr=%d\n", station);
 	SendMessageAddingCrc16(ddcmpLine, stack, sizeof(stack));
 	return 1;
 }
@@ -1186,7 +1247,7 @@ static int SetReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Set received sequence number action\n");
-	cb->R = cb->R + 1;
+	cb->R = cb->R + (byte)1;
 	return 1;
 }
 
@@ -1207,21 +1268,23 @@ static int GiveMessageToUserAction(ddcmp_line_t *ddcmpLine)
 
 static int SendMessageAction(ddcmp_line_t *ddcmpLine)
 {
-	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	transmit_queue_entry_t * entry = GetNextTransmitQueueEntryToSend();
-	int num = GetMessageNum(cb->currentMessage);
-	int resp = GetMessageResp(cb->currentMessage);
-	ddcmpLine->Log(LogVerbose, "Send next message action\n");
-	ddcmpLine->Log(LogInfo, "Sending Data. N=%d, R=%d\n", num, resp);
-	SendRawMessage(ddcmpLine, entry->buffer.data, entry->buffer.length);
-	return 1;
+    ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+    int num;
+    int resp;
+    UpdateTransmitHeader(cb->currentMessage, cb);
+    num = GetMessageNum(cb->currentMessage);
+    resp = GetMessageResp(cb->currentMessage);
+    ddcmpLine->Log(LogVerbose, "Send next message action\n");
+    ddcmpLine->Log(LogVerbose, "Sending Data. N=%d, R=%d\n", num, resp);
+    SendRawMessage(ddcmpLine, cb->currentMessage->data, cb->currentMessage->length);
+    return 1;
 }
 
 static int IncrementNAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Increment N action\n");
-	cb->N = cb->N + 1;
+	cb->N = cb->N + (byte)1;
 	return 1;
 }
 
@@ -1229,7 +1292,7 @@ static int IncrementTAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Increment T action\n");
-	cb->T = cb->N + 1;
+	cb->T = cb->N + (byte)1;
 	return 1;
 }
 
@@ -1245,9 +1308,9 @@ static int SetTVarFromAckAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Set T variable from ack action\n");
-	if (cb->T <= cb->A)
+	if (Mod256Cmp(cb->T, cb->A) <= 0)
 	{
-		cb->T = cb-> A + 1;
+		cb->T = cb-> A + (byte)1;
 	}
 
 	return 1;
@@ -1257,7 +1320,7 @@ static int SetTVarFromNakAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Set T variable from nak action\n");
-	cb->T = cb-> A + 1;
+	cb->T = cb-> A + (byte)1;
 	return 1;
 }
 
@@ -1295,7 +1358,30 @@ static int SetSrepAction(ddcmp_line_t *ddcmpLine)
 
 static int CompleteMessageAction(ddcmp_line_t *ddcmpLine)
 {
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	int resp = GetMessageResp(cb->currentMessage);
 	ddcmpLine->Log(LogVerbose, "Complete message action\n");
-	FreeTransmitQueueEntry();
+	
+	while (1)
+	{
+		transmit_queue_entry_t *entry = GetFirstUnacknowledgedTransmitQueueEntry(&cb->transmitQueueCtrl);
+		if (entry == NULL)
+		{
+            break;
+		}
+		else
+        {
+            int N = GetMessageNum(&entry->buffer);
+            if (Mod256Cmp(N, resp) <= 0)
+            {
+                FreeTransmitQueueEntry(&cb->transmitQueueCtrl);
+            }
+            else
+            {
+                break;
+            }
+        }
+	}
+
 	return 1;
 }

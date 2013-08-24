@@ -224,7 +224,7 @@ static void DdcmpNotifyRunning(void *context)
 static void DdcmpNotifyHalt(void *context)
 {
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)context;
-	Log(LogDdcmpSock, LogError, "DDCMP halted, restarting\n");
+	Log(LogDdcmpSock, LogError, "DDCMP halted, restarting line %s\n", sockContext->ddcmpCircuit->circuit->name);
 	DdcmpStart(&sockContext->line);
 }
 
