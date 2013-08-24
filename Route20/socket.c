@@ -125,7 +125,20 @@ int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
 	bytesRead = recv(sock->socket, (char *)buffer, bufferLength, 0);
 	if (bytesRead > 0)
 	{
+        int i;
 	    Log(LogSock, LogVerbose, "Read %d bytes on port %d\n", bytesRead, sock->receivePort);
+        for (i = 0; i < bytesRead; i++)
+        {
+            if (i == 0)
+            {
+                Log(LogSock, LogVerbose, "%02X", buffer[i]);
+            }
+            else
+            {
+                Log(LogSock, LogVerbose, " %02X", buffer[i]);
+            }
+        }
+        Log(LogSock, LogVerbose, "\n", buffer[i]);
 	    ans = bytesRead;
 	}
 	else if (bytesRead == 0)
