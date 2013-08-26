@@ -38,11 +38,11 @@
 
 ddcmp_circuit_t *DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName)
 {
-	ddcmp_circuit_t *ans = (ddcmp_circuit_t *)malloc(sizeof(ddcmp_circuit_t));
-	ddcmp_sock_t *context = (ddcmp_sock_t *)malloc(sizeof(ddcmp_sock_t));
+	ddcmp_circuit_t *ans = (ddcmp_circuit_t *)calloc(1, sizeof(ddcmp_circuit_t));
+	ddcmp_sock_t *context = (ddcmp_sock_t *)calloc(1, sizeof(ddcmp_sock_t));
 	
     context->ddcmpCircuit = ans;
-	context->destinationHostName = (char *)malloc(strlen(destinationHostName) + 1);
+	context->destinationHostName = (char *)calloc(1, strlen(destinationHostName) + 1);
 	strcpy(context->destinationHostName, destinationHostName);
 
 	ans->circuit = circuit;

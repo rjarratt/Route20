@@ -69,6 +69,7 @@ int OpenUdpSocket(socket_t *sock, char *eventName, uint16 receivePort);
 int OpenTcpSocket(socket_t *sock, char *eventName, uint16 receivePort);
 void SetTcpAcceptCallback(socket_t *(*callback)(sockaddr_t *receivedFrom));
 void SetTcpConnectCallback(void (*callback)(socket_t *sock));
+void SetTcpDisconnectCallback(void (*callback)(socket_t *sock));
 int ReadFromDatagramSocket(socket_t *sock, packet_t *packet, sockaddr_t *receivedFrom);
 int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength);
 int WriteToStreamSocket(socket_t *sock, byte *buffer, int bufferLength);

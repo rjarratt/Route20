@@ -49,6 +49,7 @@ static void ProcessListenSocketEvent(void *context);
 
 static socket_t *(*tcpAcceptCallback)(sockaddr_t *receivedFrom);
 static void (*tcpConnectCallback)(socket_t *sock);
+static void (*tcpDisconnectCallback)(socket_t *sock);
 static int lastSocketError = 0;
 
 void InitialiseSockets()
@@ -93,6 +94,11 @@ void SetTcpAcceptCallback(socket_t * (*callback)(sockaddr_t *receivedFrom))
 void SetTcpConnectCallback(void (*callback)(socket_t *sock))
 {
 	tcpConnectCallback = callback;
+}
+
+void SetTcpDisconnectCallback(void (*callback)(socket_t *sock))
+{
+	tcpDisconnectCallback = callback;
 }
 
 int ReadFromDatagramSocket(socket_t *sock, packet_t *packet, sockaddr_t *receivedFrom)
@@ -141,23 +147,58 @@ int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
         Log(LogSock, LogVerbose, "\n", buffer[i]);
 	    ans = bytesRead;
 	}
-	else if (bytesRead == 0)
-	{
-		// TODO: closure of socket
-	}
-	else if (GetSockError() != WSAEWOULDBLOCK) // TODO: will need to make this work right on Linux, where it is EWOULDBLOCK
-	{
-		SockErrorAndClear("recv");
-	}
+	else
+    {
+        int closed = 0;
+        int sockErr = 0;
+        if (bytesRead == 0)
+        {
+            closed = 1;
+        }
+        else
+        {
+            sockErr = GetSockError();
+            if (sockErr == WSAECONNRESET || sockErr == WSAECONNABORTED)
+            {
+                closed = 1;
+            }
+        }
+
+        if (closed)
+        {
+            Log(LogSock, LogWarning, "TCP connection on port %d closed\n", sock->receivePort);
+            CloseSocket(sock);
+            if (tcpDisconnectCallback != NULL)
+            {
+                tcpDisconnectCallback(sock);
+            }
+        }
+        else if (sockErr != WSAEWOULDBLOCK) // TODO: will need to make this work right on Linux, where it is EWOULDBLOCK
+        {
+            SockErrorAndClear("recv");
+        }
+    }
 
 	return ans;
 }
 
 int WriteToStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
 {
-	// TODO: robustness to failures and to partial sends
-	send(sock->socket, (char *)buffer, bufferLength, 0);
-	return 1;
+	// TODO: robustness to partial sends
+    int ans = 1;
+	int sentBytes = send(sock->socket, (char *)buffer, bufferLength, 0);
+    if (sentBytes == SOCKET_ERROR)
+    {
+	    Log(LogSock, LogWarning, "TCP connection on port %d closed\n", sock->receivePort);
+        CloseSocket(sock);
+        if (tcpDisconnectCallback != NULL)
+        {
+            tcpDisconnectCallback(sock);
+        }
+
+        ans = 0;
+    }
+	return ans;
 }
 
 int SendToSocket(socket_t *sock, sockaddr_t *destination, packet_t *packet)
@@ -200,6 +241,10 @@ int SendToSocket(socket_t *sock, sockaddr_t *destination, packet_t *packet)
 void CloseSocket(socket_t *sock)
 {
 #if defined(WIN32)
+    if (sock->waitHandle != (unsigned int)-1)
+    {
+        CloseHandle((HANDLE)sock->waitHandle);
+    }
 	closesocket(sock->socket);
 #else
 	close(sock->socket);
@@ -436,7 +481,7 @@ static void ProcessListenSocketEvent(void *context)
 			sock->socket = newSocket;
 			sock->receivePort = inaddr->sin_port;
 			SetNonBlocking(sock);
-			SetupSocketEvents(sock, NULL, FD_READ); // TODO: DDCMP event name, ought to come from ddcmp circuit, but not available here and name is not essential, could move eventName to socket structure but not valid for eth_pcap
+			SetupSocketEvents(sock, NULL, FD_READ | FD_CLOSE); // TODO: DDCMP event name, ought to come from ddcmp circuit, but not available here and name is not essential, could move eventName to socket structure but not valid for eth_pcap
 			if (tcpConnectCallback != NULL)
 			{
 				tcpConnectCallback(sock);

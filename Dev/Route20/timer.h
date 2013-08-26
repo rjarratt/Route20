@@ -29,6 +29,8 @@
 
 #include <time.h>
 
+#if !defined(TIMER_H)
+
 typedef struct rtimer *timer_ptr;
 
 typedef struct rtimer
@@ -46,3 +48,6 @@ void StopTimer(rtimer_t *);
 void StopAllTimers(void);
 void ProcessTimers(void);
 int  SecondsUntilNextDue(void);
+
+#define TIMER_H
+#endif

@@ -27,6 +27,7 @@
   ------------------------------------------------------------------------------*/
 
 #include "packet.h"
+#include "timer.h"
 #include "circuit.h"
 
 #if !defined(DDCMP_CIRCUIT_H)
@@ -37,6 +38,7 @@ typedef struct ddcmp_circuit
 {
 	circuit_t *circuit;
 	void      *context;
+    rtimer_t  *helloTimer; // TODO: consider if this should be moved to higher level timer so can use for ethernet ones too
 
 	int (*Open)(ddcmp_circuit_ptr circuit);
 	int (*Start)(ddcmp_circuit_ptr circuit);
