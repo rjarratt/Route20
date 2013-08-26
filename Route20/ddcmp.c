@@ -244,9 +244,9 @@ static char * lineStateString[] =
 
 static state_table_entry_t stateTable[] =
 {
-	{ UserRequestsHalt,                   DdcmpLineAny,      DdcmpLineHalted,   { StopTimerAction} },
+	{ UserRequestsHalt,                   DdcmpLineAny,      DdcmpLineHalted,   { StopTimerAction } },
 
-	{ UserRequestsStartup,                DdcmpLineHalted,   DdcmpLineIStrt,    { SendStartAction, ResetVariablesAction, StartTimerAction } },
+	{ UserRequestsStartup,                DdcmpLineHalted,   DdcmpLineIStrt,    { StopTimerAction, SendStartAction, ResetVariablesAction, StartTimerAction } },
 
 	{ ReceiveStack,                       DdcmpLineIStrt,    DdcmpLineRunning,  { SendAckAction, StopTimerAction, NotifyRunningAction } },
 	{ ReceiveStrt,                        DdcmpLineIStrt,    DdcmpLineAStrt,    { SendStackAction, StartTimerAction } },

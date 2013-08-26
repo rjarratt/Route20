@@ -46,7 +46,10 @@ static int ddcmpCircuitCount;
 
 static socket_t * TcpAcceptCallback(sockaddr_t *receivedFrom);
 static void TcpConnectCallback(socket_t *sock);
+static void TcpDisconnectCallback(socket_t *sock);
+static ddcmp_circuit_t *FindCircuit(socket_t *sock);
 static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context);
+static void StopTimerIfRunning(ddcmp_circuit_t *ddcmpCircuit);
 
 void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount)
 {
@@ -62,6 +65,7 @@ void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount)
 
 	SetTcpAcceptCallback(TcpAcceptCallback);
 	SetTcpConnectCallback(TcpConnectCallback);
+	SetTcpDisconnectCallback(TcpDisconnectCallback);
 }
 
 void DdcmpInitLayerStop(void)
@@ -84,6 +88,7 @@ void DdcmpInitLayerStop(void)
 void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_msg_t *msg)
 {
     decnet_address_t from;
+	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
     GetDecnetAddressFromId((byte *)&msg->srcnode, &from);
     
     Log(LogMessages, LogVerbose, "Initialization. From ");
@@ -120,12 +125,14 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
             Log(LogDdcmpInit, LogInfo, "Sending verification message\n");
             circuit->WritePacket(circuit, NULL, NULL, packet);
 
+            StopTimerIfRunning(ddcmpCircuit);
             time(&now);
-            CreateTimer("HelloAndTest", now, T3, circuit, HandleHelloAndTestTimer);
-            // TODO: Cancel timer when adjacency down, circuit halted etc.
+            ddcmpCircuit->helloTimer = CreateTimer("HelloAndTest", now, T3, circuit, HandleHelloAndTestTimer);
+            // TODO: Full init layer state table handling
+            // TODO: Check we get HelloAndTest from peer and close circuit if we don't (check spec for how to detect)
+            // TODO: Adjacency handling
             // TODO: Check possible DDCMP seq no wrap error causing circuit to drop
         }
-
     }
 }
 
@@ -171,6 +178,33 @@ static socket_t * TcpAcceptCallback(sockaddr_t *receivedFrom)
 
 static void TcpConnectCallback(socket_t *sock)
 {
+	ddcmp_circuit_t *ddcmpCircuit = FindCircuit(sock);
+    if (ddcmpCircuit != NULL)
+    {
+		ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
+        ddcmpCircuit->circuit->waitHandle = sock->waitHandle;
+        RegisterEventHandler(ddcmpCircuit->circuit->waitHandle, ddcmpCircuit->circuit, ddcmpCircuit->circuit->WaitEventHandler);
+        Log(LogDdcmpInit, LogInfo, "Starting DDCMP line %s\n", ddcmpCircuit->circuit->name);
+        DdcmpStart(&ddcmpSock->line);
+	}
+}
+
+static void TcpDisconnectCallback(socket_t *sock)
+{
+    ddcmp_circuit_t *ddcmpCircuit = FindCircuit(sock);
+    if (ddcmpCircuit != NULL)
+    {
+		ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
+        DdcmpHalt(&ddcmpSock->line);
+        StopTimerIfRunning(ddcmpCircuit);
+        DeregisterEventHandler(ddcmpCircuit->circuit->waitHandle);
+        Log(LogDdcmpInit, LogInfo, "DDCMP line %s has been closed\n", ddcmpCircuit->circuit->name);
+    }
+}
+
+static ddcmp_circuit_t *FindCircuit(socket_t *sock)
+{
+    ddcmp_circuit_t * ans = NULL;
 	int i;
 
 	for(i = 0; i < ddcmpCircuitCount; i++)
@@ -180,13 +214,12 @@ static void TcpConnectCallback(socket_t *sock)
 
 		if (sock == &ddcmpSock->socket)
 		{
-			ddcmpCircuit->circuit->waitHandle = sock->waitHandle;
-			RegisterEventHandler(ddcmpCircuit->circuit->waitHandle, ddcmpCircuit->circuit, ddcmpCircuit->circuit->WaitEventHandler);
-	        Log(LogDdcmpInit, LogInfo, "Starting DDCMP line %s\n", ddcmpCircuit->circuit->name);
-			DdcmpStart(&ddcmpSock->line);
+            ans = ddcmpCircuit;
 			break;
 		}
 	}
+
+    return ans;
 }
 
 static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context)
@@ -196,5 +229,14 @@ static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context)
 	Log(LogDdcmpInit, LogInfo, "Sending Hello And Test on %s\n", circuit->name);
 	packet = CreateHelloAndTest(nodeInfo.address);
 	circuit->WritePacket(circuit, NULL, NULL, packet);
+}
+
+static void StopTimerIfRunning(ddcmp_circuit_t *ddcmpCircuit)
+{
+    if (ddcmpCircuit->helloTimer != NULL)
+    {
+        StopTimer(ddcmpCircuit->helloTimer);
+        ddcmpCircuit->helloTimer = NULL;
+    }
 }
 
