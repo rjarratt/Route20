@@ -184,20 +184,50 @@ int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
 
 int WriteToStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
 {
-	// TODO: robustness to partial sends
     int ans = 1;
-	int sentBytes = send(sock->socket, (char *)buffer, bufferLength, 0);
-    if (sentBytes == SOCKET_ERROR)
+    int totalBytesSent = 0;
+    
+    do
     {
-	    Log(LogSock, LogWarning, "TCP connection on port %d closed\n", sock->receivePort);
-        CloseSocket(sock);
-        if (tcpDisconnectCallback != NULL)
+        int sentBytes = send(sock->socket, (char *)buffer + totalBytesSent, bufferLength - totalBytesSent, 0);
+        if (sentBytes == SOCKET_ERROR)
         {
-            tcpDisconnectCallback(sock);
+            int retry = 0;
+#if defined(WIN32)
+			if (WSAGetLastError() == WSAEWOULDBLOCK) // TODO: abstracted wouldblock check elsewhere now.
+			{
+				retry = 1;
+				Sleep(1);
+			}
+			else
+			{
+				retry = 0;
+				SockError("send");
+			}
+#else
+			SockError("send");
+#endif
+			if (!retry)
+            {
+                Log(LogSock, LogWarning, "TCP connection on port %d closed\n", sock->receivePort);
+                CloseSocket(sock);
+                if (tcpDisconnectCallback != NULL)
+                {
+                    tcpDisconnectCallback(sock);
+                }
+
+                ans = 0;
+                break;
+            }
+        }
+        else
+        {
+            totalBytesSent += sentBytes;
         }
 
-        ans = 0;
     }
+    while (totalBytesSent < bufferLength);
+
 	return ans;
 }
 
