@@ -50,8 +50,6 @@ static void DdcmpTimerHandler(rtimer_t *timer, char *name, void *context);
 static void *DdcmpCreateOneShotTimer(void *timerContext, char *name, int seconds, void (*timerHandler)(void *timerContext));
 static void DdcmpCancelOneShotTimer(void *timerHandle);
 static void DdcmpSendData(void *context, byte *data, int length);
-static void DdcmpNotifyRunning(void *context);
-static void DdcmpNotifyHalt(void *context);
 static int  DdcmpNotifyDataMessage(void *context, byte *data, int length);
 static void DdcmpLog(LogLevel level, char *format, ...);
 
@@ -72,8 +70,6 @@ int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit)
 	sockContext->line.CreateOneShotTimer = DdcmpCreateOneShotTimer;
 	sockContext->line.CancelOneShotTimer = DdcmpCancelOneShotTimer;
 	sockContext->line.SendData = DdcmpSendData;
-	sockContext->line.NotifyRunning = DdcmpNotifyRunning;
-	sockContext->line.NotifyHalt = DdcmpNotifyHalt;
 	sockContext->line.NotifyDataMessage = DdcmpNotifyDataMessage;
 	sockContext->line.Log = DdcmpLog;
 
@@ -212,20 +208,6 @@ static void DdcmpSendData(void *context, byte *data, int length)
 {
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)context;
 	WriteToStreamSocket(&sockContext->socket, data, length);
-}
-
-static void DdcmpNotifyRunning(void *context)
-{
-	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)context;
-	Log(LogDdcmpSock, LogInfo, "DDCMP line running\n");
-	sockContext->ddcmpCircuit->circuit->Start(sockContext->ddcmpCircuit->circuit);
-}
-
-static void DdcmpNotifyHalt(void *context)
-{
-	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)context;
-	Log(LogDdcmpSock, LogError, "DDCMP halted, restarting line %s\n", sockContext->ddcmpCircuit->circuit->name);
-	DdcmpStart(&sockContext->line);
 }
 
 static int DdcmpNotifyDataMessage(void *context, byte *data, int length)

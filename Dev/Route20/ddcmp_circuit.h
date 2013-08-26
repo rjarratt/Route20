@@ -32,13 +32,26 @@
 
 #if !defined(DDCMP_CIRCUIT_H)
 
+typedef enum
+{
+    DdcmpInitRUState,
+    DdcmpInitCRState,
+    DdcmpInitDSState,
+    DdcmpInitRIState,
+    DdcmpInitRVState,
+    DdcmpInitRCState,
+    DdcmpInitOFState,
+    DdcmpInitHAState
+} DdcmpInitState;
+
 typedef struct ddcmp_circuit *ddcmp_circuit_ptr;
 
 typedef struct ddcmp_circuit
 {
-	circuit_t *circuit;
-	void      *context;
-    rtimer_t  *helloTimer; // TODO: consider if this should be moved to higher level timer so can use for ethernet ones too
+	circuit_t      *circuit;
+	void           *context;
+    rtimer_t       *helloTimer; // TODO: consider if this should be moved to higher level timer so can use for ethernet ones too
+    DdcmpInitState  state;
 
 	int (*Open)(ddcmp_circuit_ptr circuit);
 	int (*Start)(ddcmp_circuit_ptr circuit);
