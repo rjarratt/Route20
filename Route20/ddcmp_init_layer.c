@@ -41,8 +41,36 @@ in this Software without prior written authorization from the author.
 #include "messages.h"
 #include "timer.h"
 
+typedef enum
+{
+	DdcmpInitUndefinedEvent,
+    DdcmpInitNRIVREvent, /* NRI with verification requested */
+    DdcmpInitNRINVEvent, /* NRI with verification not requested */
+    DdcmpInitNRVEvent,
+    DdcmpInitRTEvent,
+    DdcmpInitSCEvent,
+    DdcmpInitSTEEvent,
+    DdcmpInitOPOEvent,
+    DdcmpInitOPFEvent,
+    DdcmpInitIMEvent,
+    DdcmpInitRCEvent,
+    DdcmpInitCDCEvent,
+    DdcmpInitCUCEvent
+} DdcmpInitEvent;
+
+typedef struct
+{
+	DdcmpInitEvent evt;
+	DdcmpInitState currentState;
+	DdcmpInitState newState;
+	int (*action)(circuit_t *circuit);
+} state_table_entry_t;
+
 static circuit_t * ddcmpCircuits[NC];
 static int ddcmpCircuitCount;
+
+static void DdcmpInitNotifyRunning(void *context);
+static void DdcmpInitNotifyHalt(void *context);
 
 static socket_t * TcpAcceptCallback(sockaddr_t *receivedFrom);
 static void TcpConnectCallback(socket_t *sock);
@@ -50,6 +78,138 @@ static void TcpDisconnectCallback(socket_t *sock);
 static ddcmp_circuit_t *FindCircuit(socket_t *sock);
 static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context);
 static void StopTimerIfRunning(ddcmp_circuit_t *ddcmpCircuit);
+static void StartTimer(ddcmp_circuit_t *ddcmpCircuit);
+
+static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt);
+static int IssueReinitializeCommandAction(circuit_t *circuit);
+static int IssueStopAction(circuit_t *circuit);
+static int SendInitMessageAction(circuit_t *circuit);
+static int SendVerifyMessageAction(circuit_t *circuit);
+
+static char * lineStateString[] =
+{
+	"Run",
+	"Circuit Rejected",
+	"Data Link Start",
+	"Routing Layer Initialize",
+	"Routing Layer Verify",
+    "Routing Layer Complete",
+    "Off",
+    "Halt"
+};
+
+static state_table_entry_t stateTable[] =
+{
+    { DdcmpInitNRIVREvent, DdcmpInitRUState, DdcmpInitCRState, NULL },
+    { DdcmpInitNRIVREvent, DdcmpInitCRState, DdcmpInitCRState, NULL },
+    { DdcmpInitNRIVREvent, DdcmpInitDSState, DdcmpInitDSState, NULL },
+    { DdcmpInitNRIVREvent, DdcmpInitRIState, DdcmpInitRCState, SendVerifyMessageAction },
+    { DdcmpInitNRIVREvent, DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitNRIVREvent, DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitNRIVREvent, DdcmpInitOFState, DdcmpInitOFState, NULL },
+    { DdcmpInitNRIVREvent, DdcmpInitHAState, DdcmpInitHAState, NULL },
+
+    { DdcmpInitNRINVEvent, DdcmpInitRUState, DdcmpInitCRState, NULL },
+    { DdcmpInitNRINVEvent, DdcmpInitCRState, DdcmpInitCRState, NULL },
+    { DdcmpInitNRINVEvent, DdcmpInitDSState, DdcmpInitDSState, NULL },
+    { DdcmpInitNRINVEvent, DdcmpInitRIState, DdcmpInitRCState, NULL },
+    { DdcmpInitNRINVEvent, DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitNRINVEvent, DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitNRINVEvent, DdcmpInitOFState, DdcmpInitOFState, NULL },
+    { DdcmpInitNRINVEvent, DdcmpInitHAState, DdcmpInitHAState, NULL },
+
+    { DdcmpInitNRVEvent,   DdcmpInitRUState, DdcmpInitCRState, NULL },
+    { DdcmpInitNRVEvent,   DdcmpInitCRState, DdcmpInitCRState, NULL },
+    { DdcmpInitNRVEvent,   DdcmpInitDSState, DdcmpInitDSState, NULL },
+    { DdcmpInitNRVEvent,   DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitNRVEvent,   DdcmpInitRVState, DdcmpInitRCState, NULL },
+    { DdcmpInitNRVEvent,   DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitNRVEvent,   DdcmpInitOFState, DdcmpInitOFState, NULL },
+    { DdcmpInitNRVEvent,   DdcmpInitHAState, DdcmpInitHAState, NULL },
+
+    { DdcmpInitRTEvent,    DdcmpInitRUState, DdcmpInitRUState, NULL },
+    { DdcmpInitRTEvent,    DdcmpInitCRState, DdcmpInitCRState, NULL },
+    { DdcmpInitRTEvent,    DdcmpInitDSState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitRTEvent,    DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitRTEvent,    DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitRTEvent,    DdcmpInitRCState, DdcmpInitRCState, NULL },
+    { DdcmpInitRTEvent,    DdcmpInitOFState, DdcmpInitOFState, NULL },
+    { DdcmpInitRTEvent,    DdcmpInitHAState, DdcmpInitHAState, NULL },
+
+    { DdcmpInitSCEvent,    DdcmpInitRUState, DdcmpInitCRState, NULL },
+    { DdcmpInitSCEvent,    DdcmpInitCRState, DdcmpInitCRState, NULL },
+    { DdcmpInitSCEvent,    DdcmpInitDSState, DdcmpInitRIState, SendInitMessageAction },
+    { DdcmpInitSCEvent,    DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitSCEvent,    DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitSCEvent,    DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitSCEvent,    DdcmpInitOFState, DdcmpInitOFState, NULL },
+    { DdcmpInitSCEvent,    DdcmpInitHAState, DdcmpInitHAState, NULL },
+
+    { DdcmpInitSTEEvent,   DdcmpInitRUState, DdcmpInitCRState, NULL },
+    { DdcmpInitSTEEvent,   DdcmpInitCRState, DdcmpInitCRState, NULL },
+    { DdcmpInitSTEEvent,   DdcmpInitDSState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitSTEEvent,   DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitSTEEvent,   DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitSTEEvent,   DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitSTEEvent,   DdcmpInitOFState, DdcmpInitOFState, NULL },
+    { DdcmpInitSTEEvent,   DdcmpInitHAState, DdcmpInitHAState, NULL },
+
+    { DdcmpInitOPOEvent,   DdcmpInitRUState, DdcmpInitRUState, NULL },
+    { DdcmpInitOPOEvent,   DdcmpInitCRState, DdcmpInitCRState, NULL },
+    { DdcmpInitOPOEvent,   DdcmpInitDSState, DdcmpInitDSState, NULL },
+    { DdcmpInitOPOEvent,   DdcmpInitRIState, DdcmpInitRIState, NULL },
+    { DdcmpInitOPOEvent,   DdcmpInitRVState, DdcmpInitRVState, NULL },
+    { DdcmpInitOPOEvent,   DdcmpInitRCState, DdcmpInitRCState, NULL },
+    { DdcmpInitOPOEvent,   DdcmpInitOFState, DdcmpInitCRState, NULL },
+    { DdcmpInitOPOEvent,   DdcmpInitHAState, DdcmpInitDSState, IssueReinitializeCommandAction },
+
+    { DdcmpInitOPFEvent,   DdcmpInitRUState, DdcmpInitOFState, IssueStopAction },
+    { DdcmpInitOPFEvent,   DdcmpInitCRState, DdcmpInitOFState, NULL },
+    { DdcmpInitOPFEvent,   DdcmpInitDSState, DdcmpInitHAState, IssueStopAction },
+    { DdcmpInitOPFEvent,   DdcmpInitRIState, DdcmpInitHAState, IssueStopAction },
+    { DdcmpInitOPFEvent,   DdcmpInitRVState, DdcmpInitHAState, IssueStopAction },
+    { DdcmpInitOPFEvent,   DdcmpInitRCState, DdcmpInitHAState, IssueStopAction },
+    { DdcmpInitOPFEvent,   DdcmpInitOFState, DdcmpInitOFState, NULL },
+    { DdcmpInitOPFEvent,   DdcmpInitHAState, DdcmpInitHAState, NULL },
+
+    { DdcmpInitIMEvent,    DdcmpInitRUState, DdcmpInitCRState, NULL },
+    { DdcmpInitIMEvent,    DdcmpInitCRState, DdcmpInitCRState, NULL },
+    { DdcmpInitIMEvent,    DdcmpInitDSState, DdcmpInitDSState, NULL },
+    { DdcmpInitIMEvent,    DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitIMEvent,    DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitIMEvent,    DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitIMEvent,    DdcmpInitOFState, DdcmpInitOFState, NULL },
+    { DdcmpInitIMEvent,    DdcmpInitHAState, DdcmpInitHAState, NULL },
+
+    { DdcmpInitRCEvent,    DdcmpInitRUState, DdcmpInitCRState, NULL },
+    { DdcmpInitRCEvent,    DdcmpInitCRState, DdcmpInitCRState, NULL },
+    { DdcmpInitRCEvent,    DdcmpInitDSState, DdcmpInitDSState, NULL },
+    { DdcmpInitRCEvent,    DdcmpInitRIState, DdcmpInitRIState, NULL },
+    { DdcmpInitRCEvent,    DdcmpInitRVState, DdcmpInitRVState, NULL },
+    { DdcmpInitRCEvent,    DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitRCEvent,    DdcmpInitOFState, DdcmpInitOFState, NULL },
+    { DdcmpInitRCEvent,    DdcmpInitHAState, DdcmpInitHAState, NULL },
+
+    { DdcmpInitCDCEvent,   DdcmpInitRUState, DdcmpInitRUState, NULL },
+    { DdcmpInitCDCEvent,   DdcmpInitCRState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitCDCEvent,   DdcmpInitDSState, DdcmpInitDSState, NULL },
+    { DdcmpInitCDCEvent,   DdcmpInitRIState, DdcmpInitRIState, NULL },
+    { DdcmpInitCDCEvent,   DdcmpInitRVState, DdcmpInitRVState, NULL },
+    { DdcmpInitCDCEvent,   DdcmpInitRCState, DdcmpInitRCState, NULL },
+    { DdcmpInitCDCEvent,   DdcmpInitOFState, DdcmpInitHAState, NULL },
+    { DdcmpInitCDCEvent,   DdcmpInitHAState, DdcmpInitHAState, NULL },
+
+    { DdcmpInitCUCEvent,   DdcmpInitRUState, DdcmpInitRUState, NULL },
+    { DdcmpInitCUCEvent,   DdcmpInitCRState, DdcmpInitCRState, NULL },
+    { DdcmpInitCUCEvent,   DdcmpInitDSState, DdcmpInitDSState, NULL },
+    { DdcmpInitCUCEvent,   DdcmpInitRIState, DdcmpInitRIState, NULL },
+    { DdcmpInitCUCEvent,   DdcmpInitRVState, DdcmpInitRVState, NULL },
+    { DdcmpInitCUCEvent,   DdcmpInitRCState, DdcmpInitRUState, NULL },
+    { DdcmpInitCUCEvent,   DdcmpInitOFState, DdcmpInitOFState, NULL },
+    { DdcmpInitCUCEvent,   DdcmpInitHAState, DdcmpInitHAState, NULL },
+
+    { DdcmpInitUndefinedEvent, 0, 0, NULL }
+};
 
 void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount)
 {
@@ -59,6 +219,10 @@ void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount)
 	{
 		if (circuits[i].circuitType == DDCMPCircuit)
 		{
+            ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuits[i].context;
+           	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)ddcmpCircuit->context;
+            sockContext->line.NotifyRunning = DdcmpInitNotifyRunning;
+            sockContext->line.NotifyHalt = DdcmpInitNotifyHalt;
 		    ddcmpCircuits[ddcmpCircuitCount++] = &circuits[i];
 		}
 	}
@@ -71,7 +235,6 @@ void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount)
 void DdcmpInitLayerStop(void)
 {
 	int i;
-	//packet_t *packet;
 
 	StopAllAdjacencies(); // TODO: should only stop those on the DDCMP circuits
 
@@ -79,9 +242,10 @@ void DdcmpInitLayerStop(void)
 	{
 		circuit_t *circuit = ddcmpCircuits[i];
 		ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
-		ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
+//		ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
 		circuit->Close(circuit);
-		DdcmpHalt(&ddcmpSock->line);
+        ProcessEvent(ddcmpCircuit, DdcmpInitOPFEvent);
+		//DdcmpHalt(&ddcmpSock->line);
 	}
 }
 
@@ -89,6 +253,8 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
 {
     decnet_address_t from;
 	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+    int valid = 0;
+
     GetDecnetAddressFromId((byte *)&msg->srcnode, &from);
     
     Log(LogMessages, LogVerbose, "Initialization. From ");
@@ -117,22 +283,26 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
     }
     else if (VersionSupported(msg->tiver))
     {
-        packet_t *packet = CreateVerification(nodeInfo.address);
         Log(LogDdcmpInit, LogInfo, "Initialization received\n");
-        if (msg->tiinfo & 0x04)
-        {
-            time_t now;
-            Log(LogDdcmpInit, LogInfo, "Sending verification message\n");
-            circuit->WritePacket(circuit, NULL, NULL, packet);
 
-            StopTimerIfRunning(ddcmpCircuit);
-            time(&now);
-            ddcmpCircuit->helloTimer = CreateTimer("HelloAndTest", now, T3, circuit, HandleHelloAndTestTimer);
-            // TODO: Full init layer state table handling
-            // TODO: Check we get HelloAndTest from peer and close circuit if we don't (check spec for how to detect)
-            // TODO: Adjacency handling
-            // TODO: Check possible DDCMP seq no wrap error causing circuit to drop
-        }
+        // TODO: Check we get HelloAndTest from peer and close circuit if we don't (check spec for how to detect)
+        // TODO: Adjacency handling
+        // TODO: Check possible DDCMP seq no wrap error causing circuit to drop
+
+        valid = 1;
+    }
+
+    if (valid && msg->tiinfo & 0x04)
+    {
+        ProcessEvent(ddcmpCircuit, DdcmpInitNRIVREvent);
+    }
+    else if (valid)
+    {
+        ProcessEvent(ddcmpCircuit, DdcmpInitNRINVEvent);
+    }
+    else
+    {
+        ProcessEvent(ddcmpCircuit, DdcmpInitIMEvent);
     }
 }
 
@@ -151,6 +321,21 @@ void DdcmpInitProcessPhaseIINodeInitializationMessage(circuit_t *circuit, node_i
 	{
 		DdcmpSendDataMessage(&ddcmpSock->line, pkt->payload, pkt->payloadLen);
 	}
+}
+
+static void DdcmpInitNotifyRunning(void *context)
+{
+	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)context;
+	Log(LogDdcmpInit, LogInfo, "DDCMP line %s running\n", sockContext->ddcmpCircuit->circuit->name);
+    ProcessEvent(sockContext->ddcmpCircuit, DdcmpInitSCEvent);
+}
+
+static void DdcmpInitNotifyHalt(void *context)
+{
+	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)context;
+	Log(LogDdcmpInit, LogError, "DDCMP line %s halted\n", sockContext->ddcmpCircuit->circuit->name);
+    ProcessEvent(sockContext->ddcmpCircuit, DdcmpInitOPFEvent); // TODO: Not sure this is the right event for this situation
+	//DdcmpStart(&sockContext->line); // TODO: Not sure if should restart
 }
 
 static socket_t * TcpAcceptCallback(sockaddr_t *receivedFrom)
@@ -181,11 +366,9 @@ static void TcpConnectCallback(socket_t *sock)
 	ddcmp_circuit_t *ddcmpCircuit = FindCircuit(sock);
     if (ddcmpCircuit != NULL)
     {
-		ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
         ddcmpCircuit->circuit->waitHandle = sock->waitHandle;
         RegisterEventHandler(ddcmpCircuit->circuit->waitHandle, ddcmpCircuit->circuit, ddcmpCircuit->circuit->WaitEventHandler);
-        Log(LogDdcmpInit, LogInfo, "Starting DDCMP line %s\n", ddcmpCircuit->circuit->name);
-        DdcmpStart(&ddcmpSock->line);
+        ProcessEvent(ddcmpCircuit, DdcmpInitOPOEvent);
 	}
 }
 
@@ -239,4 +422,82 @@ static void StopTimerIfRunning(ddcmp_circuit_t *ddcmpCircuit)
         ddcmpCircuit->helloTimer = NULL;
     }
 }
+
+static void StartTimer(ddcmp_circuit_t *ddcmpCircuit)
+{
+    time_t now;
+    time(&now);
+    StopTimerIfRunning(ddcmpCircuit);
+    ddcmpCircuit->helloTimer = CreateTimer("HelloAndTest", now, T3, ddcmpCircuit->circuit, HandleHelloAndTestTimer);
+}
+
+static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
+{
+	state_table_entry_t *entry;
+	int i = 0;
+	int match;
+
+	do
+	{
+		entry = &stateTable[i++];
+		match = entry->evt == DdcmpInitUndefinedEvent || (entry->evt == evt && entry->currentState == ddcmpCircuit->state);
+	}
+	while (!match);
+
+	if (entry->evt != DdcmpInitUndefinedEvent)
+	{
+		int ok = 1;
+		if (ddcmpCircuit->state != entry->newState)
+		{
+			Log(LogDdcmpInit, LogVerbose, "Changing DDCMP circuit state from %s to %s\n", lineStateString[(int)ddcmpCircuit->state], lineStateString[(int)entry->newState]);
+            if (entry->newState == DdcmpInitRCState) // TODO: should be RU, temporarily RC as not invoking decision process to get to RU yet
+            {
+                StartTimer(ddcmpCircuit); // TODO: Move the circuit up/down stuff to a more sensible place
+			    Log(LogDdcmpInit, LogInfo, "DDCMP circuit %s is up\n", ddcmpCircuit->circuit->name);
+            }
+		}
+
+		ddcmpCircuit->state = entry->newState;
+
+        if (entry->action != NULL)
+        {
+            ok = entry->action(ddcmpCircuit->circuit);
+        }
+	}
+}
+
+static int IssueReinitializeCommandAction(circuit_t *circuit)
+{
+    ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+    ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
+    Log(LogDdcmpInit, LogInfo, "Starting DDCMP line %s\n", ddcmpCircuit->circuit->name);
+    DdcmpStart(&ddcmpSock->line);
+    return 1;
+}
+
+static int IssueStopAction(circuit_t *circuit)
+{
+    ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+    ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
+    Log(LogDdcmpInit, LogInfo, "Starting DDCMP line %s\n", ddcmpCircuit->circuit->name);
+    DdcmpHalt(&ddcmpSock->line);
+    return 1;
+}
+
+static int SendInitMessageAction(circuit_t *circuit)
+{
+    packet_t *pkt = CreateInitialization(nodeInfo.address);
+    Log(LogDdcmpInit, LogInfo, "Sending Initialization message on %s\n", circuit->name);
+    circuit->WritePacket(circuit, NULL, NULL, pkt);
+    return 1;
+}
+
+static int SendVerifyMessageAction(circuit_t *circuit)
+{
+    packet_t *packet = CreateVerification(nodeInfo.address);
+    Log(LogDdcmpInit, LogInfo, "Sending verification message\n");
+    circuit->WritePacket(circuit, NULL, NULL, packet);
+    return 1;
+}
+
 

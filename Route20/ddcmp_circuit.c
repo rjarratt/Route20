@@ -47,6 +47,7 @@ ddcmp_circuit_t *DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationH
 
 	ans->circuit = circuit;
 	ans->context = context;
+    ans->state = DdcmpInitHAState;
 
 	ans->Open = DdcmpSockOpen;
 	ans->ReadPacket = DdcmpSockReadPacket;
@@ -64,9 +65,6 @@ int DdcmpCircuitOpen(circuit_t *circuit)
 
 int DdcmpCircuitStart(circuit_t *circuit)
 {
-    packet_t *pkt = CreateInitialization(nodeInfo.address);
-    Log(LogDdcmpInit, LogInfo, "Sending Initialization message on %s\n", circuit->name);
-    circuit->WritePacket(circuit, NULL, NULL, pkt);
 	return 0;
 }
 
