@@ -68,6 +68,7 @@ SERVICE_STATUS          gSvcStatus;
 SERVICE_STATUS_HANDLE   gSvcStatusHandle; 
 HANDLE                  ghSvcStopEvent = NULL;
 FILE                   *logFile;
+int                     runningAsService = 1;
 SERVICE_TABLE_ENTRY DispatchTable[] = 
 { 
 	{ SVCNAME, (LPSERVICE_MAIN_FUNCTION) SvcMain }, 
@@ -98,7 +99,8 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 		err = GetLastError();
 		if (err == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT)
 		{
-			logFile = stdout;
+            runningAsService = 0;
+            OpenLog();
 			__try
 			{
 				if (Initialise(CONFIG_FILE_NAME))
@@ -111,6 +113,7 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 			__except(ExceptionFilter(GetExceptionInformation(), GetExceptionCode()))
 			{
 			}
+            CloseLog();
 		}
 		else if (!err)
 		{ 
@@ -217,11 +220,13 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
 			time(&now);
 			strftime(buf, 80, "%Y-%m-%d %H:%M:%S ", localtime(&now));
 			fprintf(logFile, buf);
+            if (!runningAsService) printf(buf);
 		}
 
 		n = vsprintf(buf, format, argptr);
 		onNewLine = buf[n-1] == '\n';
 		fprintf(logFile, buf);
+        if (!runningAsService) printf(buf);
 		fflush(logFile);
 	}
 }
