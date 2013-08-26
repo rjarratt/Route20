@@ -960,7 +960,7 @@ static void ProcessDataMessage(ddcmp_line_t *ddcmpLine)
 	resp = GetMessageResp(cb->currentMessage);
 	num = GetMessageNum(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
-	ddcmpLine->Log(LogVerbose, "Received DATA message. Len=%d, Flags=%s%s, R=%d, N=%d, Addr=%d\n", count, LOGFLAGS(flags), resp, num, addr);
+	ddcmpLine->Log(LogWarning, "Received DATA message. Len=%d, Flags=%s%s, R=%d, N=%d, Addr=%d\n", count, LOGFLAGS(flags), resp, num, addr);
 
 	if (cb->A < resp && resp <= cb->N)
 	{
@@ -987,7 +987,7 @@ static void ProcessStartMessage(ddcmp_line_t *ddcmpLine)
 	flags = GetMessageFlags(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogVerbose, "Received STRT message. Flags=%s%s, Addr=%d\n", LOGFLAGS(flags), addr);
+	ddcmpLine->Log(LogWarning, "Received STRT message. Flags=%s%s, Addr=%d\n", LOGFLAGS(flags), addr);
 	ProcessEvent(ddcmpLine, ReceiveStrt);
 }
 
@@ -1001,7 +1001,7 @@ static void ProcessStackMessage(ddcmp_line_t *ddcmpLine)
 	flags = GetMessageFlags(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogVerbose, "Received STACK message. Flags=%s%s, Addr=%d\n", LOGFLAGS(flags), addr);
+	ddcmpLine->Log(LogWarning, "Received STACK message. Flags=%s%s, Addr=%d\n", LOGFLAGS(flags), addr);
 	ProcessEvent(ddcmpLine, ReceiveStack);
 }
 
@@ -1017,7 +1017,7 @@ static void ProcessAckMessage(ddcmp_line_t *ddcmpLine)
 	resp = GetMessageResp(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogVerbose, "Received ACK message. Flags=%s%s, R=%d, Addr=%d\n", LOGFLAGS(flags), resp, addr);
+	ddcmpLine->Log(LogWarning, "Received ACK message. Flags=%s%s, R=%d, Addr=%d\n", LOGFLAGS(flags), resp, addr);
 	if (resp == 0)
 	{
 	    ProcessEvent(ddcmpLine, ReceiveAckResp0);
@@ -1040,7 +1040,7 @@ static void ProcessNakMessage(ddcmp_line_t *ddcmpLine)
 	resp = GetMessageResp(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogVerbose, "Received NAK message. Flags=%s%s, R=%d, Addr=%d\n", LOGFLAGS(flags), resp, addr);
+	ddcmpLine->Log(LogWarning, "Received NAK message. Flags=%s%s, R=%d, Addr=%d\n", LOGFLAGS(flags), resp, addr);
 	if (cb->A <= resp || resp > cb->N)
 	{
 	    ProcessEvent(ddcmpLine, ReceiveNakForOutstandingMsg);
@@ -1059,7 +1059,7 @@ static void ProcessRepMessage(ddcmp_line_t *ddcmpLine)
 	num = GetMessageNum(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogVerbose, "Received REP message. Flags=%s%s, N=%d, Addr=%d\n", LOGFLAGS(flags), num, addr);
+	ddcmpLine->Log(LogWarning, "Received REP message. Flags=%s%s, N=%d, Addr=%d\n", LOGFLAGS(flags), num, addr);
 
 	if (num == cb->R)
 	{
