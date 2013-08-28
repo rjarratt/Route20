@@ -95,7 +95,7 @@ static void ProcessCircuitLevel1Update(circuit_t *circuit)
 			}
 			else
 			{
-				//TODO: circuit->WritePacket(circuit, &nodeInfo.address, &adjacency->id, packet);
+				circuit->WritePacket(circuit, NULL, NULL, packet);
 			}
 		}
 
@@ -121,7 +121,7 @@ static void ProcessCircuitLevel2Update(circuit_t *circuit)
 		}
 		else
 		{
-			//TODO: circuit->WritePacket(circuit, &nodeInfo.address, &adjacency->id, packet);
+			circuit->WritePacket(circuit, NULL, NULL, packet);
 		}
 	}
 }
