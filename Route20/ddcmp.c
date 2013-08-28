@@ -27,7 +27,6 @@
 
   ------------------------------------------------------------------------------*/
 
-// TODO: Implement blocked send in socket
 // TODO: Make sure buffers cannot overflow if receive malformed message (test with a buffer size that is too small).
 // TODO: Implement SELECT for half-duplex
 // TODO: Send NAK if CRC is wrong (2.5.3.1)

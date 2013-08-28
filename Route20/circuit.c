@@ -50,9 +50,12 @@ void SetCircuitStateChangeCallback(void (*callback)(circuit_t *circuit))
 	stateChangeCallback = callback;
 }
 
-void CircuitStateChange(circuit_t *circuit)
+void CircuitUp(circuit_t *circuit)
 {
+	circuit->state = CircuitStateUp;
 	stateChangeCallback(circuit);
+	Log(LogCircuit, LogInfo, "Circuit %s up\n", circuit->name);
+
 }
 
 void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost, void (*waitEventHandler)(void *context))
@@ -63,7 +66,7 @@ void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost, void (
 	strcpy(circuit->name, name);
 	circuit->context = (void *)context;
 	circuit->circuitType = EthernetCircuit;
-	circuit->state = CircuitOff;
+	circuit->state = CircuitStateOff;
 	circuit->cost = cost;
 	circuit->nextLevel1Node = FirstLevel1Node();
 
@@ -83,7 +86,7 @@ void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receive
 	strcpy(circuit->name, name);
 	circuit->context = (void *)context;
 	circuit->circuitType = EthernetCircuit;
-	circuit->state = CircuitOff;
+	circuit->state = CircuitStateOff;
 	circuit->cost = cost;
 	circuit->nextLevel1Node = FirstLevel1Node();
 
@@ -103,7 +106,7 @@ void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, int cost, void (*
 	strcpy(circuit->name, name);
 	circuit->context = (void *)context;
 	circuit->circuitType = DDCMPCircuit;
-	circuit->state = CircuitOff;
+	circuit->state = CircuitStateOff;
 	circuit->cost = cost;
 	circuit->nextLevel1Node = FirstLevel1Node();
 
