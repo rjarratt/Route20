@@ -94,7 +94,7 @@ void ProcessAdjacencyStateChange(adjacency_t *adjacency)
 
 void ProcessCircuitStateChange(circuit_t *circuit)
 {
-	if (circuit->state == CircuitUp)
+	if (circuit->state == CircuitStateUp)
 	{
     	ProcessCircuitUp(circuit);
 	}

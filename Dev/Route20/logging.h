@@ -31,6 +31,7 @@
 typedef enum
 {
 	LogGeneral,
+	LogCircuit,
 	LogAdjacency,
 	LogUpdate,
 	LogDecision,

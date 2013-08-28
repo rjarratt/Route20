@@ -63,7 +63,7 @@ static void ProcessUpdateTimer(rtimer_t *timer, char *name, void *context)
 	for (i = 1; i <= NC; i++)
 	{
 		circuit_t *circuit = &Circuits[i];
-		if (circuit->state == CircuitUp)
+		if (circuit->state == CircuitStateUp)
 		{
 			if (nodeInfo.level == 1 || nodeInfo.level == 2)
 			{

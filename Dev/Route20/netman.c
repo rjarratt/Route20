@@ -187,7 +187,7 @@ static void ProcessShowKnownCircuits(uint16 locAddr)
 	for(i = 1; i <= numCircuits; i++)
 	{
 		circuit_t *circuit = &Circuits[i];
-		if (circuit->state == CircuitUp)
+		if (circuit->state == CircuitStateUp)
 		{
 			AdjacentNodeCallbackData context;
 			context.srcPort = locAddr;
@@ -219,7 +219,7 @@ static void ProcessShowAdjacentNodes(uint16 locAddr)
 	for(i = 1; i <= numCircuits; i++)
 	{
 		circuit_t *circuit = &Circuits[i];
-		if (circuit->state == CircuitUp)
+		if (circuit->state == CircuitStateUp)
 		{
 			AdjacentNodeCallbackData context;
 			context.srcPort = locAddr;
@@ -273,7 +273,7 @@ static void SendCircuitInfo(uint16 srcPort, circuit_t *circuit, decnet_address_t
 	responseData[len++] = 0;
 	responseData[len++] = 0;
 	responseData[len++] = 0x81;
-	responseData[len++] = circuit->state == CircuitUp ? 0 : 1;
+	responseData[len++] = circuit->state == CircuitStateUp ? 0 : 1;
 
 	if (address != NULL)
 	{

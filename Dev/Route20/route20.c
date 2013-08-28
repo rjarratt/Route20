@@ -283,6 +283,10 @@ static char *ReadLoggingConfig(FILE *f, int *ans)
 			{
 				ParseLogLevel(value, &LoggingLevels[LogGeneral]);
 			}
+			else if (stricmp(name, "circuit") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogCircuit]);
+			}
 			else if (stricmp(name, "adjacency") == 0)
 			{
 				ParseLogLevel(value, &LoggingLevels[LogAdjacency]);
