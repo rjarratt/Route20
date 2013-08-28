@@ -453,7 +453,7 @@ static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
             if (entry->newState == DdcmpInitRCState) // TODO: should be RU, temporarily RC as not invoking decision process to get to RU yet
             {
                 StartTimer(ddcmpCircuit); // TODO: Move the circuit up/down stuff to a more sensible place
-			    Log(LogDdcmpInit, LogInfo, "DDCMP circuit %s is up\n", ddcmpCircuit->circuit->name);
+				CircuitUp(ddcmpCircuit->circuit); // TODO: Still need to get adjacency up as well.
             }
 		}
 
