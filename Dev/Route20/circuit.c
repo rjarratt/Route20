@@ -58,6 +58,14 @@ void CircuitUp(circuit_t *circuit)
 
 }
 
+void CircuitDown(circuit_t *circuit)
+{
+	circuit->state = CircuitStateOff;
+	stateChangeCallback(circuit);
+	Log(LogCircuit, LogInfo, "Circuit %s down\n", circuit->name);
+
+}
+
 void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost, void (*waitEventHandler)(void *context))
 {
 	eth_circuit_t *context = EthCircuitCreatePcap(circuit);

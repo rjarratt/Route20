@@ -47,7 +47,7 @@ typedef enum
     DdcmpInitNRIVREvent, /* NRI with verification requested */
     DdcmpInitNRINVEvent, /* NRI with verification not requested */
     DdcmpInitNRVEvent,
-    DdcmpInitRTEvent,
+    DdcmpInitRTEvent, // TODO: implement timer from section 7.4, VMS 5.4 seems to use 3 minutes for the timeout.
     DdcmpInitSCEvent,
     DdcmpInitSTEEvent,
     DdcmpInitOPOEvent,
@@ -103,7 +103,7 @@ static state_table_entry_t stateTable[] =
     { DdcmpInitNRIVREvent, DdcmpInitRUState, DdcmpInitCRState, NULL },
     { DdcmpInitNRIVREvent, DdcmpInitCRState, DdcmpInitCRState, NULL },
     { DdcmpInitNRIVREvent, DdcmpInitDSState, DdcmpInitDSState, NULL },
-    { DdcmpInitNRIVREvent, DdcmpInitRIState, DdcmpInitRCState, SendVerifyMessageAction },
+    { DdcmpInitNRIVREvent, DdcmpInitRIState, DdcmpInitRVState, SendVerifyMessageAction },
     { DdcmpInitNRIVREvent, DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAction },
     { DdcmpInitNRIVREvent, DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
     { DdcmpInitNRIVREvent, DdcmpInitOFState, DdcmpInitOFState, NULL },
@@ -112,7 +112,7 @@ static state_table_entry_t stateTable[] =
     { DdcmpInitNRINVEvent, DdcmpInitRUState, DdcmpInitCRState, NULL },
     { DdcmpInitNRINVEvent, DdcmpInitCRState, DdcmpInitCRState, NULL },
     { DdcmpInitNRINVEvent, DdcmpInitDSState, DdcmpInitDSState, NULL },
-    { DdcmpInitNRINVEvent, DdcmpInitRIState, DdcmpInitRCState, NULL },
+    { DdcmpInitNRINVEvent, DdcmpInitRIState, DdcmpInitRVState, NULL },
     { DdcmpInitNRINVEvent, DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAction },
     { DdcmpInitNRINVEvent, DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
     { DdcmpInitNRINVEvent, DdcmpInitOFState, DdcmpInitOFState, NULL },
@@ -122,7 +122,7 @@ static state_table_entry_t stateTable[] =
     { DdcmpInitNRVEvent,   DdcmpInitCRState, DdcmpInitCRState, NULL },
     { DdcmpInitNRVEvent,   DdcmpInitDSState, DdcmpInitDSState, NULL },
     { DdcmpInitNRVEvent,   DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAction },
-    { DdcmpInitNRVEvent,   DdcmpInitRVState, DdcmpInitRCState, NULL },
+    { DdcmpInitNRVEvent,   DdcmpInitRVState, DdcmpInitRUState, NULL }, /* state table says new state is RC, but don't have CUC event so go straight to RU */
     { DdcmpInitNRVEvent,   DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
     { DdcmpInitNRVEvent,   DdcmpInitOFState, DdcmpInitOFState, NULL },
     { DdcmpInitNRVEvent,   DdcmpInitHAState, DdcmpInitHAState, NULL },
@@ -257,13 +257,13 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
 
     GetDecnetAddressFromId((byte *)&msg->srcnode, &from);
     
-    Log(LogMessages, LogVerbose, "Initialization. From ");
-    LogDecnetAddress(LogMessages, LogVerbose, &from);
-    Log(LogMessages, LogVerbose, " Node: %d", msg->tiinfo & 0x03);
-    Log(LogMessages, LogVerbose, " Verify: %s", (msg->tiinfo & 0x04) ? "Y" : "N");
-    Log(LogMessages, LogVerbose, " Block Req: %s", (msg->tiinfo & 0x08) ? "Y" : "N");
-    Log(LogMessages, LogVerbose, " Block size %d, Ver %d.%d.%d", msg->blksize, msg->tiver[0], msg->tiver[1], msg->tiver[2]);
-    Log(LogMessages, LogVerbose, " Timer: %d\n", msg->timer);
+    //Log(LogMessages, LogVerbose, "Initialization. From ");
+    //LogDecnetAddress(LogMessages, LogVerbose, &from);
+    //Log(LogMessages, LogVerbose, " Node: %d", msg->tiinfo & 0x03);
+    //Log(LogMessages, LogVerbose, " Verify: %s", (msg->tiinfo & 0x04) ? "Y" : "N");
+    //Log(LogMessages, LogVerbose, " Block Req: %s", (msg->tiinfo & 0x08) ? "Y" : "N");
+    //Log(LogMessages, LogVerbose, " Block size %d, Ver %d.%d.%d", msg->blksize, msg->tiver[0], msg->tiver[1], msg->tiver[2]);
+    //Log(LogMessages, LogVerbose, " Timer: %d\n", msg->timer);
 
     if (from.node > NN)
     {
@@ -304,6 +304,21 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
     {
         ProcessEvent(ddcmpCircuit, DdcmpInitIMEvent);
     }
+}
+
+void DdcmpInitProcessVerificationMessage(circuit_t *circuit, verification_msg_t *msg)
+{
+	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+	//int i;
+
+	//Log(LogMessages, LogVerbose, "Verification function value:");
+	//for (i = 0; i < msg->fcnvalLen; i++)
+	//{
+	//    Log(LogMessages, LogVerbose, " %02X", msg->fcnval[i]);
+	//}
+	//Log(LogMessages, LogVerbose, "\n");
+
+    ProcessEvent(ddcmpCircuit, DdcmpInitNRVEvent);
 }
 
 void DdcmpInitProcessPhaseIINodeInitializationMessage(circuit_t *circuit, node_init_phaseii_t *msg)
@@ -378,11 +393,9 @@ static void TcpDisconnectCallback(socket_t *sock)
     ddcmp_circuit_t *ddcmpCircuit = FindCircuit(sock);
     if (ddcmpCircuit != NULL)
     {
-		ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
-        DdcmpHalt(&ddcmpSock->line);
-        StopTimerIfRunning(ddcmpCircuit);
-        DeregisterEventHandler(ddcmpCircuit->circuit->waitHandle);
         Log(LogDdcmpInit, LogInfo, "DDCMP line %s has been closed\n", ddcmpCircuit->circuit->name);
+		ProcessEvent(ddcmpCircuit, DdcmpInitOPFEvent);
+        DeregisterEventHandler(ddcmpCircuit->circuit->waitHandle);
     }
 }
 
@@ -448,15 +461,7 @@ static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
 	if (entry->evt != DdcmpInitUndefinedEvent)
 	{
 		int ok = 1;
-		if (ddcmpCircuit->state != entry->newState)
-		{
-			Log(LogDdcmpInit, LogVerbose, "Changing DDCMP circuit state from %s to %s\n", lineStateString[(int)ddcmpCircuit->state], lineStateString[(int)entry->newState]);
-            if (entry->newState == DdcmpInitRCState) // TODO: should be RU, temporarily RC as not invoking decision process to get to RU yet
-            {
-                StartTimer(ddcmpCircuit); // TODO: Move the circuit up/down stuff to a more sensible place
-				CircuitUp(ddcmpCircuit->circuit); // TODO: Still need to get adjacency up as well.
-            }
-		}
+		int stateChanging = ddcmpCircuit->state != entry->newState;
 
 		ddcmpCircuit->state = entry->newState;
 
@@ -464,6 +469,21 @@ static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
         {
             ok = entry->action(ddcmpCircuit->circuit);
         }
+
+		if (stateChanging)
+		{
+			Log(LogDdcmpInit, LogVerbose, "Changing DDCMP circuit state from %s to %s\n", lineStateString[(int)ddcmpCircuit->state], lineStateString[(int)entry->newState]);
+            if (entry->newState == DdcmpInitRUState)
+            {
+                StartTimer(ddcmpCircuit); // TODO: Move the circuit up/down stuff to a more sensible place
+				CircuitUp(ddcmpCircuit->circuit); // TODO: Still need to get adjacency up as well.
+            }
+            else if (entry->newState == DdcmpInitOFState)
+            {
+                StopTimerIfRunning(ddcmpCircuit);
+				CircuitDown(ddcmpCircuit->circuit); // TODO: Bring adjacency down as well?
+            }
+		}
 	}
 }
 
@@ -480,7 +500,7 @@ static int IssueStopAction(circuit_t *circuit)
 {
     ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
     ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
-    Log(LogDdcmpInit, LogInfo, "Starting DDCMP line %s\n", ddcmpCircuit->circuit->name);
+    Log(LogDdcmpInit, LogInfo, "Stopping DDCMP line %s\n", ddcmpCircuit->circuit->name);
     DdcmpHalt(&ddcmpSock->line);
     return 1;
 }
