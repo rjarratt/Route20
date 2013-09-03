@@ -841,6 +841,11 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 	else if (IsVerificationMessage(packet))
 	{
 		LogMessage(circuit, packet, "Verification");
+		if (IsValidVerificationMessage(packet))
+		{
+			verification_msg_t *msg = (verification_msg_t *)packet->payload;
+            DdcmpInitProcessVerificationMessage(circuit, msg);
+		}
 	}
 	else if (IsHelloAndTestMessage(packet))
 	{

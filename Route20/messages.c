@@ -190,7 +190,7 @@ packet_t *CreateInitialization(decnet_address_t address)
 	msg.tiver[1] = 0;
 	msg.tiver[2] = 0;
 	msg.srcnode = Uint16ToLittleEndian(GetDecnetId(nodeInfo.address));
-	msg.tiinfo = (nodeInfo.level == 2) ? 1 : 2;
+	msg.tiinfo = 4 | ((nodeInfo.level == 2) ? 1 : 2); /* request verification */
 	msg.blksize = Uint16ToLittleEndian(576);
 	msg.timer = Uint16ToLittleEndian(T3);
 
@@ -211,9 +211,10 @@ packet_t *CreateVerification(decnet_address_t address)
 
     msg.flags = 0x03;
 	msg.srcnode = Uint16ToLittleEndian(GetDecnetId(nodeInfo.address));
+	msg.fcnvalLen = 0;
 
 	ans.payload = (byte *)&msg;
-	ans.payloadLen = sizeof(verification_msg_t);
+	ans.payloadLen = sizeof(verification_msg_t) - sizeof(msg.fcnval) + msg.fcnvalLen;
 	ans.rawData = ans.payload;
 	ans.rawLen = ans.payloadLen;
 
@@ -520,6 +521,31 @@ int IsValidInitializationMessage(packet_t *packet)
 
     return valid;
 }
+
+int IsValidVerificationMessage(packet_t *packet)
+{
+    int valid = 0;
+    verification_msg_t *msg;
+    if (packet->payloadLen < (sizeof(verification_msg_t) - sizeof(msg->fcnval)))
+    {
+		Log(LogMessages, LogError, "Verification message too short\n");
+    }
+    else
+    {
+        msg = (verification_msg_t *)packet->payload;
+        if (msg->fcnvalLen > sizeof(msg->fcnval))
+        {
+		    Log(LogMessages, LogError, "Verification message function value length too big\n");
+        }
+        else
+        {
+            valid = 1;
+        }
+    }
+
+    return valid;
+}
+
 
 int IsValidHelloAndTestMessage(packet_t *packet)
 {

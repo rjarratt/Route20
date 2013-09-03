@@ -34,6 +34,7 @@ void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount);
 void DdcmpInitLayerStop(void);
 
 void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_msg_t *msg);
+void DdcmpInitProcessVerificationMessage(circuit_t *circuit, verification_msg_t *msg);
 void DdcmpInitProcessPhaseIINodeInitializationMessage(circuit_t *circuit, node_init_phaseii_t *msg);
 
 #define DDCMP_INIT_LAYER_H

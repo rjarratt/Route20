@@ -69,7 +69,8 @@ typedef struct
 {
 	byte          flags;
 	uint16        srcnode;
-    byte          fcnval;
+    byte          fcnvalLen;
+	byte          fcnval[64];
 } verification_msg_t;
 
 typedef struct
@@ -225,6 +226,7 @@ packet_t *CreateLongDataMessage(decnet_address_t *srcNode, decnet_address_t *dst
 packet_t *CreateNodeInitPhaseIIMessage(decnet_address_t address, char *name);
 
 int IsValidInitializationMessage(packet_t *packet);
+int IsValidVerificationMessage(packet_t *packet);
 int IsValidHelloAndTestMessage(packet_t *packet);
 int IsValidRouterHelloMessage(packet_t *packet);
 int IsValidEndnodeHelloMessage(packet_t *packet);
