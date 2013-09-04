@@ -837,6 +837,10 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 			initialization_msg_t *msg = ParseInitializationMessage(packet);
             DdcmpInitProcessInitializationMessage(circuit, msg);
 		}
+		else
+		{
+            DdcmpInitProcessInvalidMessage(circuit);
+		}
 	}
 	else if (IsVerificationMessage(packet))
 	{
@@ -846,14 +850,22 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 			verification_msg_t *msg = (verification_msg_t *)packet->payload;
             DdcmpInitProcessVerificationMessage(circuit, msg);
 		}
+		else
+		{
+            DdcmpInitProcessInvalidMessage(circuit);
+		}
 	}
 	else if (IsHelloAndTestMessage(packet))
 	{
 		LogMessage(circuit, packet, "Hello and Test");
         if (IsValidHelloAndTestMessage(packet))
         {
-            // TODO: adjacency liveness code needed here.
+            // TODO: adjacency liveness code needed here. See 7.1.2.
         }
+		else
+		{
+            DdcmpInitProcessInvalidMessage(circuit);
+		}
 	}
 	else if (IsLevel1RoutingMessage(packet))
 	{

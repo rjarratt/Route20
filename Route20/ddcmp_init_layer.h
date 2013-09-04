@@ -36,6 +36,7 @@ void DdcmpInitLayerStop(void);
 void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_msg_t *msg);
 void DdcmpInitProcessVerificationMessage(circuit_t *circuit, verification_msg_t *msg);
 void DdcmpInitProcessPhaseIINodeInitializationMessage(circuit_t *circuit, node_init_phaseii_t *msg);
+void DdcmpInitProcessInvalidMessage(circuit_t *circuit);
 
 #define DDCMP_INIT_LAYER_H
 #endif
