@@ -69,6 +69,8 @@ typedef struct
 static circuit_t * ddcmpCircuits[NC];
 static int ddcmpCircuitCount;
 
+static void DdcmpInitCircuitUp(ddcmp_circuit_t *ddcmpCircuit);
+static void DdcmpInitCircuitDown(ddcmp_circuit_t *ddcmpCircuit);
 static void DdcmpInitNotifyRunning(void *context);
 static void DdcmpInitNotifyHalt(void *context);
 
@@ -122,7 +124,7 @@ static state_table_entry_t stateTable[] =
     { DdcmpInitNRVEvent,   DdcmpInitCRState, DdcmpInitCRState, NULL },
     { DdcmpInitNRVEvent,   DdcmpInitDSState, DdcmpInitDSState, NULL },
     { DdcmpInitNRVEvent,   DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAction },
-    { DdcmpInitNRVEvent,   DdcmpInitRVState, DdcmpInitRUState, NULL }, /* state table says new state is RC, but don't have CUC event so go straight to RU */
+    { DdcmpInitNRVEvent,   DdcmpInitRVState, DdcmpInitRCState, NULL },
     { DdcmpInitNRVEvent,   DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
     { DdcmpInitNRVEvent,   DdcmpInitOFState, DdcmpInitOFState, NULL },
     { DdcmpInitNRVEvent,   DdcmpInitHAState, DdcmpInitHAState, NULL },
@@ -302,7 +304,7 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
     }
     else
     {
-        ProcessEvent(ddcmpCircuit, DdcmpInitIMEvent);
+        DdcmpInitProcessInvalidMessage(circuit);
     }
 }
 
@@ -336,6 +338,27 @@ void DdcmpInitProcessPhaseIINodeInitializationMessage(circuit_t *circuit, node_i
 	{
 		DdcmpSendDataMessage(&ddcmpSock->line, pkt->payload, pkt->payloadLen);
 	}
+}
+
+void DdcmpInitProcessInvalidMessage(circuit_t *circuit)
+{
+	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+    ProcessEvent(ddcmpCircuit, DdcmpInitIMEvent);
+	DdcmpInitCircuitDown(ddcmpCircuit);
+}
+
+static void DdcmpInitCircuitUp(ddcmp_circuit_t *ddcmpCircuit)
+{
+	StartTimer(ddcmpCircuit); // TODO: Move the circuit up/down stuff to a more sensible place
+	CircuitUp(ddcmpCircuit->circuit); // TODO: Still need to get adjacency up as well.
+    ProcessEvent(ddcmpCircuit, DdcmpInitCUCEvent); /* TODO: see if CircuitUp callback can do this, at the moment no separate decision process to do this */
+}
+
+static void DdcmpInitCircuitDown(ddcmp_circuit_t *ddcmpCircuit)
+{
+    StopTimerIfRunning(ddcmpCircuit);
+	CircuitDown(ddcmpCircuit->circuit); // TODO: Bring adjacency down as well?
+    ProcessEvent(ddcmpCircuit, DdcmpInitCDCEvent); /* TODO: see if CircuitDown callback can do this, at the moment no separate decision process to do this */
 }
 
 static void DdcmpInitNotifyRunning(void *context)
@@ -473,15 +496,13 @@ static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
 		if (stateChanging)
 		{
 			Log(LogDdcmpInit, LogVerbose, "Changing DDCMP circuit state from %s to %s\n", lineStateString[(int)ddcmpCircuit->state], lineStateString[(int)entry->newState]);
-            if (entry->newState == DdcmpInitRUState)
+            if (entry->newState == DdcmpInitRCState)
             {
-                StartTimer(ddcmpCircuit); // TODO: Move the circuit up/down stuff to a more sensible place
-				CircuitUp(ddcmpCircuit->circuit); // TODO: Still need to get adjacency up as well.
+	            DdcmpInitCircuitUp(ddcmpCircuit);
             }
-            else if (entry->newState == DdcmpInitOFState)
+            else if (entry->newState == DdcmpInitCRState || entry->newState == DdcmpInitOFState)
             {
-                StopTimerIfRunning(ddcmpCircuit);
-				CircuitDown(ddcmpCircuit->circuit); // TODO: Bring adjacency down as well?
+	            DdcmpInitCircuitDown(ddcmpCircuit);
             }
 		}
 	}
