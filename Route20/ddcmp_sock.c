@@ -91,10 +91,6 @@ int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit)
 		CreateTimer("DNS", now + DnsConfig.pollPeriod, DnsConfig.pollPeriod, ddcmpCircuit, ProcessDnsTimer);
 	}
 
-	// TODO: circuit state change on connect, or on DDCMP connect?
-	//ethCircuit->circuit->state = CircuitUp;
-	//CircuitStateChange(ethCircuit->circuit);
-
 	return ans;
 }
 

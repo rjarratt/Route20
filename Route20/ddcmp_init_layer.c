@@ -47,7 +47,7 @@ typedef enum
     DdcmpInitNRIVREvent, /* NRI with verification requested */
     DdcmpInitNRINVEvent, /* NRI with verification not requested */
     DdcmpInitNRVEvent,
-    DdcmpInitRTEvent, // TODO: implement timer from section 7.4, VMS 5.4 seems to use 3 minutes for the timeout.
+    DdcmpInitRTEvent,
     DdcmpInitSCEvent,
     DdcmpInitSTEEvent,
     DdcmpInitOPOEvent,
