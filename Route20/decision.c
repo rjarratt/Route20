@@ -124,7 +124,10 @@ void ProcessLevel1RoutingMessage(routing_msg_t *msg)
 				int hops;
 				int cost;
 				ExtractRoutingInfo(segment->rtginfo[i - segment->start], &hops, &cost);
-				Log(LogDecision, LogVerbose, "L1 Adjacency slot %d, segment index is %d, hops=%d, cost=%d\n", adjacency->slot, i, hops, cost);
+                if (hops != 31 && cost != 1023)
+                {
+				    Log(LogDecision, LogVerbose, "L1 Adjacency slot %d, segment index is %d, hops=%d, cost=%d\n", adjacency->slot, i, hops, cost);
+                }
 				Hop[i][adjacency->slot] = hops;
 				Hop[i][adjacency->slot]++;
 				Cost[i][adjacency->slot] = cost;
@@ -154,7 +157,10 @@ void ProcessLevel2RoutingMessage(routing_msg_t *msg)
 				int hops;
 				int cost;
 				ExtractRoutingInfo(segment->rtginfo[i - segment->start], &hops, &cost);
-				Log(LogDecision, LogVerbose, "L2 Adjacency slot %d, segment index is %d, hops=%d, cost=%d\n", adjacency->slot, i, hops, cost);
+                if (hops != 31 && cost != 1023)
+                {
+				    Log(LogDecision, LogVerbose, "L2 Adjacency slot %d, segment index is %d, hops=%d, cost=%d\n", adjacency->slot, i, hops, cost);
+                }
 				AHop[i][adjacency->slot] = hops;
 				AHop[i][adjacency->slot]++;
 				ACost[i][adjacency->slot] = cost;
@@ -540,7 +546,7 @@ static void Routes(int FirstDest, int LastDest)
 				adjacency_t *adj = GetAdjacency(j);
 				if (adj->type == EndnodeAdjacency && adj->id.node == i)
 				{
-					OA[i] = j;
+                    OA[i] = j;
 				}
 			}
 		}

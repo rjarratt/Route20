@@ -150,11 +150,19 @@ void SendPacket(decnet_address_t *dstNode, packet_t *packet)
 
 	if (dstAdjacency != NULL)
 	{
+        forward = 0;
 		if (dstAdjacency->type == PhaseIIIAdjacency)
 		{
 			Log(LogForwarding, LogWarning, "TODO: Phase III data packet forwarding not implemented\n");
-			forward = 0;
 		}
+        else if (dstAdjacency->type == UnusedAdjacency)
+		{
+			Log(LogForwarding, LogWarning, "Trying to forward to an unused adjacency, ignoring forward.\n");
+		}
+        else
+        {
+            forward = 1;
+        }
 
 		if (forward)
 		{
