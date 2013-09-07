@@ -83,7 +83,7 @@ static void StopTimerIfRunning(ddcmp_circuit_t *ddcmpCircuit);
 static void StartTimer(ddcmp_circuit_t *ddcmpCircuit);
 
 static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt);
-static int IssueReinitializeCommandAction(circuit_t *circuit);
+static int IssueReinitializeCommandAndStartRecallTimerAction(circuit_t *circuit);
 static int IssueStopAction(circuit_t *circuit);
 static int SendInitMessageAction(circuit_t *circuit);
 static int SendVerifyMessageAction(circuit_t *circuit);
@@ -106,8 +106,8 @@ static state_table_entry_t stateTable[] =
     { DdcmpInitNRIVREvent, DdcmpInitCRState, DdcmpInitCRState, NULL },
     { DdcmpInitNRIVREvent, DdcmpInitDSState, DdcmpInitDSState, NULL },
     { DdcmpInitNRIVREvent, DdcmpInitRIState, DdcmpInitRVState, SendVerifyMessageAction },
-    { DdcmpInitNRIVREvent, DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAction },
-    { DdcmpInitNRIVREvent, DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitNRIVREvent, DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
+    { DdcmpInitNRIVREvent, DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
     { DdcmpInitNRIVREvent, DdcmpInitOFState, DdcmpInitOFState, NULL },
     { DdcmpInitNRIVREvent, DdcmpInitHAState, DdcmpInitHAState, NULL },
 
@@ -115,25 +115,25 @@ static state_table_entry_t stateTable[] =
     { DdcmpInitNRINVEvent, DdcmpInitCRState, DdcmpInitCRState, NULL },
     { DdcmpInitNRINVEvent, DdcmpInitDSState, DdcmpInitDSState, NULL },
     { DdcmpInitNRINVEvent, DdcmpInitRIState, DdcmpInitRVState, NULL },
-    { DdcmpInitNRINVEvent, DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAction },
-    { DdcmpInitNRINVEvent, DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitNRINVEvent, DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
+    { DdcmpInitNRINVEvent, DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
     { DdcmpInitNRINVEvent, DdcmpInitOFState, DdcmpInitOFState, NULL },
     { DdcmpInitNRINVEvent, DdcmpInitHAState, DdcmpInitHAState, NULL },
 
     { DdcmpInitNRVEvent,   DdcmpInitRUState, DdcmpInitCRState, NULL },
     { DdcmpInitNRVEvent,   DdcmpInitCRState, DdcmpInitCRState, NULL },
     { DdcmpInitNRVEvent,   DdcmpInitDSState, DdcmpInitDSState, NULL },
-    { DdcmpInitNRVEvent,   DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitNRVEvent,   DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
     { DdcmpInitNRVEvent,   DdcmpInitRVState, DdcmpInitRCState, NULL },
-    { DdcmpInitNRVEvent,   DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitNRVEvent,   DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
     { DdcmpInitNRVEvent,   DdcmpInitOFState, DdcmpInitOFState, NULL },
     { DdcmpInitNRVEvent,   DdcmpInitHAState, DdcmpInitHAState, NULL },
 
     { DdcmpInitRTEvent,    DdcmpInitRUState, DdcmpInitRUState, NULL },
     { DdcmpInitRTEvent,    DdcmpInitCRState, DdcmpInitCRState, NULL },
-    { DdcmpInitRTEvent,    DdcmpInitDSState, DdcmpInitDSState, IssueReinitializeCommandAction },
-    { DdcmpInitRTEvent,    DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAction },
-    { DdcmpInitRTEvent,    DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitRTEvent,    DdcmpInitDSState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
+    { DdcmpInitRTEvent,    DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
+    { DdcmpInitRTEvent,    DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
     { DdcmpInitRTEvent,    DdcmpInitRCState, DdcmpInitRCState, NULL },
     { DdcmpInitRTEvent,    DdcmpInitOFState, DdcmpInitOFState, NULL },
     { DdcmpInitRTEvent,    DdcmpInitHAState, DdcmpInitHAState, NULL },
@@ -141,18 +141,18 @@ static state_table_entry_t stateTable[] =
     { DdcmpInitSCEvent,    DdcmpInitRUState, DdcmpInitCRState, NULL },
     { DdcmpInitSCEvent,    DdcmpInitCRState, DdcmpInitCRState, NULL },
     { DdcmpInitSCEvent,    DdcmpInitDSState, DdcmpInitRIState, SendInitMessageAction },
-    { DdcmpInitSCEvent,    DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAction },
-    { DdcmpInitSCEvent,    DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAction },
-    { DdcmpInitSCEvent,    DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitSCEvent,    DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
+    { DdcmpInitSCEvent,    DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
+    { DdcmpInitSCEvent,    DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
     { DdcmpInitSCEvent,    DdcmpInitOFState, DdcmpInitOFState, NULL },
     { DdcmpInitSCEvent,    DdcmpInitHAState, DdcmpInitHAState, NULL },
 
     { DdcmpInitSTEEvent,   DdcmpInitRUState, DdcmpInitCRState, NULL },
     { DdcmpInitSTEEvent,   DdcmpInitCRState, DdcmpInitCRState, NULL },
-    { DdcmpInitSTEEvent,   DdcmpInitDSState, DdcmpInitDSState, IssueReinitializeCommandAction },
-    { DdcmpInitSTEEvent,   DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAction },
-    { DdcmpInitSTEEvent,   DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAction },
-    { DdcmpInitSTEEvent,   DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitSTEEvent,   DdcmpInitDSState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
+    { DdcmpInitSTEEvent,   DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
+    { DdcmpInitSTEEvent,   DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
+    { DdcmpInitSTEEvent,   DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
     { DdcmpInitSTEEvent,   DdcmpInitOFState, DdcmpInitOFState, NULL },
     { DdcmpInitSTEEvent,   DdcmpInitHAState, DdcmpInitHAState, NULL },
 
@@ -163,7 +163,7 @@ static state_table_entry_t stateTable[] =
     { DdcmpInitOPOEvent,   DdcmpInitRVState, DdcmpInitRVState, NULL },
     { DdcmpInitOPOEvent,   DdcmpInitRCState, DdcmpInitRCState, NULL },
     { DdcmpInitOPOEvent,   DdcmpInitOFState, DdcmpInitCRState, NULL },
-    { DdcmpInitOPOEvent,   DdcmpInitHAState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitOPOEvent,   DdcmpInitHAState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
 
     { DdcmpInitOPFEvent,   DdcmpInitRUState, DdcmpInitOFState, IssueStopAction },
     { DdcmpInitOPFEvent,   DdcmpInitCRState, DdcmpInitOFState, NULL },
@@ -177,9 +177,9 @@ static state_table_entry_t stateTable[] =
     { DdcmpInitIMEvent,    DdcmpInitRUState, DdcmpInitCRState, NULL },
     { DdcmpInitIMEvent,    DdcmpInitCRState, DdcmpInitCRState, NULL },
     { DdcmpInitIMEvent,    DdcmpInitDSState, DdcmpInitDSState, NULL },
-    { DdcmpInitIMEvent,    DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAction },
-    { DdcmpInitIMEvent,    DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAction },
-    { DdcmpInitIMEvent,    DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitIMEvent,    DdcmpInitRIState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
+    { DdcmpInitIMEvent,    DdcmpInitRVState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
+    { DdcmpInitIMEvent,    DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
     { DdcmpInitIMEvent,    DdcmpInitOFState, DdcmpInitOFState, NULL },
     { DdcmpInitIMEvent,    DdcmpInitHAState, DdcmpInitHAState, NULL },
 
@@ -188,12 +188,12 @@ static state_table_entry_t stateTable[] =
     { DdcmpInitRCEvent,    DdcmpInitDSState, DdcmpInitDSState, NULL },
     { DdcmpInitRCEvent,    DdcmpInitRIState, DdcmpInitRIState, NULL },
     { DdcmpInitRCEvent,    DdcmpInitRVState, DdcmpInitRVState, NULL },
-    { DdcmpInitRCEvent,    DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitRCEvent,    DdcmpInitRCState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
     { DdcmpInitRCEvent,    DdcmpInitOFState, DdcmpInitOFState, NULL },
     { DdcmpInitRCEvent,    DdcmpInitHAState, DdcmpInitHAState, NULL },
 
     { DdcmpInitCDCEvent,   DdcmpInitRUState, DdcmpInitRUState, NULL },
-    { DdcmpInitCDCEvent,   DdcmpInitCRState, DdcmpInitDSState, IssueReinitializeCommandAction },
+    { DdcmpInitCDCEvent,   DdcmpInitCRState, DdcmpInitDSState, IssueReinitializeCommandAndStartRecallTimerAction },
     { DdcmpInitCDCEvent,   DdcmpInitDSState, DdcmpInitDSState, NULL },
     { DdcmpInitCDCEvent,   DdcmpInitRIState, DdcmpInitRIState, NULL },
     { DdcmpInitCDCEvent,   DdcmpInitRVState, DdcmpInitRVState, NULL },
@@ -486,6 +486,11 @@ static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
 		int ok = 1;
 		int stateChanging = ddcmpCircuit->state != entry->newState;
 
+		if (stateChanging)
+		{
+			Log(LogDdcmpInit, LogVerbose, "Changing DDCMP circuit state from %s to %s\n", lineStateString[(int)ddcmpCircuit->state], lineStateString[(int)entry->newState]);
+		}
+
 		ddcmpCircuit->state = entry->newState;
 
         if (entry->action != NULL)
@@ -495,7 +500,6 @@ static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
 
 		if (stateChanging)
 		{
-			Log(LogDdcmpInit, LogVerbose, "Changing DDCMP circuit state from %s to %s\n", lineStateString[(int)ddcmpCircuit->state], lineStateString[(int)entry->newState]);
             if (entry->newState == DdcmpInitRCState)
             {
 	            DdcmpInitCircuitUp(ddcmpCircuit);
@@ -508,12 +512,35 @@ static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
 	}
 }
 
-static int IssueReinitializeCommandAction(circuit_t *circuit)
+static void HandleRecallTimer(rtimer_t *timer, char *name, void *context)
 {
+	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)context;
+	ddcmpCircuit->recallTimer = NULL;
+	if (ddcmpCircuit->state != DdcmpInitRUState)
+	{
+		Log(LogDdcmpInit, LogVerbose, "Recall timer timed out for %s.\n", ddcmpCircuit->circuit->name);
+		ProcessEvent(ddcmpCircuit, DdcmpInitRTEvent);
+	}
+}
+
+static int IssueReinitializeCommandAndStartRecallTimerAction(circuit_t *circuit)
+{
+	time_t now;
     ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
     ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
-    Log(LogDdcmpInit, LogInfo, "Starting DDCMP line %s\n", ddcmpCircuit->circuit->name);
-    DdcmpStart(&ddcmpSock->line);
+
+	if (ddcmpCircuit->recallTimer == NULL)
+	{
+		Log(LogDdcmpInit, LogInfo, "Starting DDCMP line %s\n", ddcmpCircuit->circuit->name);
+		DdcmpStart(&ddcmpSock->line);
+
+		time(&now);
+		ddcmpCircuit->recallTimer = CreateTimer("Recall timer", now + RECALL_TIMER, 0, ddcmpCircuit, HandleRecallTimer);
+	}
+	else
+	{
+		Log(LogDdcmpInit, LogVerbose, "Skipping reinitialize for %s because recall timer is active, will reinitialize in the timer handler.\n", ddcmpCircuit->circuit->name);
+	}
     return 1;
 }
 

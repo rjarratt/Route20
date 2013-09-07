@@ -50,6 +50,7 @@ typedef struct ddcmp_circuit
 {
 	circuit_t      *circuit;
 	void           *context;
+	rtimer_t       *recallTimer;
     rtimer_t       *helloTimer; // TODO: consider if this should be moved to higher level timer so can use for ethernet ones too
     DdcmpInitState  state;
 
