@@ -30,6 +30,7 @@
 
 #if !defined(DDCMP_INIT_LAYER_H)
 
+#define RECALL_TIMER 180
 void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount);
 void DdcmpInitLayerStop(void);
 
