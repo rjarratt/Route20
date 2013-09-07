@@ -285,7 +285,7 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
     }
     else if (VersionSupported(msg->tiver))
     {
-        Log(LogDdcmpInit, LogInfo, "Initialization received\n");
+        Log(LogDdcmpInit, LogVerbose, "Initialization received\n");
 
         // TODO: Check we get HelloAndTest from peer and close circuit if we don't (check spec for how to detect)
         // TODO: Adjacency handling
@@ -364,14 +364,14 @@ static void DdcmpInitCircuitDown(ddcmp_circuit_t *ddcmpCircuit)
 static void DdcmpInitNotifyRunning(void *context)
 {
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)context;
-	Log(LogDdcmpInit, LogInfo, "DDCMP line %s running\n", sockContext->ddcmpCircuit->circuit->name);
+	Log(LogDdcmpInit, LogWarning, "DDCMP line %s running\n", sockContext->ddcmpCircuit->circuit->name);
     ProcessEvent(sockContext->ddcmpCircuit, DdcmpInitSCEvent);
 }
 
 static void DdcmpInitNotifyHalt(void *context)
 {
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)context;
-	Log(LogDdcmpInit, LogError, "DDCMP line %s halted\n", sockContext->ddcmpCircuit->circuit->name);
+	Log(LogDdcmpInit, LogWarning, "DDCMP line %s halted\n", sockContext->ddcmpCircuit->circuit->name);
     ProcessEvent(sockContext->ddcmpCircuit, DdcmpInitOPFEvent); // TODO: Not sure this is the right event for this situation
 	//DdcmpStart(&sockContext->line); // TODO: Not sure if should restart
 }
@@ -446,7 +446,7 @@ static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context)
 {
 	packet_t *packet;
 	circuit_t *circuit = (circuit_t *)context;
-	Log(LogDdcmpInit, LogInfo, "Sending Hello And Test on %s\n", circuit->name);
+	Log(LogDdcmpInit, LogVerbose, "Sending Hello And Test on %s\n", circuit->name);
 	packet = CreateHelloAndTest(nodeInfo.address);
 	circuit->WritePacket(circuit, NULL, NULL, packet);
 }
@@ -531,7 +531,7 @@ static int IssueReinitializeCommandAndStartRecallTimerAction(circuit_t *circuit)
 
 	if (ddcmpCircuit->recallTimer == NULL)
 	{
-		Log(LogDdcmpInit, LogInfo, "Starting DDCMP line %s\n", ddcmpCircuit->circuit->name);
+		Log(LogDdcmpInit, LogWarning, "Starting DDCMP line %s\n", ddcmpCircuit->circuit->name);
 		DdcmpStart(&ddcmpSock->line);
 
 		time(&now);
@@ -548,7 +548,7 @@ static int IssueStopAction(circuit_t *circuit)
 {
     ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
     ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
-    Log(LogDdcmpInit, LogInfo, "Stopping DDCMP line %s\n", ddcmpCircuit->circuit->name);
+    Log(LogDdcmpInit, LogWarning, "Stopping DDCMP line %s\n", ddcmpCircuit->circuit->name);
     DdcmpHalt(&ddcmpSock->line);
     return 1;
 }
@@ -556,7 +556,7 @@ static int IssueStopAction(circuit_t *circuit)
 static int SendInitMessageAction(circuit_t *circuit)
 {
     packet_t *pkt = CreateInitialization(nodeInfo.address);
-    Log(LogDdcmpInit, LogInfo, "Sending Initialization message on %s\n", circuit->name);
+    Log(LogDdcmpInit, LogWarning, "Sending Initialization message on %s\n", circuit->name);
     circuit->WritePacket(circuit, NULL, NULL, pkt);
     return 1;
 }
@@ -564,7 +564,7 @@ static int SendInitMessageAction(circuit_t *circuit)
 static int SendVerifyMessageAction(circuit_t *circuit)
 {
     packet_t *packet = CreateVerification(nodeInfo.address);
-    Log(LogDdcmpInit, LogInfo, "Sending verification message\n");
+    Log(LogDdcmpInit, LogWarning, "Sending verification message\n");
     circuit->WritePacket(circuit, NULL, NULL, packet);
     return 1;
 }
