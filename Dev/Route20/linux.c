@@ -152,6 +152,11 @@ void Log(LogSource source, LogLevel level, char *format, ...)
 				sysLevel = LOG_INFO;
 				break;
 			}
+		case LogDetail:
+			{
+				sysLevel = LOG_DEBUG;
+				break;
+			}
 		case LogError:
 			{
 				sysLevel = LOG_ERR;

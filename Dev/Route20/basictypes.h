@@ -35,8 +35,9 @@ typedef enum
 {
 	LogFatal,
 	LogError,
-	LogInfo,
 	LogWarning,
+	LogInfo,
+    LogDetail,
 	LogVerbose
 } LogLevel;
 
