@@ -93,7 +93,7 @@ packet_t *EthSockReadPacket(eth_circuit_t *ethCircuit)
 				sockPacket.IsDecnet = EthSockIsDecnet;
 				if (CompareDecnetAddress(&nodeInfo.address, &sockPacket.from))
 				{
-					/*Log(LogInfo, "Discarding loopback from %s\n", ethCircuit->circuit->name);*/
+					/*Log(LogVerbose, "Discarding loopback from %s\n", ethCircuit->circuit->name);*/
 					ethCircuit->circuit->stats.loopbackPacketsReceived++;
 					packet = NULL;
 				}
