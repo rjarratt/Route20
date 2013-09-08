@@ -153,7 +153,7 @@ packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
 			Log(LogEthPcap, LogVerbose, "From : ");LogDecnetAddress(LogEthPcap, LogVerbose, &packet.from);
 			if (!disableLoopbackCheck && CompareDecnetAddress(&nodeInfo.address, &packet.from))
 			{
-				Log(LogEthPcap, LogWarning, " Discarding loopback from %s\n", ethCircuit->circuit->name);
+				Log(LogEthPcap, LogVerbose, " Discarding loopback from %s\n", ethCircuit->circuit->name);
 				ethCircuit->circuit->stats.loopbackPacketsReceived++;
 				ans = NULL;
 			}
