@@ -197,7 +197,7 @@ static void ProcessAckMessage(ddcmp_line_t *ddcmpLine);
 static void ProcessNakMessage(ddcmp_line_t *ddcmpLine);
 static void ProcessRepMessage(ddcmp_line_t *ddcmpLine);
 static unsigned int GetDataMessageCount(buffer_t *message);
-static unsigned int GetMessageFlags(buffer_t *message);
+static byte GetMessageFlags(buffer_t *message);
 static byte GetMessageNum(buffer_t *message);
 static byte GetMessageResp(buffer_t *message);
 static void UpdateTransmitHeader(buffer_t *message, ddcmp_line_control_block_t *cb);
@@ -616,21 +616,25 @@ static ddcmp_line_control_block_t *GetControlBlock(ddcmp_line_t *ddcmpLine)
 static int Mod256Cmp(byte a, byte b)
 {
     int ans;
-    if (a == b)
+    int abdiff = b - a;
+    int badiff = a - b;
+
+    if (abdiff == 0)
     {
         ans = 0;
     }
-    else if (a > b && (b + 256 - a) <= MAX_TRANSMIT_QUEUE_LEN)
+    else if (abdiff < 0)
     {
         ans = -1;
-    }
-    else if (a > b)
-    {
-        ans = 1;
     }
     else
     {
-        ans = -1;
+        ans = 1;
+    }
+
+    if (abs(badiff) <= MAX_TRANSMIT_QUEUE_LEN)
+    {
+        ans = -1 * ans;
     }
 
     return ans;
@@ -951,7 +955,7 @@ static void ProcessDataMessage(ddcmp_line_t *ddcmpLine)
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	unsigned int count;
 	int flags;
-	int resp;
+	byte resp;
 	byte num;
 	int addr;
 	count = GetDataMessageCount(cb->currentMessage);
@@ -959,14 +963,14 @@ static void ProcessDataMessage(ddcmp_line_t *ddcmpLine)
 	resp = GetMessageResp(cb->currentMessage);
 	num = GetMessageNum(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
-	ddcmpLine->Log(LogWarning, "Received DATA message. Len=%d, Flags=%s%s, R=%d, N=%d, Addr=%d\n", count, LOGFLAGS(flags), resp, num, addr);
+	ddcmpLine->Log(LogDetail, "Received DATA message. Len=%d, Flags=%s%s, R=%d, N=%d, Addr=%d\n", count, LOGFLAGS(flags), resp, num, addr);
 
-	if (cb->A < resp && resp <= cb->N)
+	if (Mod256Cmp(cb->A, resp) < 0 && Mod256Cmp(resp, cb->N) <= 0)
 	{
 		ProcessEvent(ddcmpLine, ReceiveAckForOutstandingMsg);
 	}
 
-	if (num == cb->R + (byte)1)
+	if (num == ((cb->R + 1) & 0xFF))
 	{
 		ProcessEvent(ddcmpLine, ReceiveDataMsgInSequence);
 	}
@@ -986,7 +990,7 @@ static void ProcessStartMessage(ddcmp_line_t *ddcmpLine)
 	flags = GetMessageFlags(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogWarning, "Received STRT message. Flags=%s%s, Addr=%d\n", LOGFLAGS(flags), addr);
+	ddcmpLine->Log(LogDetail, "Received STRT message. Flags=%s%s, Addr=%d\n", LOGFLAGS(flags), addr);
 	ProcessEvent(ddcmpLine, ReceiveStrt);
 }
 
@@ -1000,7 +1004,7 @@ static void ProcessStackMessage(ddcmp_line_t *ddcmpLine)
 	flags = GetMessageFlags(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogWarning, "Received STACK message. Flags=%s%s, Addr=%d\n", LOGFLAGS(flags), addr);
+	ddcmpLine->Log(LogDetail, "Received STACK message. Flags=%s%s, Addr=%d\n", LOGFLAGS(flags), addr);
 	ProcessEvent(ddcmpLine, ReceiveStack);
 }
 
@@ -1008,7 +1012,7 @@ static void ProcessAckMessage(ddcmp_line_t *ddcmpLine)
 {
 	// TODO: proper message validation
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	int flags;
+	byte flags;
 	byte addr;
 	byte resp;
 
@@ -1016,7 +1020,7 @@ static void ProcessAckMessage(ddcmp_line_t *ddcmpLine)
 	resp = GetMessageResp(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogWarning, "Received ACK message. Flags=%s%s, R=%d, Addr=%d\n", LOGFLAGS(flags), resp, addr);
+	ddcmpLine->Log(LogDetail, "Received ACK message. Flags=%s%s, R=%d, Addr=%d\n", LOGFLAGS(flags), resp, addr);
 	if (resp == 0)
 	{
 	    ProcessEvent(ddcmpLine, ReceiveAckResp0);
@@ -1031,16 +1035,16 @@ static void ProcessNakMessage(ddcmp_line_t *ddcmpLine)
 {
 	// TODO: proper message validation
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	int flags;
-	int addr;
-	int resp;
+	byte flags;
+	byte addr;
+	byte resp;
 
 	flags = GetMessageFlags(cb->currentMessage);
 	resp = GetMessageResp(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogWarning, "Received NAK message. Flags=%s%s, R=%d, Addr=%d\n", LOGFLAGS(flags), resp, addr);
-	if (cb->A <= resp || resp > cb->N)
+	ddcmpLine->Log(LogDetail, "Received NAK message. Flags=%s%s, R=%d, Addr=%d\n", LOGFLAGS(flags), resp, addr);
+	if (Mod256Cmp(cb->A, resp) <= 0 || Mod256Cmp(resp, cb->N) > 0)
 	{
 	    ProcessEvent(ddcmpLine, ReceiveNakForOutstandingMsg);
 	}
@@ -1058,7 +1062,7 @@ static void ProcessRepMessage(ddcmp_line_t *ddcmpLine)
 	num = GetMessageNum(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogWarning, "Received REP message. Flags=%s%s, N=%d, Addr=%d\n", LOGFLAGS(flags), num, addr);
+	ddcmpLine->Log(LogDetail, "Received REP message. Flags=%s%s, N=%d, Addr=%d\n", LOGFLAGS(flags), num, addr);
 
 	if (num == cb->R)
 	{
@@ -1080,7 +1084,7 @@ static unsigned int GetDataMessageCount(buffer_t *message)
 	return count;
 }
 
-static unsigned int GetMessageFlags(buffer_t *message)
+static byte GetMessageFlags(buffer_t *message)
 {
 	return (ByteAt(message, 2) >> 6) & 3;
 }
@@ -1107,7 +1111,7 @@ static void SendAck(ddcmp_line_t *ddcmpLine)
 	byte ack[] = { 0x05, CONTROL_ACK, 0x00, 0x00, 0x00, 0x00 };
 	ack[3] = cb->R;
 	ack[5] = station;
-	ddcmpLine->Log(LogVerbose, "Sending ACK. Num=%d\n", cb->R);
+	ddcmpLine->Log(LogDetail, "Sending ACK. Num=%d\n", cb->R);
 	SendMessageAddingCrc16(ddcmpLine, ack, sizeof(ack));
 	cb->SACKNAK = NotSet;
 }
@@ -1119,7 +1123,7 @@ static void SendNak(ddcmp_line_t *ddcmpLine)
 	nak[2] = cb->NAKReason;
 	nak[3] = cb->R;
 	nak[5] = station;
-	ddcmpLine->Log(LogVerbose, "Sending NAK. Num=%d, Reason=%d\n", cb->R, cb->NAKReason);
+	ddcmpLine->Log(LogDetail, "Sending NAK. Num=%d, Reason=%d\n", cb->R, cb->NAKReason);
 	SendMessageAddingCrc16(ddcmpLine, nak, sizeof(nak));
 	cb->SACKNAK = NotSet;
 }
@@ -1130,7 +1134,7 @@ static void SendRep(ddcmp_line_t *ddcmpLine)
 	byte rep[] = { ENQ, CONTROL_REP, 0x00, 0x00, 0x00, 0x00 };
 	rep[4] = cb->N;
 	rep[5] = station;
-	ddcmpLine->Log(LogVerbose, "Sending REP. Num=%d\n", cb->N);
+	ddcmpLine->Log(LogDetail, "Sending REP. Num=%d\n", cb->N);
 	SendMessageAddingCrc16(ddcmpLine, rep, sizeof(rep));
 	cb->SREP = 0;
 	StartTimer(ddcmpLine, 15);
@@ -1155,7 +1159,7 @@ static int SendStartAction(ddcmp_line_t *ddcmpLine)
 	byte start[] = { ENQ, CONTROL_STRT, 0xC0, 0x00, 0x00, 0x00 };
 	start[5] = station;
 	ddcmpLine->Log(LogVerbose, "Send start action\n");
-	ddcmpLine->Log(LogVerbose, "Sending STRT. Addr=%d\n", station);
+	ddcmpLine->Log(LogDetail, "Sending STRT. Addr=%d\n", station);
 	SendMessageAddingCrc16(ddcmpLine, start, sizeof(start));
 	return 1;
 }
@@ -1172,7 +1176,7 @@ static int SendStackAction(ddcmp_line_t *ddcmpLine)
 	byte stack[] = { ENQ, CONTROL_STACK, 0xC0, 0x00, 0x00, 0x00 };
 	stack[5] = station;
 	ddcmpLine->Log(LogVerbose, "Send stack action\n");
-	ddcmpLine->Log(LogVerbose, "Sending STACK. Addr=%d\n", station);
+	ddcmpLine->Log(LogDetail, "Sending STACK. Addr=%d\n", station);
 	SendMessageAddingCrc16(ddcmpLine, stack, sizeof(stack));
 	return 1;
 }
@@ -1275,7 +1279,7 @@ static int SendMessageAction(ddcmp_line_t *ddcmpLine)
     num = GetMessageNum(cb->currentMessage);
     resp = GetMessageResp(cb->currentMessage);
     ddcmpLine->Log(LogVerbose, "Send next message action\n");
-    ddcmpLine->Log(LogVerbose, "Sending Data. N=%d, R=%d\n", num, resp);
+    ddcmpLine->Log(LogDetail, "Sending Data. N=%d, R=%d\n", num, resp);
     SendRawMessage(ddcmpLine, cb->currentMessage->data, cb->currentMessage->length);
     return 1;
 }
