@@ -735,13 +735,17 @@ static void ParseLogLevel(char *string, int *source)
 	{
 		*source = LogError;
 	}
+	else if (stricmp(string, "warning") == 0)
+	{
+		*source = LogWarning;
+	}
 	else if (stricmp(string, "info") == 0)
 	{
 		*source = LogInfo;
 	}
-	else if (stricmp(string, "warning") == 0)
+	else if (stricmp(string, "detail") == 0)
 	{
-		*source = LogWarning;
+		*source = LogDetail;
 	}
 	else if (stricmp(string, "verbose") == 0)
 	{
@@ -1024,9 +1028,9 @@ static int EndnodeHelloIsForThisNode(decnet_address_t *from, int iinfo)
 static void LogMessage(circuit_t *circuit, packet_t *packet, char *messageName)
 {
 	//Log(LogInfo, "Process pkt from %6s from ", circuit->name);
-	Log(LogMessages, LogVerbose, "Process pkt on %s from ", circuit->name);
-	LogDecnetAddress(LogMessages, LogVerbose, &packet->from);
-	Log(LogMessages, LogVerbose, " %s\n", messageName);
+	Log(LogMessages, LogDetail, "Process pkt on %s from ", circuit->name);
+	LogDecnetAddress(LogMessages, LogDetail, &packet->from);
+	Log(LogMessages, LogDetail, " %s\n", messageName);
 }
 
 static void LogLoopbackMessage(circuit_t *circuit, packet_t *packet, char *messageName)
