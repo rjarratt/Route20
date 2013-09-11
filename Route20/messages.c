@@ -162,6 +162,32 @@ int GetRouterLevel(int iinfo)
 	return ans;
 }
 
+AdjacencyType GetAdjacencyType(int iinfo)
+{
+    AdjacencyType at;
+	
+	switch (GetRouterLevel(iinfo & 0x03))
+	{
+	case 1:
+		{
+			at = Level1RouterAdjacency;
+			break;
+		}
+	case 2:
+		{
+			at = Level2RouterAdjacency;
+			break;
+		}
+	default:
+		{
+			at = EndnodeAdjacency;
+			break;
+		}
+	}
+
+	return at;
+}
+
 int VersionSupported(byte tiver[3])
 {
 	int ans = 0;

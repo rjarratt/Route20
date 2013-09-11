@@ -213,6 +213,7 @@ int IsEthernetEndNodeHelloMessage(packet_t *packet);
 int IsDataMessage(packet_t *packet);
 int GetMessageBody(packet_t *packet);
 int GetRouterLevel(int iinfo);
+AdjacencyType GetAdjacencyType(int iinfo);
 int VersionSupported(byte tiver[3]);
 
 
