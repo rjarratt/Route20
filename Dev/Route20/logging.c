@@ -1,4 +1,4 @@
-/* logging.h: logging enumerations
+/* logging.c: logging
   ------------------------------------------------------------------------------
 
    Copyright (c) 2013, Robert M. A. Jarratt
@@ -26,32 +26,30 @@
 
   ------------------------------------------------------------------------------*/
 
-#if !defined(LOGGING_H)
+#include "platform.h"
+#include "logging.h"
 
-typedef enum
+void LogBytes(LogSource source, LogLevel level, byte *buffer, int length)
 {
-	LogGeneral,
-	LogCircuit,
-	LogAdjacency,
-	LogUpdate,
-	LogDecision,
-	LogForwarding,
-	LogMessages,
-	LogDns,
-	LogEthInit,
-	LogEthPcap,
-	LogEthSock,
-	LogDdcmpSock,
-	LogDdcmp,
-	LogDdcmpInit,
-	LogSock,
-	LogNsp,
-	LogNspMessages,
-	LogNetMan,
-	LogEndMarker
-} LogSource;
+	int i;
+	for (i = 0; i < length; i++)
+	{
+		if ((i % 16) == 0)
+		{
+			Log(source, level, "%02X", buffer[i]);
+		}
+		else if ((i % 16) == 15)
+		{
+			Log(source, level, " %02X\n", buffer[i]);
+		}
+		else
+		{
+			Log(source, level, " %02X", buffer[i]);
+		}
+	}
 
-#define LOGGING_H
-#endif
-
-void LogBytes(LogSource source, LogLevel level, byte *buffer, int length);
+	if (length != 0 && (length % 16) != 0)
+	{
+	    Log(source, level, "\n", buffer[i]);
+	}
+}
