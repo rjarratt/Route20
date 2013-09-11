@@ -253,6 +253,7 @@ void DdcmpInitLayerStop(void)
 
 void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_msg_t *msg)
 {
+    AdjacencyType at;
     decnet_address_t from;
 	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
     int valid = 0;
@@ -294,13 +295,16 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
         valid = 1;
     }
 
+    at = GetAdjacencyType(msg->tiinfo);
     if (valid && msg->tiinfo & 0x04)
     {
         ProcessEvent(ddcmpCircuit, DdcmpInitNRIVREvent);
+	    InitialiseCircuitAdjacency(&from, circuit, at, msg->timer);
     }
     else if (valid)
     {
         ProcessEvent(ddcmpCircuit, DdcmpInitNRINVEvent);
+    	InitialiseCircuitAdjacency(&from, circuit, at, msg->timer);
     }
     else
     {
@@ -310,6 +314,7 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
 
 void DdcmpInitProcessVerificationMessage(circuit_t *circuit, verification_msg_t *msg)
 {
+    decnet_address_t from;
 	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
 	//int i;
 
@@ -320,7 +325,9 @@ void DdcmpInitProcessVerificationMessage(circuit_t *circuit, verification_msg_t 
 	//}
 	//Log(LogMessages, LogVerbose, "\n");
 
+    GetDecnetAddressFromId((byte *)&msg->srcnode, &from);
     ProcessEvent(ddcmpCircuit, DdcmpInitNRVEvent);
+    CheckCircuitAdjacency(&from, circuit);
 }
 
 void DdcmpInitProcessPhaseIINodeInitializationMessage(circuit_t *circuit, node_init_phaseii_t *msg)

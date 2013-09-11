@@ -54,6 +54,7 @@ static void AdjacencyUp(adjacency_t *adjacency);
 static adjacency_t *FindFreeAdjacencySlot(int from, int n);
 static adjacency_t *AddRouterAdjacency(decnet_address_t *id, circuit_t *circuit, AdjacencyType type, int helloTimer, int priority);
 static adjacency_t *AddEndnodeAdjacency(decnet_address_t *id, circuit_t *circuit, int helloTimer);
+static adjacency_t *AddCircuitAdjacency(decnet_address_t *id, circuit_t *circuit, AdjacencyType type, int helloTimer);
 static void DeleteAdjacency(adjacency_t *adjacency);
 static AdjacencyState GetNewAdjacencyState(rslist_t *routers, int routersCount);
 static void PurgeLowestPriorityAdjacency(void);
@@ -71,6 +72,7 @@ void InitialiseAdjacencies(void)
 	}
 }
 
+// TODO: rationalise down to methods for checking broadcast and non-broadcast adjacencies, dont' have two different ones for different adjacency types, pass adjacency type like is done for circuit adjacency.
 void CheckRouterAdjacency(decnet_address_t *from, circuit_t *circuit, AdjacencyType type, int helloTimer, int priority, rslist_t *routers, int routersCount)
 {
 	adjacency_t *adjacency = NULL;
@@ -124,6 +126,47 @@ void CheckEndnodeAdjacency(decnet_address_t *from, circuit_t *circuit, int hello
 	{
 		time(&adjacency->lastHeardFrom);
 		adjacency->helloTimer = helloTimer;
+
+		if (adjacency->state == Initialising)
+		{
+			AdjacencyUp(adjacency);
+		}
+	}
+}
+
+void InitialiseCircuitAdjacency(decnet_address_t *from, circuit_t *circuit, AdjacencyType type, int helloTimer)
+{
+	adjacency_t *adjacency = NULL;
+
+	/*Log(LogInfo, "Intialising adjacency for "); LogDecnetAddress(LogInfo, &from); Log(LogInfo, ", hello=%d\n", helloTimer);*/
+
+	adjacency = FindAdjacency(from);
+
+	if (adjacency == NULL)
+	{
+        adjacency = AddCircuitAdjacency(from, circuit, type, helloTimer);
+	}
+
+	if (adjacency != NULL)
+	{
+		time(&adjacency->lastHeardFrom);
+		adjacency->helloTimer = helloTimer;
+
+		adjacency->state = Initialising;
+	}
+}
+
+void CheckCircuitAdjacency(decnet_address_t *from, circuit_t *circuit)
+{
+	adjacency_t *adjacency = NULL;
+
+	/*Log(LogInfo, "Checking adjacency for "); LogDecnetAddress(LogInfo, &from); Log(LogInfo, "\n");*/
+
+	adjacency = FindAdjacency(from);
+
+	if (adjacency != NULL)
+	{
+		time(&adjacency->lastHeardFrom);
 
 		if (adjacency->state == Initialising)
 		{
@@ -282,6 +325,24 @@ static adjacency_t *AddEndnodeAdjacency(decnet_address_t *id, circuit_t *circuit
 	{
 		endnodeAdjacencyCount++;
 		adjacency->type = EndnodeAdjacency;
+	    memcpy(&adjacency->id, id, sizeof(decnet_address_t));
+	    adjacency->circuit = circuit;
+		adjacency->state = Initialising;
+		adjacency->helloTimer = helloTimer;
+	}
+
+	return adjacency;
+}
+
+static adjacency_t *AddCircuitAdjacency(decnet_address_t *id, circuit_t *circuit, AdjacencyType type, int helloTimer)
+{
+	adjacency_t *adjacency = NULL;
+
+	/*Log(LogInfo, "Adding circuit adjacency "); LogDecnetAddress(LogInfo, id); Log(LogInfo, "\n");*/
+	adjacency = GetAdjacency(circuit->slot);
+	if (adjacency != NULL)
+	{
+		adjacency->type = type;
 	    memcpy(&adjacency->id, id, sizeof(decnet_address_t));
 	    adjacency->circuit = circuit;
 		adjacency->state = Initialising;
