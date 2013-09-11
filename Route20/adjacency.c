@@ -72,7 +72,6 @@ void InitialiseAdjacencies(void)
 	}
 }
 
-// TODO: rationalise down to methods for checking broadcast and non-broadcast adjacencies, dont' have two different ones for different adjacency types, pass adjacency type like is done for circuit adjacency.
 void CheckRouterAdjacency(decnet_address_t *from, circuit_t *circuit, AdjacencyType type, int helloTimer, int priority, rslist_t *routers, int routersCount)
 {
 	adjacency_t *adjacency = NULL;
