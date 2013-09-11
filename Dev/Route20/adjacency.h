@@ -70,6 +70,8 @@ typedef struct
 void InitialiseAdjacencies(void);
 void CheckRouterAdjacency(decnet_address_t *from, circuit_t *circuit, AdjacencyType type, int helloTimer, int priority, rslist_t *routers, int routersCount);
 void CheckEndnodeAdjacency(decnet_address_t *from, circuit_t *circuit, int helloTimer);
+void InitialiseCircuitAdjacency(decnet_address_t *from, circuit_t *circuit, AdjacencyType type, int helloTimer);
+void CheckCircuitAdjacency(decnet_address_t *from, circuit_t *circuit);
 void AdjacencyDown(adjacency_t *adjacency);
 void ProcessRouterAdjacencies(int (*process)(adjacency_t *adjacency, void *context), void *context);
 void PurgeAdjacencies(void);

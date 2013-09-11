@@ -864,6 +864,10 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 		LogMessage(circuit, packet, "Hello and Test");
         if (IsValidHelloAndTestMessage(packet))
         {
+            hello_and_test_msg_t *msg = (hello_and_test_msg_t *)packet->payload;
+			decnet_address_t from;
+			GetDecnetAddressFromId((byte *)&msg->srcnode, &from);
+            CheckCircuitAdjacency(&from, circuit);
             // TODO: adjacency liveness code needed here. See 7.1.2.
         }
 		else
@@ -929,7 +933,7 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 				{
 					if (VersionSupported(msg->tiver))
 					{
-						AdjacencyType at = GetRouterLevel(msg->iinfo) == 1 ? Level1RouterAdjacency : Level2RouterAdjacency;
+						AdjacencyType at = GetAdjacencyType(msg->iinfo);
 						CheckRouterAdjacency(&from, circuit, at, msg->timer, msg->priority, msg->rslist, msg->rslistlen/sizeof(rslist_t));
 					}
 				}
