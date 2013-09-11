@@ -112,6 +112,8 @@ int ReadFromDatagramSocket(socket_t *sock, packet_t *packet, sockaddr_t *receive
 	packet->rawLen = recvfrom(sock->socket, (char *)buf, 1518, 0, receivedFrom, &ilen);
 	if (packet->rawLen > 0)
 	{
+	    Log(LogSock, LogVerbose, "Read %d bytes on port %d\n", packet->rawLen, sock->receivePort);
+		LogBytes(LogSock, LogVerbose, buf, packet->rawLen);
 		packet->rawData = buf;
 	}
 	else
@@ -131,20 +133,8 @@ int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
 	bytesRead = recv(sock->socket, (char *)buffer, bufferLength, 0);
 	if (bytesRead > 0)
 	{
-        int i;
 	    Log(LogSock, LogVerbose, "Read %d bytes on port %d\n", bytesRead, sock->receivePort);
-        for (i = 0; i < bytesRead; i++)
-        {
-            if (i == 0)
-            {
-                Log(LogSock, LogVerbose, "%02X", buffer[i]);
-            }
-            else
-            {
-                Log(LogSock, LogVerbose, " %02X", buffer[i]);
-            }
-        }
-        Log(LogSock, LogVerbose, "\n", buffer[i]);
+		LogBytes(LogSock, LogVerbose, buffer, bytesRead);
 	    ans = bytesRead;
 	}
 	else
@@ -222,6 +212,8 @@ int WriteToStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
         }
         else
         {
+    	    Log(LogSock, LogVerbose, "Wrote %d bytes on port %d\n", sentBytes, sock->receivePort);
+		    LogBytes(LogSock, LogVerbose, buffer + totalBytesSent, sentBytes);
             totalBytesSent += sentBytes;
         }
 
@@ -257,6 +249,8 @@ int SendToSocket(socket_t *sock, sockaddr_t *destination, packet_t *packet)
 		}
 		else
 		{
+    	    Log(LogSock, LogVerbose, "Wrote %d bytes on port %d\n", packet->rawLen, sock->receivePort);
+		    LogBytes(LogSock, LogVerbose, packet->rawData, packet->rawLen);
 			ans = 1;
 			retry = 0;
 		}

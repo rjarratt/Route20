@@ -117,6 +117,7 @@
     <ClCompile Include="init_layer.c" />
     <ClCompile Include="linux.c" />
     <ClCompile Include="circuit.c" />
+    <ClCompile Include="logging.c" />
     <ClCompile Include="messages.c" />
     <ClCompile Include="netman.c" />
     <ClCompile Include="netman_messages.c" />
