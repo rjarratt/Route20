@@ -135,50 +135,55 @@ packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
 	eth_pcap_t *pcapContext = (eth_pcap_t *)ethCircuit->context;
 
 	static packet_t packet;
-	packet_t * ans = &packet;
+	packet_t * ans;
 	struct pcap_pkthdr *h;
 	int pcapRes;
 
-	ans->IsDecnet = EthPcapIsDecnet;
-	pcapRes = pcap_next_ex(pcapContext->pcap, &h, (const u_char **)&packet.rawData); 
-	//packet.rawData = (byte *)pcap_next(pcapContext->pcap, &h);
-	if (pcapRes == 1) /* success */
-	{
-		packet.rawLen = h->caplen;
-		if (EthValidPacket(&packet))
-		{
-			int disableLoopbackCheck = 0;
-			GetDecnetAddress((decnet_eth_address_t *)&packet.rawData[0], &packet.to);
-			GetDecnetAddress((decnet_eth_address_t *)&packet.rawData[6], &packet.from);
-			Log(LogEthPcap, LogVerbose, "From : ");LogDecnetAddress(LogEthPcap, LogVerbose, &packet.from);
-			if (!disableLoopbackCheck && CompareDecnetAddress(&nodeInfo.address, &packet.from))
-			{
-				Log(LogEthPcap, LogVerbose, " Discarding loopback from %s\n", ethCircuit->circuit->name);
-				ethCircuit->circuit->stats.loopbackPacketsReceived++;
-				ans = NULL;
-			}
-			else
-			{
-				Log(LogEthPcap, LogVerbose, " Not loopback on %s \n", ethCircuit->circuit->name);
-				EthSetPayload(&packet);
-			}
-		}
-		else
-		{
-			Log(LogEthPcap, LogWarning, "Discarding invalid from %s\n", ethCircuit->circuit->name);
-			ethCircuit->circuit->stats.invalidPacketsReceived++;
-			ans = NULL;
-		}
-	}
-	else if (pcapRes == 0) /* timeout */
-	{
-		ans = NULL;
-	}
-	else
-	{
-		Log(LogEthPcap, LogError, "Error reading from pcap: %s\n", pcap_geterr(pcapContext->pcap));
-		ans = NULL;
-	}
+    do
+    {
+        ans = &packet;
+        ans->IsDecnet = EthPcapIsDecnet;
+        pcapRes = pcap_next_ex(pcapContext->pcap, &h, (const u_char **)&packet.rawData); 
+        //packet.rawData = (byte *)pcap_next(pcapContext->pcap, &h);
+        if (pcapRes == 1) /* success */
+        {
+            packet.rawLen = h->caplen;
+            if (EthValidPacket(&packet))
+            {
+                int disableLoopbackCheck = 0;
+                GetDecnetAddress((decnet_eth_address_t *)&packet.rawData[0], &packet.to);
+                GetDecnetAddress((decnet_eth_address_t *)&packet.rawData[6], &packet.from);
+                Log(LogEthPcap, LogVerbose, "From : ");LogDecnetAddress(LogEthPcap, LogVerbose, &packet.from);
+                if (!disableLoopbackCheck && CompareDecnetAddress(&nodeInfo.address, &packet.from))
+                {
+                    Log(LogEthPcap, LogVerbose, " Discarding loopback from %s\n", ethCircuit->circuit->name);
+                    ethCircuit->circuit->stats.loopbackPacketsReceived++;
+                    ans = NULL;
+                }
+                else
+                {
+                    Log(LogEthPcap, LogVerbose, " Not loopback on %s \n", ethCircuit->circuit->name);
+                    EthSetPayload(&packet);
+                }
+            }
+            else
+            {
+                Log(LogEthPcap, LogWarning, "Discarding invalid from %s\n", ethCircuit->circuit->name);
+                ethCircuit->circuit->stats.invalidPacketsReceived++;
+                ans = NULL;
+            }
+        }
+        else if (pcapRes == 0) /* timeout */
+        {
+            ans = NULL;
+        }
+        else
+        {
+            Log(LogEthPcap, LogError, "Error reading from pcap: %s\n", pcap_geterr(pcapContext->pcap));
+            ans = NULL;
+        }
+    }
+    while (pcapRes == 1 && ans == NULL); /* keep reading packets if we have discarded a loopback packet */
 
 	return ans;
 }
