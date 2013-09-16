@@ -32,6 +32,8 @@
 #include "timer.h"
 #include "platform.h"
 
+// TODO: change implementation so that changes in the system clock do not affect operation.
+
 static rtimer_t *timerList = NULL;
 
 rtimer_t *CreateTimer(char *name, time_t due, int interval, void *context, void (*callback)(rtimer_t *, char *,void *))
