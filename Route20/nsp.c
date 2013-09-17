@@ -355,7 +355,7 @@ static void SendConnectAcknowledgement(decnet_address_t *to, uint16 dstAddr)
 	packet_t *ackPacket;
 	Log(LogNspMessages, LogVerbose, "Sending ConnectAcknowledgement\n");
 	ackPacket = NspCreateConnectAcknowledgement(to, dstAddr);
-	SendPacket(to, ackPacket);
+	SendPacket(&nodeInfo.address, to, ackPacket);
 }
 
 static void SendDisconnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 reason)
@@ -363,7 +363,7 @@ static void SendDisconnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 d
 	packet_t *confirmPacket;
 	Log(LogNspMessages, LogVerbose, "Sending DisconnectConfirm\n");
 	confirmPacket = NspCreateDisconnectConfirm(to, srcAddr, dstAddr, reason);
-	SendPacket(to, confirmPacket);
+	SendPacket(&nodeInfo.address, to, confirmPacket);
 }
 
 static void SendConnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, byte services)
@@ -371,7 +371,7 @@ static void SendConnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstA
 	packet_t *confirmPacket;
 	Log(LogNspMessages, LogVerbose, "Sending ConnectConfirm\n");
 	confirmPacket = NspCreateConnectConfirm(to, srcAddr, dstAddr, services, INFO_V40, NSP_SEGMENT_SIZE);
-	SendPacket(to, confirmPacket);
+	SendPacket(&nodeInfo.address, to, confirmPacket);
 }
 
 static void SendOtherDataAcknowledgement(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number)
@@ -379,7 +379,7 @@ static void SendOtherDataAcknowledgement(decnet_address_t *to, uint16 srcAddr, u
 	packet_t *confirmPacket;
 	Log(LogNspMessages, LogVerbose, "Sending OtherDataAcknowledgement\n");
 	confirmPacket = NspCreateOtherDataAcknowledgement(to, srcAddr, dstAddr, isAck, number);
-	SendPacket(to, confirmPacket);
+	SendPacket(&nodeInfo.address, to, confirmPacket);
 }
 
 static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength)
@@ -387,7 +387,7 @@ static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr
 	packet_t *confirmPacket;
 	Log(LogNspMessages, LogVerbose, "Sending DataSegment\n");
     confirmPacket = NspCreateDataMessage(to, srcAddr, dstAddr, seqNo, data, dataLength);
-	SendPacket(to, confirmPacket);
+	SendPacket(&nodeInfo.address, to, confirmPacket);
 }
 
 static session_control_port_t *FindScpEntryForRemoteNodeConnection(decnet_address_t *node, uint16 locAddr, uint16 remAddr)

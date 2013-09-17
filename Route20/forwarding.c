@@ -77,7 +77,7 @@ void ForwardPacket(packet_t *packet)
 
 	visits++;
 
-	srcAdjacency = GetAdjacencyForNode(&packet->from);
+	srcAdjacency = GetAdjacencyForNode(&srcNode);
 	if (srcAdjacency != NULL)
 	{
 		if (srcAdjacency->type == PhaseIIIAdjacency)
@@ -132,7 +132,7 @@ void ForwardPacket(packet_t *packet)
 		if (forward)
 		{
 			packetToForward = CreateLongDataMessage(&srcNode, &dstNode, forwardFlags, visits, data, dataLength);
-			SendPacket(&dstNode, packetToForward);
+			SendPacket(&srcNode, &dstNode, packetToForward);
 		}
 	}
 	else
@@ -141,11 +141,13 @@ void ForwardPacket(packet_t *packet)
 	}
 }
 
-void SendPacket(decnet_address_t *dstNode, packet_t *packet)
+void SendPacket(decnet_address_t *srcNode, decnet_address_t *dstNode, packet_t *packet)
 {
     adjacency_t *dstAdjacency;
+    adjacency_t *srcAdjacency;
 	int forward = 1;
 
+	srcAdjacency = GetAdjacencyForNode(srcNode);
 	dstAdjacency = GetAdjacencyForNode(dstNode);
 
 	if (dstAdjacency != NULL)
@@ -167,7 +169,7 @@ void SendPacket(decnet_address_t *dstNode, packet_t *packet)
 		if (forward)
 		{
 
-			if (IsBroadcastCircuit(dstAdjacency->circuit))
+			if (srcAdjacency->circuit == dstAdjacency->circuit && IsBroadcastCircuit(dstAdjacency->circuit))
 			{
 				SetIntraEthernet(packet);
 			}
