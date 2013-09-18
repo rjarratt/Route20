@@ -121,7 +121,7 @@ int EthPcapOpen(eth_circuit_t *ethCircuit)
 				}
 				else
 				{
-					CircuitUp(ethCircuit->circuit);
+					CircuitUp(ethCircuit->circuit, NULL);
 				}
 			}
 		}

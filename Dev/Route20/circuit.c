@@ -50,11 +50,20 @@ void SetCircuitStateChangeCallback(void (*callback)(circuit_t *circuit))
 	stateChangeCallback = callback;
 }
 
-void CircuitUp(circuit_t *circuit)
+void CircuitUp(circuit_t *circuit, decnet_address_t *adjacentNode)
 {
 	circuit->state = CircuitStateUp;
 	stateChangeCallback(circuit);
-	Log(LogCircuit, LogInfo, "Circuit %s up\n", circuit->name);
+    if (adjacentNode == NULL)
+    {
+	    Log(LogCircuit, LogInfo, "Circuit %s up\n", circuit->name);
+    }
+    else
+    {
+	    Log(LogCircuit, LogInfo, "Circuit %s up, adjacent node = ", circuit->name);
+        LogDecnetAddress(LogCircuit, LogInfo, adjacentNode);
+	    Log(LogCircuit, LogInfo, "\n");
+    }
 
 }
 

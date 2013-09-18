@@ -357,7 +357,7 @@ void DdcmpInitProcessInvalidMessage(circuit_t *circuit)
 static void DdcmpInitCircuitUp(ddcmp_circuit_t *ddcmpCircuit)
 {
 	StartTimer(ddcmpCircuit); // TODO: Move the circuit up/down stuff to a more sensible place
-	CircuitUp(ddcmpCircuit->circuit); // TODO: Still need to get adjacency up as well.
+	CircuitUp(ddcmpCircuit->circuit, NULL); // TODO: Still need to get adjacency up as well.
     ProcessEvent(ddcmpCircuit, DdcmpInitCUCEvent); /* TODO: see if CircuitUp callback can do this, at the moment no separate decision process to do this */
 }
 

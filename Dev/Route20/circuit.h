@@ -77,7 +77,7 @@ typedef struct circuit
 } circuit_t;
 
 void SetCircuitStateChangeCallback(void (*callback)(circuit_t *circuit));
-void CircuitUp(circuit_t *circuit);
+void CircuitUp(circuit_t *circuit, decnet_address_t *adjacentNode);
 void CircuitDown(circuit_t *circuit);
 void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost, void (*waitEventHandler)(void *context));
 void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receivePort, uint16 destinationPort, int cost, void (*waitEventHandler)(void *context));
