@@ -973,6 +973,7 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 			byte *data;
 			int dataLength;
 
+            CheckCircuitAdjacency(&srcNode, circuit);
 			ExtractDataPacketData(packet, &srcNode, &dstNode, &flags, &visits, &data, &dataLength);
 
 			if (CompareDecnetAddress(&srcNode, &nodeInfo.address))
