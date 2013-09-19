@@ -82,14 +82,21 @@ void InitialiseDecisionProcess(void)
 
 void ProcessAdjacencyStateChange(adjacency_t *adjacency)
 {
-	if (adjacency->state == Up)
-	{
-		ProcessBroadcastAdjacencyUp(adjacency);
-	}
-	else
-	{
-		ProcessBroadcastAdjacencyDown(adjacency);
-	}
+    if (IsBroadcastCircuit(adjacency->circuit))
+    {
+        if (adjacency->state == Up)
+        {
+            ProcessBroadcastAdjacencyUp(adjacency);
+        }
+        else
+        {
+            ProcessBroadcastAdjacencyDown(adjacency);
+        }
+    }
+    else
+    {
+        Log(LogAdjacency, LogError, "Adjacency state cannot change for a non-broadcast circuit\n");
+    }
 }
 
 void ProcessCircuitStateChange(circuit_t *circuit)
