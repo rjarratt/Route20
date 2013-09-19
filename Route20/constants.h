@@ -29,6 +29,7 @@
 #if !defined(CONSTANTS_H)
 
 #define BCT3MULT   3
+#define T3MULT     2
 #define NA        63
 #define NN      1023
 #define NC        16

@@ -51,6 +51,8 @@ static int endnodeAdjacencyCount = 0;
 static void (*stateChangeCallback)(adjacency_t *adjacency);
 
 static void AdjacencyUp(adjacency_t *adjacency);
+static void SoftAdjacencyUp(adjacency_t *adjacency);
+static void SoftAdjacencyDown(adjacency_t *adjacency);
 static adjacency_t *FindFreeAdjacencySlot(int from, int n);
 static adjacency_t *AddRouterAdjacency(decnet_address_t *id, circuit_t *circuit, AdjacencyType type, int helloTimer, int priority);
 static adjacency_t *AddEndnodeAdjacency(decnet_address_t *id, circuit_t *circuit, int helloTimer);
@@ -159,19 +161,23 @@ void CheckCircuitAdjacency(decnet_address_t *from, circuit_t *circuit)
 {
 	adjacency_t *adjacency = NULL;
 
-	/*Log(LogInfo, "Checking adjacency for "); LogDecnetAddress(LogInfo, &from); Log(LogInfo, "\n");*/
+    if (!IsBroadcastCircuit(circuit))
+    {
+        /*Log(LogInfo, "Checking adjacency for "); LogDecnetAddress(LogInfo, &from); Log(LogInfo, "\n");*/
 
-	adjacency = FindAdjacency(from);
+        adjacency = FindAdjacency(from);
 
-	if (adjacency != NULL)
-	{
-		time(&adjacency->lastHeardFrom);
+        if (adjacency != NULL)
+        {
+            if (circuit->state != CircuitStateUp)
+            {
+                CircuitUp(circuit, &adjacency->id);
+            }
 
-		if (adjacency->state == Initialising)
-		{
-			AdjacencyUp(adjacency);
-		}
-	}
+            time(&adjacency->lastHeardFrom);
+            SoftAdjacencyUp(&adjacency);
+        }
+    }
 }
 
  void ProcessRouterAdjacencies(int (*process)(adjacency_t *adjacency, void *context), void *context)
@@ -234,16 +240,26 @@ int IsBroadcastEndnodeAdjacency(adjacency_t *adjacency)
 
 static void AdjacencyUp(adjacency_t *adjacency)
 {
-	adjacency->state = Up;
+	SoftAdjacencyUp(adjacency);
 	stateChangeCallback(adjacency);
 	Log(LogAdjacency, LogInfo, "Adjacency up "); LogDecnetAddress(LogAdjacency, LogInfo, &adjacency->id); Log(LogAdjacency, LogInfo, " (Slot %d) on %s\n", adjacency->slot, adjacency->circuit->name);
 }
 
+static void SoftAdjacencyUp(adjacency_t *adjacency)
+{
+	adjacency->state = Up;
+}
+
 void AdjacencyDown(adjacency_t *adjacency)
 {
-	adjacency->state = Initialising;
+	SoftAdjacencyDown(adjacency);
 	stateChangeCallback(adjacency);
 	Log(LogAdjacency, LogInfo, "Adjacency down "); LogDecnetAddress(LogAdjacency, LogInfo, &adjacency->id); Log(LogAdjacency, LogInfo, " (Slot %d)\n", adjacency->slot);
+}
+
+void SoftAdjacencyDown(adjacency_t *adjacency)
+{
+	adjacency->state = Initialising;
 }
 
 static void DeleteAdjacency(adjacency_t *adjacency)
@@ -446,15 +462,31 @@ static int StopAdjacencyCallback(adjacency_t *adjacency, void *context)
 static int PurgeAdjacencyCallback(adjacency_t *adjacency, void *context)
 {
 	time_t now = *((time_t *)context);
+    int mult = !IsBroadcastCircuit(adjacency->circuit) ? BCT3MULT : T3MULT;
 
-	if ((now - adjacency->lastHeardFrom) > (BCT3MULT * adjacency->helloTimer))
+	if ((now - adjacency->lastHeardFrom) > (mult * adjacency->helloTimer))
 	{
-		if (adjacency->state == Up)
-		{
-			AdjacencyDown(adjacency);
-		}
+        if (!IsBroadcastCircuit(adjacency->circuit))
+        {
+            if (adjacency->state == Up)
+            {
+                AdjacencyDown(adjacency);
+            }
 
-		DeleteAdjacency(adjacency);
+            if (adjacency->slot > NC)
+            {
+                DeleteAdjacency(adjacency);
+            }
+        }
+        else
+        {
+            if (adjacency->circuit->state == CircuitStateUp)
+            {
+                CircuitDown(adjacency->circuit);
+            }
+
+            SoftAdjacencyDown(adjacency);
+        }
 	}
 
 	return 1;
