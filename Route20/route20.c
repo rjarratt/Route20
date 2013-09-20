@@ -54,6 +54,7 @@ static init_layer_t *ddcmpInitLayer;
 static void (*processHigherLevelProtocolPacket)(decnet_address_t *from, byte *data, int dataLength) = NULL;
 
 // TODO: Add Phase III support
+static int ReadConfigLoggingOnly(char *fileName);
 static int ReadConfig(char *fileName);
 static char *ReadConfigLine(FILE *f);
 static char *ReadLoggingConfig(FILE *f, int *ans);
@@ -78,21 +79,28 @@ static void LogLoopbackMessage(circuit_t *circuit, packet_t *packet, char *messa
 
 #pragma warning(disable : 4996)
 
+int InitialiseLogging(char *configFileName)
+{
+    int ans;
+	int i;
+
+    for (i = 0; i < LogEndMarker; i++)
+	{
+		LoggingLevels[i] = LogInfo;
+	}
+
+    ans = ReadConfigLoggingOnly(configFileName);
+
+    return ans;
+}
+
 int Initialise(char *configFileName)
 {
 	int ans;
 	int i;
 	time_t now;
 
-    numEventHandlers = 0;
-	eventHandlersChanged = 0;
-
 	DnsConfig.dnsConfigured = 0;
-
-	for (i = 0; i < LogEndMarker; i++)
-	{
-		LoggingLevels[i] = LogInfo;
-	}
 
 	ans = ReadConfig(configFileName);
 	if (ans)
@@ -136,7 +144,7 @@ void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, int
 	processHigherLevelProtocolPacket = callback;
 }
 
-void RegisterEventHandler(unsigned int waitHandle, void *context, void (*eventHandler)(void *context))
+void RegisterEventHandler(unsigned int waitHandle, char *name, void *context, void (*eventHandler)(void *context))
 {
 	if (numEventHandlers >= MAX_EVENT_HANDLERS)
 	{
@@ -144,7 +152,9 @@ void RegisterEventHandler(unsigned int waitHandle, void *context, void (*eventHa
 		exit(EXIT_FAILURE);
 	}
 
+	Log(LogGeneral, LogVerbose, "Registering new event handler for %s in slot %d\n", name, numEventHandlers);
 	eventHandlers[numEventHandlers].waitHandle = waitHandle;
+	eventHandlers[numEventHandlers].name = name;
 	eventHandlers[numEventHandlers].context = context;
 	eventHandlers[numEventHandlers].eventHandler = eventHandler;
 	numEventHandlers++;
@@ -159,6 +169,7 @@ void DeregisterEventHandler(unsigned int waitHandle)
 	{
 		if (found)
 		{
+        	Log(LogGeneral, LogVerbose, "Deregistering event handler for %s in slot %d\n", &eventHandlers[i-1].name, i-1);
 			memcpy(&eventHandlers[i-1], &eventHandlers[i], sizeof(event_handler_t));
 		}
 		else if (eventHandlers[i].waitHandle == waitHandle)
@@ -187,6 +198,37 @@ void MainLoop(void)
 	ethernetInitLayer->Stop();
 	ddcmpInitLayer->Stop();
 	Log(LogGeneral, LogInfo, "Shutdown complete\n");
+}
+
+static int ReadConfigLoggingOnly(char *fileName)
+{
+	FILE *f;
+	int ans = 1;
+	if ((f = fopen(fileName, "r")) == NULL)
+	{
+		Log(LogGeneral, LogError, "Could not open the configuration file: %s", fileName);
+		ans = 0;
+	}
+
+	if (ans)
+	{
+		char *line = "";
+		while(line != NULL)
+		{
+			if (stricmp(line, "[logging]") == 0)
+			{
+				line = ReadLoggingConfig(f, &ans);
+			}
+			else
+			{
+				line = ReadConfigLine(f);
+			}
+		}
+
+		fclose(f);
+	}
+
+	return ans;
 }
 
 static int ReadConfig(char *fileName)
