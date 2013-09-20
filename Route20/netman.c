@@ -178,6 +178,7 @@ static void SendError(uint16 locAddr)
 
 static void ProcessShowKnownCircuits(uint16 locAddr)
 {
+    // TODO: Reports eth0 multiple times if more than one adjacency is up on eth0
 	int i;
 
 	Log(LogNetMan, LogInfo, "Processing SHOW KNOWN CIRCUITS for port %hu\n", locAddr);
