@@ -27,5 +27,5 @@
   ------------------------------------------------------------------------------*/
 
 int IsReachable(decnet_address_t *address);
-void ForwardPacket(packet_t *packet);
-void SendPacket(decnet_address_t *srcNode, decnet_address_t *dstNode, packet_t *packet); // TODO: re-layer this?
+void ForwardPacket(circuit_t *srcCircuit, packet_t *packet);
+void SendPacket(circuit_t *srcCircuit, decnet_address_t *dstNode, packet_t *packet); // TODO: re-layer this?

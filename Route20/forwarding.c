@@ -25,6 +25,7 @@
    in this Software without prior written authorization from the author.
 
   ------------------------------------------------------------------------------*/
+// TODO: DIR MIM:: fails over DDCMP
 
 #include <memory.h>
 #include "packet.h"
@@ -54,7 +55,7 @@ int IsReachable(decnet_address_t *address)
 	return ans;
 }
 
-void ForwardPacket(packet_t *packet)
+void ForwardPacket(circuit_t *srcCircuit, packet_t *packet)
 {
 	adjacency_t *srcAdjacency;
     decnet_address_t srcNode;
@@ -132,7 +133,7 @@ void ForwardPacket(packet_t *packet)
 		if (forward)
 		{
 			packetToForward = CreateLongDataMessage(&srcNode, &dstNode, forwardFlags, visits, data, dataLength);
-			SendPacket(&srcNode, &dstNode, packetToForward);
+			SendPacket(srcCircuit, &dstNode, packetToForward);
 		}
 	}
 	else
@@ -141,13 +142,11 @@ void ForwardPacket(packet_t *packet)
 	}
 }
 
-void SendPacket(decnet_address_t *srcNode, decnet_address_t *dstNode, packet_t *packet)
+void SendPacket(circuit_t *srcCircuit, decnet_address_t *dstNode, packet_t *packet)
 {
     adjacency_t *dstAdjacency;
-    adjacency_t *srcAdjacency;
 	int forward = 1;
 
-	srcAdjacency = GetAdjacencyForNode(srcNode);
 	dstAdjacency = GetAdjacencyForNode(dstNode);
 
 	if (dstAdjacency != NULL)
@@ -169,7 +168,7 @@ void SendPacket(decnet_address_t *srcNode, decnet_address_t *dstNode, packet_t *
 		if (forward)
 		{
 
-			if (srcAdjacency->circuit == dstAdjacency->circuit && IsBroadcastCircuit(dstAdjacency->circuit))
+			if ((srcCircuit == NULL || srcCircuit == dstAdjacency->circuit) && IsBroadcastCircuit(dstAdjacency->circuit))
 			{
 				SetIntraEthernet(packet);
 			}
