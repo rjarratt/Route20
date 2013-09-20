@@ -55,7 +55,7 @@
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_USING_V110_SDK71_;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>C:\Users\Rob\Documents\DEC\DECEmulation\WinPCap Developer Pack WpdPack_4_1_2\WpdPack\Include</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
@@ -83,7 +83,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_MBCS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_USING_V110_SDK71_;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_MBCS</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>C:\Users\Rob\Documents\DEC\DECEmulation\WinPCap Developer Pack WpdPack_4_1_2\WpdPack\Include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4706</DisableSpecificWarnings>
     </ClCompile>
