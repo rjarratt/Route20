@@ -162,7 +162,7 @@ static int IsValidNameToQuery(char *name)
     int ans = 0;
     int i;
 
-    for (i = 0; i < strlen(name); i++)
+    for (i = 0; i < (int)strlen(name); i++)
     {
         if (!isdigit(name[i]) && name[i] != '.')
         {
