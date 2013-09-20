@@ -175,7 +175,7 @@ void CheckCircuitAdjacency(decnet_address_t *from, circuit_t *circuit)
             }
 
             time(&adjacency->lastHeardFrom);
-            SoftAdjacencyUp(&adjacency);
+            SoftAdjacencyUp(adjacency);
         }
     }
 }
