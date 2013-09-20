@@ -29,6 +29,7 @@
 typedef struct
 {
 	unsigned int waitHandle;
+    char *name;
 	void *context;
 	void (*eventHandler)(void *context);
 
@@ -39,8 +40,9 @@ event_handler_t eventHandlers[MAX_EVENT_HANDLERS];
 int numEventHandlers;
 int eventHandlersChanged;
 
+int InitialiseLogging(char *configFileName);
 int Initialise(char *configFileName);
 void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, int dataLength));
-void RegisterEventHandler(unsigned int waitHandle, void *context, void (*eventHandler)(void *context));
+void RegisterEventHandler(unsigned int waitHandle, char *name, void *context, void (*eventHandler)(void *context));
 void DeregisterEventHandler(unsigned int waitHandle);
 void MainLoop(void);

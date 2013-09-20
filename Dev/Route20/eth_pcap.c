@@ -104,7 +104,7 @@ int EthPcapOpen(eth_circuit_t *ethCircuit)
 			//	Log(LogError, "ioctl BIOCSHDRCMPLT failed\n");
 			//}
 #endif
-			RegisterEventHandler(ethCircuit->circuit->waitHandle, ethCircuit->circuit, ethCircuit->circuit->WaitEventHandler);
+			RegisterEventHandler(ethCircuit->circuit->waitHandle, "EthPcap Circuit", ethCircuit->circuit, ethCircuit->circuit->WaitEventHandler);
 			/*Log(LogInfo, "Wait handle that was obtained for %s (slot %d) was %u\n", ethCircuit->circuit->name, ethCircuit->circuit->slot, ethCircuit->circuit->waitHandle);*/
 			if (pcap_setnonblock(pcapContext->pcap, 1, ebuf) != 0)
 			{

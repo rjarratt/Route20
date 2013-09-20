@@ -64,7 +64,7 @@ void InitialiseSockets()
 	if (SocketConfig.socketConfigured)
 	{
 		OpenTcpSocket(&ListenSocket, "TCPLISTEN", SocketConfig.tcpListenPort);
-		RegisterEventHandler(ListenSocket.waitHandle, NULL, ProcessListenSocketEvent);
+		RegisterEventHandler(ListenSocket.waitHandle, "TCP socket", NULL, ProcessListenSocketEvent);
 	}
 }
 

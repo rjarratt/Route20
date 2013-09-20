@@ -412,7 +412,7 @@ static void TcpConnectCallback(socket_t *sock)
     {
         ddcmpCircuit->circuit->waitHandle = sock->waitHandle;
         Log(LogDdcmpInit, LogInfo, "DDCMP line %s has been opened\n", ddcmpCircuit->circuit->name);
-        RegisterEventHandler(ddcmpCircuit->circuit->waitHandle, ddcmpCircuit->circuit, ddcmpCircuit->circuit->WaitEventHandler);
+        RegisterEventHandler(ddcmpCircuit->circuit->waitHandle, "DDCMP Circuit", ddcmpCircuit->circuit, ddcmpCircuit->circuit->WaitEventHandler);
         ProcessEvent(ddcmpCircuit, DdcmpInitOPOEvent);
 	}
 }

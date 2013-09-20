@@ -81,7 +81,7 @@ int DnsOpen(char *serverName)
 	if (ans)
 	{
 		memcpy(&DnsServer, GetSocketAddressFromName(serverName, 53), sizeof(DnsServer));
-		RegisterEventHandler(DnsSocket.waitHandle, NULL, DnsProcessResponse);
+		RegisterEventHandler(DnsSocket.waitHandle, "DNS socket", NULL, DnsProcessResponse);
 	}
 
 	return ans;

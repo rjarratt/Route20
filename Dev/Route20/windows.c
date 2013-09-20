@@ -79,6 +79,8 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 { 
 	int err;
 
+    InitialiseLogging(CONFIG_FILE_NAME);
+    OpenLog();
 	SymSetOptions(SYMOPT_LOAD_LINES);
 
 	// If command-line parameter is "install", install the service. 
@@ -94,13 +96,16 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 	The process should simply terminate when the call returns.
 	*/
 
+    Log(LogGeneral, LogVerbose, "Starting service control dispatcher\n");
+
 	if (!StartServiceCtrlDispatcher(DispatchTable))
 	{ 
+        Log(LogGeneral, LogVerbose, "Failed to start service control dispatcher\n");
+
 		err = GetLastError();
 		if (err == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT)
 		{
             runningAsService = 0;
-            OpenLog();
 			__try
 			{
 				if (Initialise(CONFIG_FILE_NAME))
@@ -113,13 +118,18 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 			__except(ExceptionFilter(GetExceptionInformation(), GetExceptionCode()))
 			{
 			}
-            CloseLog();
 		}
 		else if (!err)
 		{ 
 			SvcReportEvent(TEXT("StartServiceCtrlDispatcher")); 
 		}
 	}
+    else
+    {
+        Log(LogGeneral, LogVerbose, "Service control dispatcher has terminated\n");
+    }
+    
+    CloseLog();
 } 
 
 LONG WINAPI ExceptionFilter(EXCEPTION_POINTERS* pExp, DWORD dwExpCode)
@@ -280,6 +290,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 			{
 				i = i - WAIT_OBJECT_0;
 				ResetEvent((HANDLE)eventHandlers[i].waitHandle);
+                Log(LogGeneral, LogVerbose, "Processing event handler for %s\n", eventHandlers[i].name);
 				eventHandlers[i].eventHandler(eventHandlers[i].context);
 			}
 		}
@@ -387,6 +398,7 @@ static void LogWin32Error(char *format, DWORD err)
 
 static void ProcessStopEvent(void *context)
 {
+	Log(LogGeneral, LogVerbose, "Processing stop request\n");
 	stop = 1;
 }
 
@@ -395,7 +407,7 @@ static VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
 	// Create an event. The control handler function, SvcCtrlHandler,
 	// signals this event when it receives the stop control code.
 
-	ghSvcStopEvent = CreateEvent(
+    ghSvcStopEvent = CreateEvent(
 		NULL,    // default security attributes
 		TRUE,    // manual reset event
 		FALSE,   // not signaled
@@ -407,13 +419,12 @@ static VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
 		return;
 	}
 
-	RegisterEventHandler((unsigned int)ghSvcStopEvent, NULL, ProcessStopEvent);
+	RegisterEventHandler((unsigned int)ghSvcStopEvent, "Stop event", NULL, ProcessStopEvent);
 
 	// Report running status when initialization is complete.
 
 	ReportSvcStatus( SERVICE_RUNNING, NO_ERROR, 0 );
 
-	OpenLog();
 	__try
 	{
 		if (Initialise(CONFIG_FILE_NAME))
@@ -427,8 +438,6 @@ static VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
 	{
 		Log(LogGeneral, LogFatal, "Exception: %08X\n", GetExceptionCode());
 	}
-
-	CloseLog();
 
 	ReportSvcStatus( SERVICE_STOPPED, NO_ERROR, 0 );
 }
@@ -469,7 +478,7 @@ static VOID WINAPI SvcCtrlHandler( DWORD dwCtrl )
 
 		// Signal the service to stop.
 
-		//Log(LogInfo, "Received stop request from service control manager\n");
+		Log(LogGeneral, LogVerbose, "Received stop request from service control manager\n");
 		SetEvent(ghSvcStopEvent);
 		ReportSvcStatus(gSvcStatus.dwCurrentState, NO_ERROR, 0);
 
