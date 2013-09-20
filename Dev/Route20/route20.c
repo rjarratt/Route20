@@ -990,7 +990,7 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 			}
 			else
 			{
-				ForwardPacket(packet);
+				ForwardPacket(circuit, packet);
 			}
 		}
 	}
