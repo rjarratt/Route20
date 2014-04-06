@@ -63,8 +63,14 @@ void InitialiseSockets()
 	ListenSocket.waitHandle = (unsigned int)-1;
 	if (SocketConfig.socketConfigured)
 	{
-		OpenTcpSocket(&ListenSocket, "TCPLISTEN", SocketConfig.tcpListenPort);
-		RegisterEventHandler(ListenSocket.waitHandle, "TCP socket", NULL, ProcessListenSocketEvent);
+		if (OpenTcpSocket(&ListenSocket, "TCPLISTEN", SocketConfig.tcpListenPort))
+        {
+		    RegisterEventHandler(ListenSocket.waitHandle, "TCP socket", NULL, ProcessListenSocketEvent);
+        }
+        else
+        {
+            Log(LogSock, LogError, "Unable to open TCP socket on port %d\n", SocketConfig.tcpListenPort);
+        }
 	}
 }
 
@@ -432,8 +438,8 @@ static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int t
 			sa.sin_addr.s_addr = INADDR_ANY; /* TODO: use specific interface? */
 			if (bind(sock->socket, (sockaddr_t*)&sa, sizeof(sa)) == -1)
 			{
-				CloseSocket(sock);
 				SockErrorAndClear("bind");
+				CloseSocket(sock);
 			}
 			else
 			{
@@ -458,8 +464,8 @@ static int ListenTcpSocket(socket_t *sock)
 	}
 	else
 	{
-		CloseSocket(sock);
 		SockErrorAndClear("listen");
+		CloseSocket(sock);
 	}
 
 	return ans;
