@@ -507,7 +507,7 @@ static void ProcessListenSocketEvent(void *context)
 
 		if (sock != NULL)
 		{
-	        Log(LogSock, LogWarning, "TCP connection from %d.%d.%d.%d accepted\n", inaddr->sin_addr.S_un.S_un_b.s_b1, inaddr->sin_addr.S_un.S_un_b.s_b2, inaddr->sin_addr.S_un.S_un_b.s_b3, inaddr->sin_addr.S_un.S_un_b.s_b4);
+	        Log(LogSock, LogInfo, "TCP connection from %d.%d.%d.%d accepted\n", inaddr->sin_addr.S_un.S_un_b.s_b1, inaddr->sin_addr.S_un.S_un_b.s_b2, inaddr->sin_addr.S_un.S_un_b.s_b3, inaddr->sin_addr.S_un.S_un_b.s_b4);
 			sock->socket = newSocket;
 			sock->receivePort = inaddr->sin_port;
 			SetNonBlocking(sock);
@@ -520,7 +520,7 @@ static void ProcessListenSocketEvent(void *context)
 		}
 		else
 		{
-	        Log(LogSock, LogWarning, "TCP connection from %d.%d.%d.%d rejected\n", inaddr->sin_addr.S_un.S_un_b.s_b1, inaddr->sin_addr.S_un.S_un_b.s_b2, inaddr->sin_addr.S_un.S_un_b.s_b3, inaddr->sin_addr.S_un.S_un_b.s_b4);
+	        Log(LogSock, LogInfo, "TCP connection from %d.%d.%d.%d rejected\n", inaddr->sin_addr.S_un.S_un_b.s_b1, inaddr->sin_addr.S_un.S_un_b.s_b2, inaddr->sin_addr.S_un.S_un_b.s_b3, inaddr->sin_addr.S_un.S_un_b.s_b4);
 			closesocket(newSocket);
 		}
 	}
