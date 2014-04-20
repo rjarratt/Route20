@@ -106,18 +106,23 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 		if (err == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT)
 		{
             runningAsService = 0;
+            /* Disable exception handlers in debug builds so that debugger can break at the exception location. */
+#if !defined(_DEBUG)
 			__try
 			{
+#endif
 				if (Initialise(CONFIG_FILE_NAME))
 				{
 					NspInitialise();
 					NetManInitialise();
 					MainLoop();
 				}
+#if !defined(_DEBUG)
 			}
 			__except(ExceptionFilter(GetExceptionInformation(), GetExceptionCode()))
 			{
 			}
+#endif
 		}
 		else if (!err)
 		{ 
@@ -428,19 +433,24 @@ static VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
 
 	ReportSvcStatus( SERVICE_RUNNING, NO_ERROR, 0 );
 
+    /* Disable exception handlers in debug builds so that debugger can break at the exception location. */
+#if !defined(_DEBUG)
 	__try
 	{
+#endif
 		if (Initialise(CONFIG_FILE_NAME))
 		{
 			NspInitialise();
 			NetManInitialise();
 			MainLoop();
 		}
+#if !defined(_DEBUG)
 	}
 	__except(EXCEPTION_EXECUTE_HANDLER)
 	{
 		Log(LogGeneral, LogFatal, "Exception: %08X\n", GetExceptionCode());
 	}
+#endif
 
 	ReportSvcStatus( SERVICE_STOPPED, NO_ERROR, 0 );
 }
