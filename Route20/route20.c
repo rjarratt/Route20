@@ -89,6 +89,25 @@ int InitialiseLogging(char *configFileName)
 		LoggingLevels[i] = LogInfo;
 	}
 
+    LogSourceName[LogGeneral] = "GEN";
+    LogSourceName[LogCircuit] = "CRC";
+    LogSourceName[LogAdjacency] = "ADJ";
+    LogSourceName[LogUpdate] = "UPD";
+    LogSourceName[LogDecision] = "DEC";
+    LogSourceName[LogForwarding] = "FWD";
+    LogSourceName[LogMessages] = "MSG";
+    LogSourceName[LogDns] = "DNS";
+    LogSourceName[LogEthInit] = "ETI";
+    LogSourceName[LogEthPcap] = "EPC";
+    LogSourceName[LogEthSock] = "ESK";
+    LogSourceName[LogDdcmpSock] = "DSK";
+    LogSourceName[LogDdcmp] = "DDC";
+    LogSourceName[LogDdcmpInit] = "DDI";
+    LogSourceName[LogSock] = "SOK";
+    LogSourceName[LogNsp] = "NSP";
+    LogSourceName[LogNspMessages] = "NSM";
+    LogSourceName[LogNetMan] = "NMN";
+
     ans = ReadConfigLoggingOnly(configFileName);
 
     return ans;
@@ -1005,36 +1024,36 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 	}
 	else if (IsDataMessage(packet))
 	{
-		LogMessage(circuit, packet, "Data message");
-		if (IsValidDataPacket(packet))
-		{
-			decnet_address_t srcNode;
-			decnet_address_t dstNode;
-			byte flags;
-			int visits;
-			byte *data;
-			int dataLength;
+        LogMessage(circuit, packet, "Data message");
+        if (IsValidDataPacket(packet))
+        {
+            decnet_address_t srcNode;
+            decnet_address_t dstNode;
+            byte flags;
+            int visits;
+            byte *data;
+            int dataLength;
 
             CheckCircuitAdjacency(&srcNode, circuit);
-			ExtractDataPacketData(packet, &srcNode, &dstNode, &flags, &visits, &data, &dataLength);
+            ExtractDataPacketData(packet, &srcNode, &dstNode, &flags, &visits, &data, &dataLength);
 
-			if (CompareDecnetAddress(&srcNode, &nodeInfo.address))
-			{
-				LogLoopbackMessage(circuit, packet, "Data message");
-			}
-			else if (CompareDecnetAddress(&dstNode, &nodeInfo.address))
-			{
-				if (processHigherLevelProtocolPacket != NULL)
-				{
+            if (CompareDecnetAddress(&srcNode, &nodeInfo.address))
+            {
+                LogLoopbackMessage(circuit, packet, "Data message");
+            }
+            else if (CompareDecnetAddress(&dstNode, &nodeInfo.address))
+            {
+                if (processHigherLevelProtocolPacket != NULL)
+                {
 
-					processHigherLevelProtocolPacket(&srcNode, data, dataLength);
-				}
-			}
-			else
-			{
-				ForwardPacket(circuit, packet);
-			}
-		}
+                    processHigherLevelProtocolPacket(&srcNode, data, dataLength);
+                }
+            }
+            else
+            {
+                ForwardPacket(circuit, packet);
+            }
+        }
 	}
 	else
 	{
