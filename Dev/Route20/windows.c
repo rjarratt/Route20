@@ -231,6 +231,9 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
 			strftime(buf, 80, "%Y-%m-%d %H:%M:%S ", localtime(&now));
 			fprintf(logFile, buf);
             if (!runningAsService) printf(buf);
+
+            fprintf(logFile, "%s ", LogSourceName[source]);
+            if (!runningAsService) printf("%s ", LogSourceName[source]);
 		}
 
 		n = vsprintf(buf, format, argptr);

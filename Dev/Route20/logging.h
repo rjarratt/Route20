@@ -51,6 +51,8 @@ typedef enum
 	LogEndMarker
 } LogSource;
 
+char *LogSourceName[LogEndMarker + 1];
+
 #define LOGGING_H
 #endif
 

@@ -179,7 +179,7 @@ void Log(LogSource source, LogLevel level, char *format, ...)
 
 		if (onNewLine)
 		{
-			syslog(sysLevel, "%s", line);
+			syslog(sysLevel, "%s %s", LogSourceName[source], line);
 			currentLen = 0;
 		}
 	}
