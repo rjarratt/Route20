@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
     close(STDERR_FILENO);
     
     Log(LogGeneral, LogInfo, "Initialising");
-	if (Initialise(configFileName, NspProcessPacket))
+	if (Initialise(configFileName))
 	{
 		NspInitialise();
 		NetManInitialise();
@@ -190,6 +190,7 @@ void Log(LogSource source, LogLevel level, char *format, ...)
 void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *))
 {
 	int i;
+	int h;
 	int nfds = 0;
 	fd_set handles;
 
@@ -201,24 +202,14 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 		timeout.tv_sec = SecondsUntilNextDue();
 		timeout.tv_nsec = 0;
 
-		FD_ZERO(&handles);
-		for(i = 1; i <= numCircuits; i++)
-		{
-			FD_SET(circuits[i].waitHandle, &handles);
-			if (circuits[i].waitHandle > nfds)
-			{
-				nfds = circuits[i].waitHandle;
-			}
-		}
-
-		if (DnsWaitHandle != -1)
-		{
-			FD_SET(DnsWaitHandle, &handles);
-			if (DnsWaitHandle > nfds)
-			{
-				nfds = DnsWaitHandle;
-			}
-		}
+        for (h = 0; h < numEventHandlers; h++)
+        {
+            FD_SET(eventHandlers[h].waitHandle, &handles);
+            if (eventHandlers[h].waitHandle > nfds)
+            {
+                nfds = eventHandlers[h].waitHandle;
+            }
+        }
 
 		i = pselect(nfds + 1, &handles, NULL, NULL, &timeout, NULL);
 		if (i == -1)
@@ -237,18 +228,13 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 			ProcessTimers();
 			if (i > 0)
 			{
-				if (FD_ISSET(DnsWaitHandle, &handles))
-				{
-					DnsProcessResponse();
-				}
-
-				for( i = 1; i <= numCircuits; i++)
-				{
-					if (FD_ISSET(circuits[i].waitHandle, &handles))
-					{
-				        ProcessPackets(&circuits[i], process);
-					}
-				}
+    			for (h = 0; h < numEventHandlers; h++)
+	    		{
+		    		if (FD_ISSET(eventHandlers[h].waitHandle, &handles))
+                    {
+				        eventHandlers[h].eventHandler(eventHandlers[h].context);
+                    }
+    			}
 			}
 		}
 	}

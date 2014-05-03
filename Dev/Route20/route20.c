@@ -27,6 +27,7 @@ in this Software without prior written authorization from the author.
 ------------------------------------------------------------------------------*/
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <pcap.h>
 #include <time.h>
 #include <string.h>
@@ -171,7 +172,7 @@ void RegisterEventHandler(unsigned int waitHandle, char *name, void *context, vo
 		exit(EXIT_FAILURE);
 	}
 
-	Log(LogGeneral, LogVerbose, "Registering new event handler for %s in slot %d\n", name, numEventHandlers);
+	Log(LogGeneral, LogVerbose, "Registering new event handler for %s in slot %d, handle is %d\n", name, numEventHandlers, waitHandle);
 	eventHandlers[numEventHandlers].waitHandle = waitHandle;
 	eventHandlers[numEventHandlers].name = name;
 	eventHandlers[numEventHandlers].context = context;
@@ -1024,7 +1025,7 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 	}
 	else if (IsDataMessage(packet))
 	{
-        LogMessage(circuit, packet, "Data message");
+	    LogMessage(circuit, packet, "Data message");
         if (IsValidDataPacket(packet))
         {
             decnet_address_t srcNode;
