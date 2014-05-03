@@ -70,6 +70,8 @@ int main(int argc, char *argv[])
 		strcat(configFileName, CONFIG_FILE_NAME);
 	}
 
+    InitialiseLogging(configFileName);
+
     /* Fork off the parent process */
     pid = fork();
     if (pid < 0)
@@ -88,7 +90,7 @@ int main(int argc, char *argv[])
     /* Change the file mode mask */
     umask(0);
         
-    openlog("Route20", 0, LOG_DAEMON);
+   openlog("Route20", 0, LOG_DAEMON);
 
     /* Create a new SID for the child process */
     sid = setsid();
@@ -128,8 +130,8 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
 	static char line[MAX_LOG_LINE_LEN];
 	static int  currentLen = 0;
 	static int onNewLine = 1;
-	
-	if (level <= LoggingLevels[source])
+
+    if (level <= LoggingLevels[source])
 	{
 		int sysLevel;
 		switch (level)
