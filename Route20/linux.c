@@ -123,15 +123,12 @@ int main(int argc, char *argv[])
     exit(EXIT_SUCCESS);
 }
 
-void Log(LogSource source, LogLevel level, char *format, ...)
+void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
 {
-	va_list va;
 	static char line[MAX_LOG_LINE_LEN];
 	static int  currentLen = 0;
 	static int onNewLine = 1;
 	
-	va_start(va, format);
-
 	if (level <= LoggingLevels[source])
 	{
 		int sysLevel;
@@ -174,7 +171,7 @@ void Log(LogSource source, LogLevel level, char *format, ...)
 			}
 		}
 
-		currentLen += vsprintf(&line[currentLen], format, va);
+		currentLen += vsprintf(&line[currentLen], format, argptr);
 		onNewLine = line[currentLen-1] == '\n';
 
 		if (onNewLine)
@@ -183,8 +180,6 @@ void Log(LogSource source, LogLevel level, char *format, ...)
 			currentLen = 0;
 		}
 	}
-
-	va_end(va);
 }
 
 void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *))

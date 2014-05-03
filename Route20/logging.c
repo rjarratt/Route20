@@ -29,6 +29,17 @@
 #include "platform.h"
 #include "logging.h"
 
+void Log(LogSource source, LogLevel level, char *format, ...)
+{
+	va_list va;
+
+	va_start(va, format);
+
+	VLog(source, level, format, va);
+
+	va_end(va);
+}
+
 void LogBytes(LogSource source, LogLevel level, byte *buffer, int length)
 {
 	int i;

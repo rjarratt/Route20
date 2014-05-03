@@ -39,6 +39,9 @@ static int started;
 static int SockStartup(void);
 static int GetSockError(void);
 static void SockError(char *msg);
+static int IsSockErrorConnReset(int err);
+static int IsSockErrorConnAborted(int err);
+static int IsSockErrorWouldBlock(int err);
 static void SockErrorAndClear(char *msg);
 static void SockErrorClear();
 static void SetNonBlocking(socket_t *socket);
@@ -154,7 +157,7 @@ int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
         else
         {
             sockErr = GetSockError();
-            if (sockErr == WSAECONNRESET || sockErr == WSAECONNABORTED)
+            if (IsSockErrorConnReset(sockErr) || IsSockErrorConnAborted(sockErr))
             {
                 closed = 1;
             }
@@ -169,7 +172,7 @@ int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
                 tcpDisconnectCallback(sock);
             }
         }
-        else if (sockErr != WSAEWOULDBLOCK) // TODO: will need to make this work right on Linux, where it is EWOULDBLOCK
+        else if (!IsSockErrorWouldBlock(sockErr))
         {
             SockErrorAndClear("recv");
         }
@@ -190,7 +193,7 @@ int WriteToStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
         {
             int retry = 0;
 #if defined(WIN32)
-			if (WSAGetLastError() == WSAEWOULDBLOCK) // TODO: abstracted wouldblock check elsewhere now.
+			if (IsSockErrorWouldBlock(GetSockError()))
 			{
 				retry = 1;
 				Sleep(1);
@@ -239,7 +242,7 @@ int SendToSocket(socket_t *sock, sockaddr_t *destination, packet_t *packet)
 		if (sendto(sock->socket, (char *)packet->rawData, packet->rawLen, 0, destination, sizeof(*destination)) == -1)
 		{
 #if defined(WIN32)
-			if (WSAGetLastError() == WSAEWOULDBLOCK) // TODO: abstracted wouldblock check elsewhere now.
+			if (IsSockErrorWouldBlock(GetSockError()))
 			{
 				retry = 1;
 				Sleep(1);
@@ -268,6 +271,15 @@ int SendToSocket(socket_t *sock, sockaddr_t *destination, packet_t *packet)
 	return ans;
 }
 
+static void ClosePrimitiveSocket(unsigned int sock)
+{
+#if defined(WIN32)
+	closesocket(sock);
+#else
+	close(sock);
+#endif
+}
+
 void CloseSocket(socket_t *sock)
 {
 #if defined(WIN32)
@@ -275,10 +287,8 @@ void CloseSocket(socket_t *sock)
     {
         CloseHandle((HANDLE)sock->waitHandle);
     }
-	closesocket(sock->socket);
-#else
-	close(sock->socket);
 #endif
+    ClosePrimitiveSocket(sock->socket);
 	sock->socket = INVALID_SOCKET;
 }
 
@@ -373,6 +383,42 @@ static void SockError(char *msg)
 	}
 }
 
+static int IsSockErrorConnReset(int err)
+{
+    int ans;
+#if defined(WIN32)
+    ans = err == WSAECONNRESET;
+#else
+	ans = err == ECONNRESET;
+#endif
+
+	return ans;
+}
+
+static int IsSockErrorConnAborted(int err)
+{
+    int ans;
+#if defined(WIN32)
+    ans = err == WSAECONNABORTED;
+#else
+	ans = 0;
+#endif
+
+	return ans;
+}
+
+static int IsSockErrorWouldBlock(int err)
+{
+    int ans;
+#if defined(WIN32)
+    ans = err == WSAEWOULDBLOCK;
+#else
+	ans = err == EWOULDBLOCK;
+#endif
+
+	return ans;
+}
+
 static void SockErrorAndClear(char *msg)
 {
 	SockError(msg);
@@ -443,7 +489,11 @@ static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int t
 			}
 			else
 			{
+#if defined(WIN32)
 				SetupSocketEvents(sock, eventName, FD_READ | FD_ACCEPT);
+#else
+				SetupSocketEvents(sock, eventName, 0);
+#endif
 				if (sock->waitHandle == -1)
 				{
 					CloseSocket(sock);
@@ -507,11 +557,15 @@ static void ProcessListenSocketEvent(void *context)
 
 		if (sock != NULL)
 		{
-	        Log(LogSock, LogInfo, "TCP connection from %d.%d.%d.%d accepted\n", inaddr->sin_addr.S_un.S_un_b.s_b1, inaddr->sin_addr.S_un.S_un_b.s_b2, inaddr->sin_addr.S_un.S_un_b.s_b3, inaddr->sin_addr.S_un.S_un_b.s_b4);
+	        Log(LogSock, LogInfo, "TCP connection from %d.%d.%d.%d accepted\n", (inaddr->sin_addr.s_addr) & 0xFF, (inaddr->sin_addr.s_addr >> 8) & 0xFF, (inaddr->sin_addr.s_addr >> 16) & 0xFF, (inaddr->sin_addr.s_addr >> 24) & 0xFF);
 			sock->socket = newSocket;
 			sock->receivePort = inaddr->sin_port;
 			SetNonBlocking(sock);
+#if defined(WIN32)
 			SetupSocketEvents(sock, NULL, FD_READ | FD_CLOSE); // TODO: DDCMP event name, ought to come from ddcmp circuit, but not available here and name is not essential, could move eventName to socket structure but not valid for eth_pcap
+#else
+			SetupSocketEvents(sock, NULL, 0); // TODO: DDCMP event name, ought to come from ddcmp circuit, but not available here and name is not essential, could move eventName to socket structure but not valid for eth_pcap
+#endif
 			if (tcpConnectCallback != NULL)
 			{
 				tcpConnectCallback(sock);
@@ -520,8 +574,8 @@ static void ProcessListenSocketEvent(void *context)
 		}
 		else
 		{
-	        Log(LogSock, LogInfo, "TCP connection from %d.%d.%d.%d rejected\n", inaddr->sin_addr.S_un.S_un_b.s_b1, inaddr->sin_addr.S_un.S_un_b.s_b2, inaddr->sin_addr.S_un.S_un_b.s_b3, inaddr->sin_addr.S_un.S_un_b.s_b4);
-			closesocket(newSocket);
+	        Log(LogSock, LogInfo, "TCP connection from %d.%d.%d.%d rejected\n", (inaddr->sin_addr.s_addr) & 0xFF, (inaddr->sin_addr.s_addr >> 8) & 0xFF, (inaddr->sin_addr.s_addr >> 16) & 0xFF, (inaddr->sin_addr.s_addr >> 24) & 0xFF);
+			ClosePrimitiveSocket(newSocket);
 		}
 	}
 }

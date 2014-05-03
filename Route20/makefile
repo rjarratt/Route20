@@ -9,6 +9,10 @@ ROUTE20 = adjacency.c \
           area_forwarding_database.c \
           area_routing_database.c \
           circuit.c \
+          ddcmp.c \
+          ddcmp_circuit.c \
+          ddcmp_init_layer.c \
+          ddcmp_sock.c \
           decision.c \
           decnet.c \
           dns.c \
@@ -21,6 +25,7 @@ ROUTE20 = adjacency.c \
           forwarding_database.c \
           init_layer.c \
           linux.c \
+          logging.c \
           messages.c \
           netman.c \
           netman_messages.c \

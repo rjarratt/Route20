@@ -37,6 +37,7 @@
 #include <netdb.h>
 #include <fcntl.h>
 #define INVALID_SOCKET (-1)
+#define SOCKET_ERROR (-1)
 #endif
 
 #include "packet.h"
@@ -74,6 +75,7 @@ int ReadFromDatagramSocket(socket_t *sock, packet_t *packet, sockaddr_t *receive
 int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength);
 int WriteToStreamSocket(socket_t *sock, byte *buffer, int bufferLength);
 int SendToSocket(socket_t *sock, sockaddr_t *destination, packet_t *packet);
+static void ClosePrimitiveSocket(unsigned int sock);
 void CloseSocket(socket_t *sock);
 sockaddr_t *GetSocketAddressFromName(char *hostName, uint16 port);
 sockaddr_t *GetSocketAddressFromIpAddress(byte *address, uint16 port);

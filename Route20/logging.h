@@ -53,7 +53,8 @@ typedef enum
 
 char *LogSourceName[LogEndMarker + 1];
 
+void Log(LogSource source, LogLevel level, char *format, ...);
+void LogBytes(LogSource source, LogLevel level, byte *buffer, int length);
+
 #define LOGGING_H
 #endif
-
-void LogBytes(LogSource source, LogLevel level, byte *buffer, int length);
