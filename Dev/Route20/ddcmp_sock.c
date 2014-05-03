@@ -26,6 +26,7 @@ in this Software without prior written authorization from the author.
 
 ------------------------------------------------------------------------------*/
 
+#include <stdlib.h>
 #include <memory.h>
 #include "platform.h"
 #include "route20.h"

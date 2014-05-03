@@ -35,7 +35,5 @@
 #define stricmp strcasecmp
 #endif
 
-
 void VLog(LogSource source, LogLevel level, char *format, va_list argptr);
-void Log(LogSource source, LogLevel level, char *format, ...);
 void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *));
