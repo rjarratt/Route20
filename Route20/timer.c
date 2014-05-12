@@ -40,6 +40,7 @@ rtimer_t *CreateTimer(char *name, time_t due, int interval, void *context, void 
 {
 	rtimer_t *newTimer = (rtimer_t *)malloc(sizeof(rtimer_t));
 
+    newTimer->isFullTimer = 1;
 	newTimer->name = name;
 	newTimer->due = due;
 	newTimer->interval = (interval <= 0) ? 0 : interval;
@@ -49,6 +50,23 @@ rtimer_t *CreateTimer(char *name, time_t due, int interval, void *context, void 
 	timerList = newTimer;
 
 	return newTimer;
+}
+
+void QueueImmediate(void *context, void (*callback)(void *))
+{
+    time_t now;
+
+	rtimer_t *newTimer = (rtimer_t *)malloc(sizeof(rtimer_t));
+
+	time(&now);
+    newTimer->isFullTimer = 0;
+	newTimer->name = "Immediate";
+	newTimer->due = now;
+	newTimer->interval = 0;
+	newTimer->context = context;
+	newTimer->immediateCallback = callback;
+	newTimer->next = timerList;
+	timerList = newTimer;
 }
 
 void StopTimer(rtimer_t *timer)
@@ -87,7 +105,14 @@ void ProcessTimers(void)
 		{
 			if (timer->interval >= 0)
 			{
-				timer->callback(timer, timer->name, timer->context);
+                if (timer->isFullTimer)
+                {
+				    timer->callback(timer, timer->name, timer->context);
+                }
+                else
+                {
+				    timer->immediateCallback(timer->context);
+                }
 			}
 
 			/* the callback may have added more timers to the head of the list, if so, adjust prevTimer if we were at the head list before the callback */

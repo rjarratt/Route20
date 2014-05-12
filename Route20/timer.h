@@ -35,15 +35,18 @@ typedef struct rtimer *timer_ptr;
 
 typedef struct rtimer
 {
+    int isFullTimer;
 	char *name;
 	time_t due;
 	int interval; /* seconds, =0 if one-shot, =-1 if stopped */
 	void *context;
 	void (*callback)(struct rtimer *, char *, void *);
+	void (*immediateCallback)(void *);
 	timer_ptr next;
 } rtimer_t;
 
 rtimer_t *CreateTimer(char *name, time_t due, int interval, void *context, void (*callback)(rtimer_t *, char *,void *));
+void QueueImmediate(void *context, void (*callback)(void *));
 void StopTimer(rtimer_t *);
 void StopAllTimers(void);
 void ProcessTimers(void);
