@@ -75,6 +75,18 @@ void CircuitDown(circuit_t *circuit)
 
 }
 
+void CircuitReject(circuit_t *circuit)
+{
+	if (circuit->Reject != NULL)
+	{
+		circuit->Reject(circuit);
+	}
+	else
+	{
+		CircuitDown(circuit);
+	}
+}
+
 void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost, void (*waitEventHandler)(void *context))
 {
 	eth_circuit_t *context = EthCircuitCreatePcap(circuit);
@@ -92,6 +104,7 @@ void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost, void (
 	circuit->ReadPacket = EthCircuitReadPacket;
 	circuit->WritePacket = EthCircuitWritePacket;
 	circuit->Close = EthCircuitClose;
+	circuit->Reject = NULL;
 	circuit->WaitEventHandler = waitEventHandler;
 }
 
@@ -112,6 +125,7 @@ void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receive
 	circuit->ReadPacket = EthCircuitReadPacket;
 	circuit->WritePacket = EthCircuitWritePacket;
 	circuit->Close = EthCircuitClose;
+	circuit->Reject = NULL;
 	circuit->WaitEventHandler = waitEventHandler;
 }
 
@@ -132,6 +146,7 @@ void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, int cost, void (*
 	circuit->ReadPacket = DdcmpCircuitReadPacket;
 	circuit->WritePacket = DdcmpCircuitWritePacket;
 	circuit->Close = DdcmpCircuitClose;
+	circuit->Reject = DdcmpCircuitReject;
 	circuit->WaitEventHandler = waitEventHandler;
 }
 
