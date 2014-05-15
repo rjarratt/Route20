@@ -68,6 +68,7 @@ int DdcmpCircuitStart(circuit_ptr circuit);
 packet_t *DdcmpCircuitReadPacket(circuit_ptr circuit);
 int DdcmpCircuitWritePacket(circuit_ptr circuit, decnet_address_t *from, decnet_address_t *to, packet_t *);
 void DdcmpCircuitClose(circuit_ptr circuit);
+void DdcmpCircuitReject(circuit_ptr circuit);
 
 #define DDCMP_CIRCUIT_H
 #endif

@@ -289,7 +289,6 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
         Log(LogDdcmpInit, LogVerbose, "Initialization received\n");
 
         // TODO: Check we get HelloAndTest from peer and close circuit if we don't (check spec for how to detect)
-        // TODO: Adjacency handling
         // TODO: Check possible DDCMP seq no wrap error causing circuit to drop
 
         valid = 1;
@@ -352,6 +351,12 @@ void DdcmpInitProcessInvalidMessage(circuit_t *circuit)
 	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
     ProcessEvent(ddcmpCircuit, DdcmpInitIMEvent);
 	DdcmpInitCircuitDown(ddcmpCircuit);
+}
+
+void DdcmpInitProcessCircuitRejectComplete(circuit_t *circuit)
+{
+	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+	ProcessEvent(ddcmpCircuit, DdcmpInitRCEvent);
 }
 
 static void DdcmpInitCircuitUp(ddcmp_circuit_t *ddcmpCircuit)

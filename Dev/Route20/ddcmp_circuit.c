@@ -32,9 +32,12 @@
 #include "platform.h"
 #include "circuit.h"
 #include "ddcmp_circuit.h"
+#include "ddcmp_init_layer.h"
 #include "ddcmp_sock.h"
 #include "timer.h"
 #include "messages.h"
+
+static void DdcmpCircuitRejectionCompleteCallback(void *context);
 
 ddcmp_circuit_t *DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName)
 {
@@ -77,6 +80,7 @@ packet_t *DdcmpCircuitReadPacket(circuit_t *circuit)
 	if (ans != NULL)
 	{
 		circuit->stats.validRawPacketsReceived++;
+		// TODO: Decide if the following commented code is needed.
 		//if (!ans->IsDecnet(ans))
 		//{
 		//	ans = NULL;
@@ -111,4 +115,14 @@ void DdcmpCircuitClose(circuit_t *circuit)
 {
 	ddcmp_circuit_t *context = (ddcmp_circuit_t *)circuit->context;
 	context->Close(context);
+}
+
+void DdcmpCircuitReject(circuit_ptr circuit)
+{
+    QueueImmediate(circuit, DdcmpCircuitRejectionCompleteCallback);
+}
+
+static void DdcmpCircuitRejectionCompleteCallback(void *context)
+{
+    DdcmpInitProcessCircuitRejectComplete((circuit_ptr)context);
 }
