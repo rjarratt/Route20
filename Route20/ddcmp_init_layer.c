@@ -100,6 +100,23 @@ static char * lineStateString[] =
     "Halt"
 };
 
+static char * lineEventString[] =
+{
+	"Undefined",
+    "New Routing Layer Init (with verification) message received",
+    "New Routing Layer Init (without verification) message received",
+    "New Routing Layer Verification message received",
+    "Routing Layer timed out",
+    "Start Complete notification",
+    "Start Notification Error",
+    "Operator turned circuit on",
+    "Operator turned circuit off",
+    "Invalid message received",
+    "Received Reject Complete",
+    "Received Circuit Down Complete",
+    "Received Circuit Up Complete"
+};
+
 static state_table_entry_t stateTable[] =
 {
     { DdcmpInitNRIVREvent, DdcmpInitRUState, DdcmpInitCRState, NULL },
@@ -499,7 +516,7 @@ static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
 
 		if (stateChanging)
 		{
-			Log(LogDdcmpInit, LogVerbose, "Changing DDCMP circuit state from %s to %s\n", lineStateString[(int)ddcmpCircuit->state], lineStateString[(int)entry->newState]);
+			Log(LogDdcmpInit, LogVerbose, "%s. Changing DDCMP circuit state from %s to %s\n", lineEventString[(int)entry->evt], lineStateString[(int)ddcmpCircuit->state], lineStateString[(int)entry->newState]);
 		}
 
 		ddcmpCircuit->state = entry->newState;
