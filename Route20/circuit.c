@@ -53,7 +53,6 @@ void SetCircuitStateChangeCallback(void (*callback)(circuit_t *circuit))
 void CircuitUp(circuit_t *circuit, decnet_address_t *adjacentNode)
 {
 	circuit->state = CircuitStateUp;
-	stateChangeCallback(circuit);
     if (adjacentNode == NULL)
     {
 	    Log(LogCircuit, LogInfo, "Circuit %s up\n", circuit->name);
@@ -64,21 +63,21 @@ void CircuitUp(circuit_t *circuit, decnet_address_t *adjacentNode)
         LogDecnetAddress(LogCircuit, LogInfo, adjacentNode);
 	    Log(LogCircuit, LogInfo, "\n");
     }
-
+	stateChangeCallback(circuit);
 }
 
 void CircuitDown(circuit_t *circuit)
 {
+	Log(LogCircuit, LogInfo, "Circuit %s down\n", circuit->name);
 	circuit->state = CircuitStateOff;
 	stateChangeCallback(circuit);
-	Log(LogCircuit, LogInfo, "Circuit %s down\n", circuit->name);
-
 }
 
 void CircuitReject(circuit_t *circuit)
 {
 	if (circuit->Reject != NULL)
 	{
+	    Log(LogCircuit, LogInfo, "Circuit %s rejected\n", circuit->name);
 		circuit->Reject(circuit);
 	}
 	else
