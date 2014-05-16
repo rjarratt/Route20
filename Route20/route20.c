@@ -1025,34 +1025,41 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 	}
 	else if (IsDataMessage(packet))
 	{
-	    LogMessage(circuit, packet, "Data message");
-        if (IsValidDataPacket(packet))
+        if (circuit->state == CircuitStateUp)
         {
-            decnet_address_t srcNode;
-            decnet_address_t dstNode;
-            byte flags;
-            int visits;
-            byte *data;
-            int dataLength;
-
-            CheckCircuitAdjacency(&srcNode, circuit);
-            ExtractDataPacketData(packet, &srcNode, &dstNode, &flags, &visits, &data, &dataLength);
-
-            if (CompareDecnetAddress(&srcNode, &nodeInfo.address))
+		    LogMessage(circuit, packet, "Data message");
+            if (IsValidDataPacket(packet))
             {
-                LogLoopbackMessage(circuit, packet, "Data message");
-            }
-            else if (CompareDecnetAddress(&dstNode, &nodeInfo.address))
-            {
-                if (processHigherLevelProtocolPacket != NULL)
+                decnet_address_t srcNode;
+                decnet_address_t dstNode;
+                byte flags;
+                int visits;
+                byte *data;
+                int dataLength;
+
+                CheckCircuitAdjacency(&srcNode, circuit);
+                ExtractDataPacketData(packet, &srcNode, &dstNode, &flags, &visits, &data, &dataLength);
+
+                if (CompareDecnetAddress(&srcNode, &nodeInfo.address))
                 {
+                    LogLoopbackMessage(circuit, packet, "Data message");
+                }
+                else if (CompareDecnetAddress(&dstNode, &nodeInfo.address))
+                {
+                    if (processHigherLevelProtocolPacket != NULL)
+                    {
 
-                    processHigherLevelProtocolPacket(&srcNode, data, dataLength);
+                        processHigherLevelProtocolPacket(&srcNode, data, dataLength);
+                    }
+                }
+                else
+                {
+                    ForwardPacket(circuit, packet);
                 }
             }
             else
             {
-                ForwardPacket(circuit, packet);
+                Log(LogMessages, LogVerbose, "Discarding data message as circuit is down\n");
             }
         }
 	}
