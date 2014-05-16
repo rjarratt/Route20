@@ -66,6 +66,12 @@ typedef struct
 	int (*action)(circuit_t *circuit);
 } state_table_entry_t;
 
+typedef struct
+{
+    ddcmp_circuit_t *ddcmpCircuit;
+    DdcmpInitEvent evt; 
+} queued_ddcmp_init_event_t;
+
 static circuit_t * ddcmpCircuits[NC];
 static int ddcmpCircuitCount;
 
@@ -82,7 +88,9 @@ static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context);
 static void StopTimerIfRunning(ddcmp_circuit_t *ddcmpCircuit);
 static void StartTimer(ddcmp_circuit_t *ddcmpCircuit);
 
+static void QueueEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt);
 static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt);
+static void ProcessQueuedEvent(queued_ddcmp_init_event_t *  queuedEvt);
 static int IssueReinitializeCommandAndStartRecallTimerAction(circuit_t *circuit);
 static int IssueStopAction(circuit_t *circuit);
 static int SendInitMessageAction(circuit_t *circuit);
@@ -379,14 +387,14 @@ void DdcmpInitProcessCircuitRejectComplete(circuit_t *circuit)
 static void DdcmpInitCircuitUp(ddcmp_circuit_t *ddcmpCircuit)
 {
 	StartTimer(ddcmpCircuit);
-    ProcessEvent(ddcmpCircuit, DdcmpInitCUCEvent); /* TODO: see if CircuitUp callback can do this, at the moment no separate decision process to do this */
+    QueueEvent(ddcmpCircuit, DdcmpInitCUCEvent); /* TODO: see if CircuitUp callback can do this, at the moment no separate decision process to do this */
 }
 
 static void DdcmpInitCircuitDown(ddcmp_circuit_t *ddcmpCircuit)
 {
     StopTimerIfRunning(ddcmpCircuit);
 	CircuitDown(ddcmpCircuit->circuit);
-    ProcessEvent(ddcmpCircuit, DdcmpInitCDCEvent); /* TODO: see if CircuitDown callback can do this, at the moment no separate decision process to do this */
+    QueueEvent(ddcmpCircuit, DdcmpInitCDCEvent); /* TODO: see if CircuitDown callback can do this, at the moment no separate decision process to do this */
 }
 
 static void DdcmpInitNotifyRunning(void *context)
@@ -496,6 +504,14 @@ static void StartTimer(ddcmp_circuit_t *ddcmpCircuit)
     ddcmpCircuit->helloTimer = CreateTimer("HelloAndTest", now, T3, ddcmpCircuit->circuit, HandleHelloAndTestTimer);
 }
 
+static void QueueEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
+{
+    queued_ddcmp_init_event_t *queuedEvt = (queued_ddcmp_init_event_t *)malloc(sizeof(queued_ddcmp_init_event_t));
+    queuedEvt->ddcmpCircuit = ddcmpCircuit;
+    queuedEvt->evt = evt;
+    QueueImmediate(queuedEvt, ProcessQueuedEvent);
+}
+
 static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
 {
 	state_table_entry_t *entry;
@@ -538,6 +554,12 @@ static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
             }
 		}
 	}
+}
+
+static void ProcessQueuedEvent(queued_ddcmp_init_event_t *queuedEvt)
+{
+    ProcessEvent(queuedEvt->ddcmpCircuit, queuedEvt->evt);
+    free(queuedEvt);
 }
 
 static void HandleRecallTimer(rtimer_t *timer, char *name, void *context)
