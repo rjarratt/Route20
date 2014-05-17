@@ -169,6 +169,8 @@ void CheckCircuitAdjacency(decnet_address_t *from, circuit_t *circuit)
 
         if (adjacency != NULL)
         {
+            // TODO: I think we should not be changing the circuit state here, why is this code here at all? SoftAdjacencyUp seems to be needed to allow Hello And Test to poll the other side.
+            // TODO: I am also wondering if the SoftAdjacencyUp after the CircuitUp is something needed before introducing QueueImmediate.
             if (circuit->state != CircuitStateUp)
             {
                 CircuitUp(circuit, &adjacency->id);
@@ -245,6 +247,7 @@ static void AdjacencyUp(adjacency_t *adjacency)
 	Log(LogAdjacency, LogInfo, "Adjacency up "); LogDecnetAddress(LogAdjacency, LogInfo, &adjacency->id); Log(LogAdjacency, LogInfo, " (Slot %d) on %s\n", adjacency->slot, adjacency->circuit->name);
 }
 
+// TODO: Check need for SoftAdjacencyUp and Down now that it is not needed when DDCMP circuit is rejected.
 static void SoftAdjacencyUp(adjacency_t *adjacency)
 {
 	adjacency->state = Up;
@@ -462,12 +465,13 @@ static int StopAdjacencyCallback(adjacency_t *adjacency, void *context)
 static int PurgeAdjacencyCallback(adjacency_t *adjacency, void *context)
 {
 	time_t now = *((time_t *)context);
-    int mult = !IsBroadcastCircuit(adjacency->circuit) ? BCT3MULT : T3MULT;
+    int mult = IsBroadcastCircuit(adjacency->circuit) ? BCT3MULT : T3MULT;
 
 	if ((now - adjacency->lastHeardFrom) > (mult * adjacency->helloTimer))
 	{
-        if (!IsBroadcastCircuit(adjacency->circuit))
+        if (IsBroadcastCircuit(adjacency->circuit))
         {
+            // TODO: should the circuit be rejected? Section 7.1.2 says the node listener must reject the circuit
             if (adjacency->state == Up)
             {
                 AdjacencyDown(adjacency);
@@ -480,12 +484,14 @@ static int PurgeAdjacencyCallback(adjacency_t *adjacency, void *context)
         }
         else
         {
+	        Log(LogAdjacency, LogInfo, "Adjacency timeout "); LogDecnetAddress(LogAdjacency, LogInfo, &adjacency->id); Log(LogAdjacency, LogInfo, " (Slot %d)\n", adjacency->slot);
             if (adjacency->circuit->state == CircuitStateUp)
             {
-                CircuitDown(adjacency->circuit);
+                CircuitReject(adjacency->circuit);
             }
 
-            SoftAdjacencyDown(adjacency);
+            AdjacencyDown(adjacency);
+            DeleteAdjacency(adjacency);
         }
 	}
 
