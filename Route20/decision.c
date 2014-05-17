@@ -93,10 +93,6 @@ void ProcessAdjacencyStateChange(adjacency_t *adjacency)
             ProcessBroadcastAdjacencyDown(adjacency);
         }
     }
-    else
-    {
-        Log(LogAdjacency, LogError, "Adjacency state cannot change for a non-broadcast circuit\n");
-    }
 }
 
 void ProcessCircuitStateChange(circuit_t *circuit)
