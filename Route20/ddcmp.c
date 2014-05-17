@@ -891,7 +891,7 @@ static void ProcessEvent(ddcmp_line_t *ddcmpLine, DdcmpEvent evt)
 		int ok = 1;
 		if (cb->state != entry->newState)
 		{
-			ddcmpLine->Log(LogVerbose, "Changing line state from %s to %s\n", lineStateString[(int)cb->state], lineStateString[(int)entry->newState]);
+			ddcmpLine->Log(LogVerbose, "Changing line state for %s from %s to %s\n", ddcmpLine->name, lineStateString[(int)cb->state], lineStateString[(int)entry->newState]);
 		}
 
 		cb->state = entry->newState;
@@ -944,7 +944,7 @@ static void ProcessControlMessage(ddcmp_line_t *ddcmpLine)
 		}
 	default:
 		{
-			ddcmpLine->Log(LogWarning, "Unknown control message type %d\n", msgType);
+			ddcmpLine->Log(LogWarning, "Unknown control message type %d from %s\n", msgType, ddcmpLine->name);
 			break;
 		}
 	}
@@ -963,7 +963,7 @@ static void ProcessDataMessage(ddcmp_line_t *ddcmpLine)
 	resp = GetMessageResp(cb->currentMessage);
 	num = GetMessageNum(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
-	ddcmpLine->Log(LogDetail, "Received DATA message. Len=%d, Flags=%s%s, R=%d, N=%d, Addr=%d\n", count, LOGFLAGS(flags), resp, num, addr);
+	ddcmpLine->Log(LogDetail, "Received DATA message from %s. Len=%d, Flags=%s%s, R=%d, N=%d, Addr=%d\n", ddcmpLine->name, count, LOGFLAGS(flags), resp, num, addr);
 
 	if (Mod256Cmp(cb->A, resp) < 0 && Mod256Cmp(resp, cb->N) <= 0)
 	{
@@ -990,7 +990,7 @@ static void ProcessStartMessage(ddcmp_line_t *ddcmpLine)
 	flags = GetMessageFlags(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogDetail, "Received STRT message. Flags=%s%s, Addr=%d\n", LOGFLAGS(flags), addr);
+	ddcmpLine->Log(LogDetail, "Received STRT message from %s. Flags=%s%s, Addr=%d\n", ddcmpLine->name, LOGFLAGS(flags), addr);
 	ProcessEvent(ddcmpLine, ReceiveStrt);
 }
 
@@ -1004,7 +1004,7 @@ static void ProcessStackMessage(ddcmp_line_t *ddcmpLine)
 	flags = GetMessageFlags(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogDetail, "Received STACK message. Flags=%s%s, Addr=%d\n", LOGFLAGS(flags), addr);
+	ddcmpLine->Log(LogDetail, "Received STACK message from %s. Flags=%s%s, Addr=%d\n", ddcmpLine->name, LOGFLAGS(flags), addr);
 	ProcessEvent(ddcmpLine, ReceiveStack);
 }
 
@@ -1020,7 +1020,7 @@ static void ProcessAckMessage(ddcmp_line_t *ddcmpLine)
 	resp = GetMessageResp(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogDetail, "Received ACK message. Flags=%s%s, R=%d, Addr=%d\n", LOGFLAGS(flags), resp, addr);
+	ddcmpLine->Log(LogDetail, "Received ACK message from %s. Flags=%s%s, R=%d, Addr=%d\n", ddcmpLine->name, LOGFLAGS(flags), resp, addr);
 	if (resp == 0)
 	{
 	    ProcessEvent(ddcmpLine, ReceiveAckResp0);
@@ -1043,7 +1043,7 @@ static void ProcessNakMessage(ddcmp_line_t *ddcmpLine)
 	resp = GetMessageResp(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogDetail, "Received NAK message. Flags=%s%s, R=%d, Addr=%d\n", LOGFLAGS(flags), resp, addr);
+	ddcmpLine->Log(LogDetail, "Received NAK message from %s. Flags=%s%s, R=%d, Addr=%d\n", ddcmpLine->name, LOGFLAGS(flags), resp, addr);
 	if (Mod256Cmp(cb->A, resp) <= 0 || Mod256Cmp(resp, cb->N) > 0)
 	{
 	    ProcessEvent(ddcmpLine, ReceiveNakForOutstandingMsg);
@@ -1062,7 +1062,7 @@ static void ProcessRepMessage(ddcmp_line_t *ddcmpLine)
 	num = GetMessageNum(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogDetail, "Received REP message. Flags=%s%s, N=%d, Addr=%d\n", LOGFLAGS(flags), num, addr);
+	ddcmpLine->Log(LogDetail, "Received REP message from %s. Flags=%s%s, N=%d, Addr=%d\n", ddcmpLine->name, LOGFLAGS(flags), num, addr);
 
 	if (num == cb->R)
 	{
@@ -1111,7 +1111,7 @@ static void SendAck(ddcmp_line_t *ddcmpLine)
 	byte ack[] = { 0x05, CONTROL_ACK, 0x00, 0x00, 0x00, 0x00 };
 	ack[3] = cb->R;
 	ack[5] = station;
-	ddcmpLine->Log(LogDetail, "Sending ACK. Num=%d\n", cb->R);
+	ddcmpLine->Log(LogDetail, "Sending ACK to %s. Num=%d\n", ddcmpLine->name, cb->R);
 	SendMessageAddingCrc16(ddcmpLine, ack, sizeof(ack));
 	cb->SACKNAK = NotSet;
 }
@@ -1123,7 +1123,7 @@ static void SendNak(ddcmp_line_t *ddcmpLine)
 	nak[2] = cb->NAKReason;
 	nak[3] = cb->R;
 	nak[5] = station;
-	ddcmpLine->Log(LogDetail, "Sending NAK. Num=%d, Reason=%d\n", cb->R, cb->NAKReason);
+	ddcmpLine->Log(LogDetail, "Sending NAK to %s. Num=%d, Reason=%d\n", ddcmpLine->name, cb->R, cb->NAKReason);
 	SendMessageAddingCrc16(ddcmpLine, nak, sizeof(nak));
 	cb->SACKNAK = NotSet;
 }
@@ -1134,7 +1134,7 @@ static void SendRep(ddcmp_line_t *ddcmpLine)
 	byte rep[] = { ENQ, CONTROL_REP, 0x00, 0x00, 0x00, 0x00 };
 	rep[4] = cb->N;
 	rep[5] = station;
-	ddcmpLine->Log(LogDetail, "Sending REP. Num=%d\n", cb->N);
+	ddcmpLine->Log(LogDetail, "Sending REP to %s. Num=%d\n", ddcmpLine->name, cb->N);
 	SendMessageAddingCrc16(ddcmpLine, rep, sizeof(rep));
 	cb->SREP = 0;
 	StartTimer(ddcmpLine, 15);
@@ -1142,14 +1142,14 @@ static void SendRep(ddcmp_line_t *ddcmpLine)
 
 static int StopTimerAction(ddcmp_line_t *ddcmpLine)
 {
-	ddcmpLine->Log(LogVerbose, "Stop timer action\n");
+	ddcmpLine->Log(LogVerbose, "Stop timer action for %s\n", ddcmpLine->name);
 	StopTimer(ddcmpLine);
 	return 1;
 }
 
 static int StartTimerAction(ddcmp_line_t *ddcmpLine)
 {
-	ddcmpLine->Log(LogVerbose, "Start timer action\n");
+	ddcmpLine->Log(LogVerbose, "Start timer action for %s\n", ddcmpLine->name);
 	StartTimer(ddcmpLine, 3);
 	return 1;
 }
@@ -1158,15 +1158,15 @@ static int SendStartAction(ddcmp_line_t *ddcmpLine)
 {
 	byte start[] = { ENQ, CONTROL_STRT, 0xC0, 0x00, 0x00, 0x00 };
 	start[5] = station;
-	ddcmpLine->Log(LogVerbose, "Send start action\n");
-	ddcmpLine->Log(LogDetail, "Sending STRT. Addr=%d\n", station);
+	ddcmpLine->Log(LogVerbose, "Send start action for %s\n", ddcmpLine->name);
+	ddcmpLine->Log(LogDetail, "Sending STRT to %s. Addr=%d\n", ddcmpLine->name, station);
 	SendMessageAddingCrc16(ddcmpLine, start, sizeof(start));
 	return 1;
 }
 
 static int SendAckAction(ddcmp_line_t *ddcmpLine)
 {
-	ddcmpLine->Log(LogVerbose, "Send ack action\n");
+	ddcmpLine->Log(LogVerbose, "Send ack action for %s\n", ddcmpLine->name);
 	SendAck(ddcmpLine);
 	return 1;
 }
@@ -1175,8 +1175,8 @@ static int SendStackAction(ddcmp_line_t *ddcmpLine)
 {
 	byte stack[] = { ENQ, CONTROL_STACK, 0xC0, 0x00, 0x00, 0x00 };
 	stack[5] = station;
-	ddcmpLine->Log(LogVerbose, "Send stack action\n");
-	ddcmpLine->Log(LogDetail, "Sending STACK. Addr=%d\n", station);
+	ddcmpLine->Log(LogVerbose, "Send stack action for %s\n", ddcmpLine->name);
+	ddcmpLine->Log(LogDetail, "Sending STACK to %s. Addr=%d\n", ddcmpLine->name, station);
 	SendMessageAddingCrc16(ddcmpLine, stack, sizeof(stack));
 	return 1;
 }
@@ -1184,7 +1184,7 @@ static int SendStackAction(ddcmp_line_t *ddcmpLine)
 static int ResetVariablesAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogVerbose, "Reset variables action\n");
+	ddcmpLine->Log(LogVerbose, "Reset variables action for %s\n", ddcmpLine->name);
 	cb->R = 0;
 	cb->N = 0;
 	cb->A = 0;
@@ -1195,7 +1195,7 @@ static int ResetVariablesAction(ddcmp_line_t *ddcmpLine)
 
 static int NotifyRunningAction(ddcmp_line_t *ddcmpLine)
 {
-	ddcmpLine->Log(LogVerbose, "Notify running action\n");
+	ddcmpLine->Log(LogVerbose, "Notify running action for %s\n", ddcmpLine->name);
 	if (ddcmpLine->NotifyRunning != NULL)
 	{
 		ddcmpLine->NotifyRunning(ddcmpLine->context);
@@ -1206,7 +1206,7 @@ static int NotifyRunningAction(ddcmp_line_t *ddcmpLine)
 
 static int NotifyHaltAction(ddcmp_line_t *ddcmpLine)
 {
-	ddcmpLine->Log(LogVerbose, "Notify halt action\n");
+	ddcmpLine->Log(LogVerbose, "Notify halt action for %s\n", ddcmpLine->name);
 	if (ddcmpLine->NotifyHalt != NULL)
 	{
 		ddcmpLine->NotifyHalt(ddcmpLine->context);
@@ -1218,7 +1218,7 @@ static int NotifyHaltAction(ddcmp_line_t *ddcmpLine)
 static int SetSackAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogVerbose, "Set SACK action\n");
+	ddcmpLine->Log(LogVerbose, "Set SACK action for %s\n", ddcmpLine->name);
 	cb->SACKNAK = SACK;
 	return 1;
 }
@@ -1226,7 +1226,7 @@ static int SetSackAction(ddcmp_line_t *ddcmpLine)
 static int SetSnakAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogVerbose, "Set SNAK action\n");
+	ddcmpLine->Log(LogVerbose, "Set SNAK action for %s\n", ddcmpLine->name);
 	cb->SACKNAK = SNAK;
 	return 1;
 }
@@ -1234,7 +1234,7 @@ static int SetSnakAction(ddcmp_line_t *ddcmpLine)
 static int ClearSackSnakAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogVerbose, "Clear SACK/SNAK action\n");
+	ddcmpLine->Log(LogVerbose, "Clear SACK/SNAK action for %s\n", ddcmpLine->name);
 	cb->SACKNAK = NotSet;
 	return 1;
 }
@@ -1242,7 +1242,7 @@ static int ClearSackSnakAction(ddcmp_line_t *ddcmpLine)
 static int SetNakReason3Action(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogVerbose, "Set NAK reason 3 action\n");
+	ddcmpLine->Log(LogVerbose, "Set NAK reason 3 action for %s\n", ddcmpLine->name);
 	cb->NAKReason = 3;
 	return 1;
 }
@@ -1250,7 +1250,7 @@ static int SetNakReason3Action(ddcmp_line_t *ddcmpLine)
 static int SetReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogVerbose, "Set received sequence number action\n");
+	ddcmpLine->Log(LogVerbose, "Set received sequence number action for %s\n", ddcmpLine->name);
 	cb->R = cb->R + (byte)1;
 	return 1;
 }
@@ -1259,7 +1259,7 @@ static int GiveMessageToUserAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	int ans = 1;
-	ddcmpLine->Log(LogVerbose, "Give message to user action\n");
+	ddcmpLine->Log(LogVerbose, "Give message to user action for %s\n", ddcmpLine->name);
 	if (!ddcmpLine->NotifyDataMessage(ddcmpLine->context, &cb->currentMessage->data[8], GetDataMessageCount(cb->currentMessage)))
 	{
 		cb->NAKReason = 8;
@@ -1278,8 +1278,8 @@ static int SendMessageAction(ddcmp_line_t *ddcmpLine)
     UpdateTransmitHeader(cb->currentMessage, cb);
     num = GetMessageNum(cb->currentMessage);
     resp = GetMessageResp(cb->currentMessage);
-    ddcmpLine->Log(LogVerbose, "Send next message action\n");
-    ddcmpLine->Log(LogDetail, "Sending Data. N=%d, R=%d\n", num, resp);
+    ddcmpLine->Log(LogVerbose, "Send next message action for %s\n", ddcmpLine->name);
+    ddcmpLine->Log(LogDetail, "Sending Data to %s. N=%d, R=%d\n", ddcmpLine->name, num, resp);
     SendRawMessage(ddcmpLine, cb->currentMessage->data, cb->currentMessage->length);
     return 1;
 }
@@ -1287,7 +1287,7 @@ static int SendMessageAction(ddcmp_line_t *ddcmpLine)
 static int IncrementNAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogVerbose, "Increment N action\n");
+	ddcmpLine->Log(LogVerbose, "Increment N action for %s\n", ddcmpLine->name);
 	cb->N = cb->N + (byte)1;
 	return 1;
 }
@@ -1295,7 +1295,7 @@ static int IncrementNAction(ddcmp_line_t *ddcmpLine)
 static int IncrementTAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogVerbose, "Increment T action\n");
+	ddcmpLine->Log(LogVerbose, "Increment T action for %s\n", ddcmpLine->name);
 	cb->T = cb->N + (byte)1;
 	return 1;
 }
@@ -1303,7 +1303,7 @@ static int IncrementTAction(ddcmp_line_t *ddcmpLine)
 static int SetAVarAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogVerbose, "Set A variable action\n");
+	ddcmpLine->Log(LogVerbose, "Set A variable action for %s\n", ddcmpLine->name);
 	cb->A = GetMessageResp(cb->currentMessage);
 	return 1;
 }
@@ -1311,7 +1311,7 @@ static int SetAVarAction(ddcmp_line_t *ddcmpLine)
 static int SetTVarFromAckAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogVerbose, "Set T variable from ack action\n");
+	ddcmpLine->Log(LogVerbose, "Set T variable from ack action for %s\n", ddcmpLine->name);
 	if (Mod256Cmp(cb->T, cb->A) <= 0)
 	{
 		cb->T = cb-> A + (byte)1;
@@ -1323,7 +1323,7 @@ static int SetTVarFromAckAction(ddcmp_line_t *ddcmpLine)
 static int SetTVarFromNakAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogVerbose, "Set T variable from nak action\n");
+	ddcmpLine->Log(LogVerbose, "Set T variable from nak action for %s\n", ddcmpLine->name);
 	cb->T = cb-> A + (byte)1;
 	return 1;
 }
@@ -1331,7 +1331,7 @@ static int SetTVarFromNakAction(ddcmp_line_t *ddcmpLine)
 static int SetXVarFromMsgNumAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogVerbose, "Set T variable from ack action\n");
+	ddcmpLine->Log(LogVerbose, "Set T variable from ack action for %s\n", ddcmpLine->name);
 	cb->X = GetMessageNum(cb->currentMessage);
 	return 1;
 }
@@ -1339,7 +1339,7 @@ static int SetXVarFromMsgNumAction(ddcmp_line_t *ddcmpLine)
 static int CheckAckWaitTimerAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogVerbose, "Check ack wait timer action\n");
+	ddcmpLine->Log(LogVerbose, "Check ack wait timer action for %s\n", ddcmpLine->name);
 	if (cb->A < cb->X)
 	{
 		StartTimer(ddcmpLine, 15);
@@ -1355,7 +1355,7 @@ static int CheckAckWaitTimerAction(ddcmp_line_t *ddcmpLine)
 static int SetSrepAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogVerbose, "Set Srep action\n");
+	ddcmpLine->Log(LogVerbose, "Set Srep action for %s\n", ddcmpLine->name);
 	cb->SREP = 1;
 	return 1;
 }
@@ -1364,7 +1364,7 @@ static int CompleteMessageAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	byte resp = GetMessageResp(cb->currentMessage);
-	ddcmpLine->Log(LogVerbose, "Complete message action\n");
+	ddcmpLine->Log(LogVerbose, "Complete message action for %s\n", ddcmpLine->name);
 	
 	while (1)
 	{

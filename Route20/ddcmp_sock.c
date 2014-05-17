@@ -68,6 +68,7 @@ int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit)
 
 	memset(&sockContext->line, 0, sizeof(sockContext->line));
 	sockContext->line.context = sockContext;
+    sockContext->line.name = sockContext->destinationHostName;
 	sockContext->line.CreateOneShotTimer = DdcmpCreateOneShotTimer;
 	sockContext->line.CancelOneShotTimer = DdcmpCancelOneShotTimer;
 	sockContext->line.SendData = DdcmpSendData;
