@@ -471,7 +471,6 @@ static int PurgeAdjacencyCallback(adjacency_t *adjacency, void *context)
 	{
         if (IsBroadcastCircuit(adjacency->circuit))
         {
-            // TODO: should the circuit be rejected? Section 7.1.2 says the node listener must reject the circuit
             if (adjacency->state == Up)
             {
                 AdjacencyDown(adjacency);
