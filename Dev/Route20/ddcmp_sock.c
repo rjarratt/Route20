@@ -213,7 +213,7 @@ static int DdcmpNotifyDataMessage(void *context, byte *data, int length)
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)context;
 	if (sockContext->buffer != NULL)
 	{
-		Log(LogDdcmpSock, LogError, "DDCMP overrun, previous message not read before next one delivered\n");
+		Log(LogDdcmpSock, LogError, "DDCMP overrun, previous message not read before next one delivered for %s\n", sockContext->ddcmpCircuit->circuit->name);
 	}
 	else
 	{
