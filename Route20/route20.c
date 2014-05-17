@@ -930,7 +930,6 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 			decnet_address_t from;
 			GetDecnetAddressFromId((byte *)&msg->srcnode, &from);
             CheckCircuitAdjacency(&from, circuit);
-            // TODO: adjacency liveness code needed here. See 7.1.2.
         }
 		else
 		{
