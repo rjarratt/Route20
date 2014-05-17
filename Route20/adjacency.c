@@ -247,7 +247,6 @@ static void AdjacencyUp(adjacency_t *adjacency)
 	Log(LogAdjacency, LogInfo, "Adjacency up "); LogDecnetAddress(LogAdjacency, LogInfo, &adjacency->id); Log(LogAdjacency, LogInfo, " (Slot %d) on %s\n", adjacency->slot, adjacency->circuit->name);
 }
 
-// TODO: Check need for SoftAdjacencyUp and Down now that it is not needed when DDCMP circuit is rejected.
 static void SoftAdjacencyUp(adjacency_t *adjacency)
 {
 	adjacency->state = Up;
@@ -255,14 +254,9 @@ static void SoftAdjacencyUp(adjacency_t *adjacency)
 
 void AdjacencyDown(adjacency_t *adjacency)
 {
-	SoftAdjacencyDown(adjacency);
+	adjacency->state = Initialising;
 	stateChangeCallback(adjacency);
 	Log(LogAdjacency, LogInfo, "Adjacency down "); LogDecnetAddress(LogAdjacency, LogInfo, &adjacency->id); Log(LogAdjacency, LogInfo, " (Slot %d)\n", adjacency->slot);
-}
-
-void SoftAdjacencyDown(adjacency_t *adjacency)
-{
-	adjacency->state = Initialising;
 }
 
 static void DeleteAdjacency(adjacency_t *adjacency)
