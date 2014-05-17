@@ -50,6 +50,7 @@ static int routerAdjacencyCount = 0;
 static int endnodeAdjacencyCount = 0;
 static void (*stateChangeCallback)(adjacency_t *adjacency);
 
+static void UpdateAdjacencyLiveness(adjacency_t *adjacency);
 static void AdjacencyUp(adjacency_t *adjacency);
 static void SoftAdjacencyUp(adjacency_t *adjacency);
 static void SoftAdjacencyDown(adjacency_t *adjacency);
@@ -91,7 +92,7 @@ void CheckRouterAdjacency(decnet_address_t *from, circuit_t *circuit, AdjacencyT
 
 	if (adjacency != NULL)
 	{
-		time(&adjacency->lastHeardFrom);
+		UpdateAdjacencyLiveness(adjacency);
 		adjacency->helloTimer = helloTimer;
 		adjacency->priority = (byte)priority;
 
@@ -125,7 +126,7 @@ void CheckEndnodeAdjacency(decnet_address_t *from, circuit_t *circuit, int hello
 
 	if (adjacency != NULL)
 	{
-		time(&adjacency->lastHeardFrom);
+		UpdateAdjacencyLiveness(adjacency);
 		adjacency->helloTimer = helloTimer;
 
 		if (adjacency->state == Initialising)
@@ -150,7 +151,7 @@ void InitialiseCircuitAdjacency(decnet_address_t *from, circuit_t *circuit, Adja
 
 	if (adjacency != NULL)
 	{
-		time(&adjacency->lastHeardFrom);
+		UpdateAdjacencyLiveness(adjacency);
 		adjacency->helloTimer = helloTimer;
 
 		adjacency->state = Initialising;
@@ -163,7 +164,7 @@ void CheckCircuitAdjacency(decnet_address_t *from, circuit_t *circuit)
 
     if (!IsBroadcastCircuit(circuit))
     {
-        /*Log(LogInfo, "Checking adjacency for "); LogDecnetAddress(LogInfo, &from); Log(LogInfo, "\n");*/
+        /*Log(LogAdjacency, LogInfo, "Checking adjacency for "); LogDecnetAddress(LogAdjacency, LogInfo, from); Log(LogAdjacency, LogInfo, "\n");*/
 
         adjacency = FindAdjacency(from);
 
@@ -176,8 +177,12 @@ void CheckCircuitAdjacency(decnet_address_t *from, circuit_t *circuit)
                 CircuitUp(circuit, &adjacency->id);
             }
 
-            time(&adjacency->lastHeardFrom);
+		    UpdateAdjacencyLiveness(adjacency);
             SoftAdjacencyUp(adjacency);
+        }
+        else
+        {
+            Log(LogAdjacency, LogWarning, "Could not find adjacency to check for "); LogDecnetAddress(LogAdjacency, LogWarning, from); Log(LogAdjacency, LogWarning, "\n");
         }
     }
 }
@@ -238,6 +243,12 @@ int IsBroadcastRouterAdjacency(adjacency_t *adjacency)
 int IsBroadcastEndnodeAdjacency(adjacency_t *adjacency)
 {
 	return adjacency->type == EndnodeAdjacency;
+}
+
+static void UpdateAdjacencyLiveness(adjacency_t *adjacency)
+{
+	/*Log(LogAdjacency, LogInfo, "Adjacency liveness update "); LogDecnetAddress(LogAdjacency, LogInfo, &adjacency->id); Log(LogAdjacency, LogInfo, " (Slot %d) on %s\n", adjacency->slot, adjacency->circuit->name);*/
+    time(&adjacency->lastHeardFrom);
 }
 
 static void AdjacencyUp(adjacency_t *adjacency)
