@@ -36,6 +36,7 @@
 typedef struct ddcmp_line
 {
 	void *context; /* for callbacks */
+    char *name;
 
 	void *controlBlock;
 
