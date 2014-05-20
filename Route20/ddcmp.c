@@ -230,6 +230,8 @@ static int CheckAckWaitTimerAction(ddcmp_line_t *ddcmpLine);
 static int SetSrepAction(ddcmp_line_t *ddcmpLine);
 static int CompleteMessageAction(ddcmp_line_t *ddcmpLine);
 
+static int messageReadyToRead;
+
 static byte station = 1;
 
 static char * lineStateString[] =
@@ -321,7 +323,10 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 	//LogBuffer(ddcmpLine, LogFatal, &cb->partialBuffer);
 	//ddcmpLine->Log(LogFatal, "\n");
 
-	while(BufferStillHasData(&cb->partialBuffer))
+    messageReadyToRead = 0;
+
+    /* to avoid overrunning the single-message buffer, stop the loop if a message is ready to be read */
+	while(BufferStillHasData(&cb->partialBuffer) && !messageReadyToRead)
 	{
 		if (!cb->partialBufferIsSynchronized)
 		{
@@ -1266,6 +1271,10 @@ static int GiveMessageToUserAction(ddcmp_line_t *ddcmpLine)
 		cb->SACKNAK = SNAK;
 		ans = 0;
 	}
+    else
+    {
+        messageReadyToRead = 1;
+    }
 
 	return ans;
 }
