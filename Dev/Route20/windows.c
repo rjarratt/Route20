@@ -282,6 +282,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 		else
 		{
     	    //Log(LogGeneral, LogVerbose, "Wait return is %d\n", i);
+            Log(LogGeneral, LogVerbose, "Processing timers\n", eventHandlers[i].name);
 			ProcessTimers();
 			if (i != WAIT_TIMEOUT)
 			{
