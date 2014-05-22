@@ -427,7 +427,14 @@ static socket_t * TcpAcceptCallback(sockaddr_t *receivedFrom)
 
 		if (memcmp(&receivedFromIn->sin_addr, &destinationAddressIn->sin_addr, sizeof(struct in_addr)) == 0)
 		{
-			ans = &ddcmpSock->socket;
+			if (ddcmpSock->socket.socket == INVALID_SOCKET)
+			{
+			   ans = &ddcmpSock->socket;
+			}
+			else
+			{
+	            Log(LogDdcmpInit, LogWarning, "Cannot accept a second connection from same source address on DDCMP line %s\n", ddcmpCircuit->circuit->name);
+			}
 			break;
 		}
 	}
