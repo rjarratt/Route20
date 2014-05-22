@@ -43,6 +43,7 @@ ddcmp_circuit_t *DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationH
 {
 	ddcmp_circuit_t *ans = (ddcmp_circuit_t *)calloc(1, sizeof(ddcmp_circuit_t));
 	ddcmp_sock_t *context = (ddcmp_sock_t *)calloc(1, sizeof(ddcmp_sock_t));
+	context->socket.socket = INVALID_SOCKET;
 	
     context->ddcmpCircuit = ans;
 	context->destinationHostName = (char *)calloc(1, strlen(destinationHostName) + 1);
