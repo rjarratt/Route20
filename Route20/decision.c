@@ -556,12 +556,22 @@ static void Routes(int FirstDest, int LastDest)
 
 		if (Minhop[i] == Infh || Mincost[i] == Infc)
 		{
+            if (Reach[i])
+            {
+                Log(LogDecision, LogDetail, "Node %d is now unreachable\n", i);
+            }
+
 			Reach[i] = 0;
 			Minhop[i] = Infh;
 			Mincost[i] = Infc;
 		}
 		else
 		{
+            if (!Reach[i])
+            {
+                Log(LogDecision, LogDetail, "Node %d is now reachable\n", i);
+            }
+
 			Reach[i] = 1;
 		}
 
@@ -597,10 +607,10 @@ static void ARoutes(int FirstArea, int LastArea)
 
 		if (AMinhop[i] == Infh || AMincost[i] == Infc)
 		{
-			//if (AReach[i])
-			//{
-			//	Log(LogInfo, "Area %d is no longer reachable\n", i);
-			//}
+			if (AReach[i])
+			{
+				Log(LogDecision, LogDetail, "Area %d is now unreachable\n", i);
+			}
 
 			AReach[i] = 0;
 			AMinhop[i] = Infh;
@@ -608,10 +618,10 @@ static void ARoutes(int FirstArea, int LastArea)
 		}
 		else
 		{
-			//if (!AReach[i])
-			//{
-			//	Log(LogInfo, "Area %d is now reachable\n", i);
-			//}
+			if (!AReach[i])
+			{
+				Log(LogDecision, LogDetail, "Area %d is now reachable\n", i);
+			}
 
 			AReach[i] = 1;
 		}
