@@ -263,7 +263,7 @@ void DdcmpInitLayerStop(void)
 {
 	int i;
 
-	StopAllAdjacencies(); // TODO: should only stop those on the DDCMP circuits
+	StopAllAdjacencies(DDCMPCircuit);
 
 	for(i = 0; i < ddcmpCircuitCount; i++)
 	{

@@ -75,7 +75,7 @@ void CheckCircuitAdjacency(decnet_address_t *from, circuit_t *circuit);
 void AdjacencyDown(adjacency_t *adjacency);
 void ProcessRouterAdjacencies(int (*process)(adjacency_t *adjacency, void *context), void *context);
 void PurgeAdjacencies(void);
-void StopAllAdjacencies(void);
+void StopAllAdjacencies(CircuitType circuitType);
 adjacency_t *FindAdjacency(decnet_address_t *id);
 adjacency_t *GetAdjacency(int i);
 void SetAdjacencyStateChangeCallback(void (*callback)(adjacency_t *adjacency));

@@ -210,9 +210,9 @@ void PurgeAdjacencies(void)
 	ProcessAllAdjacencies(PurgeAdjacencyCallback, &now);
 }
 
-void StopAllAdjacencies(void)
+void StopAllAdjacencies(CircuitType circuitType)
 {
-	ProcessAllAdjacencies(StopAdjacencyCallback, NULL);
+	ProcessAllAdjacencies(StopAdjacencyCallback, (void *)circuitType);
 }
 
 adjacency_t *GetAdjacency(int i)
@@ -462,8 +462,12 @@ static int FindAdjacencyCallback(adjacency_t *adjacency, void *context)
 
 static int StopAdjacencyCallback(adjacency_t *adjacency, void *context)
 {
-	AdjacencyDown(adjacency);
-	DeleteAdjacency(adjacency);
+	CircuitType circuitType = (CircuitType)context;
+	if (adjacency->circuit->circuitType == circuitType)
+	{
+		AdjacencyDown(adjacency);
+		DeleteAdjacency(adjacency);
+	}
 	return 1;
 }
 
