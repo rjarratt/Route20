@@ -55,6 +55,7 @@ static void CloseLog();
 static void LogWin32Error(char *format, DWORD err);
 static void ProcessStopEvent(void *context);
 static void ProcessPackets(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *));
+static BOOL WINAPI StopSignalHandler(DWORD controlType);
 
 static LONG WINAPI ExceptionFilter(EXCEPTION_POINTERS* pExp, DWORD dwExpCode);
 static void LogCallStack(CONTEXT *context, HANDLE thread, unsigned long code);
@@ -92,6 +93,18 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 		return;
 	}
 
+	// Create an event that is used to stop processing. The control handler function, SvcCtrlHandler,
+	// signals this event when it receives the stop control code. In console mode it is signalled when
+	// CTRL-C or CTRL-BREAK is pressed.
+
+    ghSvcStopEvent = CreateEvent(
+		NULL,    // default security attributes
+		TRUE,    // manual reset event
+		FALSE,   // not signaled
+		NULL);   // no name
+
+	RegisterEventHandler((unsigned int)ghSvcStopEvent, "Stop event", NULL, ProcessStopEvent);
+
 	/* This call returns when the service has stopped. 
 	The process should simply terminate when the call returns.
 	*/
@@ -105,6 +118,7 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 		err = GetLastError();
 		if (err == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT)
 		{
+			SetConsoleCtrlHandler(StopSignalHandler, TRUE);
             runningAsService = 0;
             /* Disable exception handlers in debug builds so that debugger can break at the exception location. */
 #if !defined(_DEBUG)
@@ -295,6 +309,13 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 	}
 }
 
+static BOOL WINAPI StopSignalHandler(DWORD controlType)
+{
+	Log(LogGeneral, LogInfo, "Stop signal received\n");
+	SetEvent(ghSvcStopEvent);
+	return TRUE;
+}
+
 static VOID SvcInstall()
 {
 	SC_HANDLE schSCManager;
@@ -402,22 +423,11 @@ static void ProcessStopEvent(void *context)
 
 static VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
 {
-	// Create an event. The control handler function, SvcCtrlHandler,
-	// signals this event when it receives the stop control code.
-
-    ghSvcStopEvent = CreateEvent(
-		NULL,    // default security attributes
-		TRUE,    // manual reset event
-		FALSE,   // not signaled
-		NULL);   // no name
-
 	if ( ghSvcStopEvent == NULL)
 	{
 		ReportSvcStatus( SERVICE_STOPPED, NO_ERROR, 0 );
 		return;
 	}
-
-	RegisterEventHandler((unsigned int)ghSvcStopEvent, "Stop event", NULL, ProcessStopEvent);
 
 	// Report running status when initialization is complete.
 
