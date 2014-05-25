@@ -143,6 +143,11 @@ int GetMessageBody(packet_t *packet)
 		}
 	}
 
+	if (!ans)
+	{
+        DumpPacket(LogMessages, LogError, "Invalid packet dump", packet);
+	}
+
 	return ans;
 }
 
@@ -397,7 +402,7 @@ int IsValidRouterHelloMessage(packet_t *packet)
 
 	if (!ans)
 	{
-		DumpPacket(packet, "Bad packet dump. ");
+		DumpPacket(LogMessages, LogError, "Bad packet dump. ", packet);
 	}
 
 	return ans;
@@ -405,7 +410,7 @@ int IsValidRouterHelloMessage(packet_t *packet)
 
 int IsValidEndnodeHelloMessage(packet_t *packet)
 {
-	int ans = 0;
+	int valid = 0;
 
 	if (packet->payloadLen < 32)
 	{
@@ -420,11 +425,16 @@ int IsValidEndnodeHelloMessage(packet_t *packet)
 		}
 		else
 		{
-			ans = 1;
+			valid = 1;
 		}
 	}
 
-	return ans;
+	if (!valid)
+	{
+        DumpPacket(LogMessages, LogError, "Invalid packet dump", packet);
+	}
+
+	return valid;
 }
 
 void ExtractRoutingInfo(uint16 routingInfo, int *hops, int *cost)
@@ -521,6 +531,10 @@ node_init_phaseii_t *ValidateAndParseNodeInitPhaseIIMessage(packet_t *packet)
 	{
 		ans = &msg;
 	}
+	else
+	{
+        DumpPacket(LogMessages, LogError, "Invalid packet dump", packet);
+	}
 
 	return ans;
 }
@@ -545,6 +559,11 @@ int IsValidInitializationMessage(packet_t *packet)
         }
     }
 
+	if (!valid)
+	{
+        DumpPacket(LogMessages, LogError, "Invalid packet dump", packet);
+	}
+
     return valid;
 }
 
@@ -568,6 +587,11 @@ int IsValidVerificationMessage(packet_t *packet)
             valid = 1;
         }
     }
+
+	if (!valid)
+	{
+        DumpPacket(LogMessages, LogError, "Invalid packet dump", packet);
+	}
 
     return valid;
 }
@@ -602,6 +626,11 @@ int IsValidHelloAndTestMessage(packet_t *packet)
             }
         }
     }
+
+	if (!valid)
+	{
+        DumpPacket(LogMessages, LogError, "Invalid packet dump", packet);
+	}
 
     return valid;
 }
@@ -674,6 +703,11 @@ routing_msg_t *ParseRoutingMessage(packet_t *packet)
 		}
 	}
 
+	if (msg == NULL)
+	{
+        DumpPacket(LogMessages, LogError, "Invalid packet dump", packet);
+	}
+
 	return msg;
 }
 
@@ -744,6 +778,7 @@ int IsValidDataPacket(packet_t *packet)
 	if (!ans)
 	{
 		Log(LogMessages, LogError, "Message format error, data packet header\n");
+        DumpPacket(LogMessages, LogError, "Invalid packet dump", packet);
 	}
 
 	return ans;
@@ -927,6 +962,7 @@ static routing_segment_t *GetNextLevel2Segment(packet_t *packet, int *currentOff
 		if (segBytes < 4)
 		{
 			Log(LogMessages, LogError, "Routing message segment header incorrect\n");
+            DumpPacket(LogMessages, LogError, "Invalid packet dump", packet);
 		}
 		else
 		{
@@ -935,6 +971,7 @@ static routing_segment_t *GetNextLevel2Segment(packet_t *packet, int *currentOff
 			if (segBytes < segLength)
 			{
 			    Log(LogMessages, LogError, "Routing message segment length incorrect\n");
+                DumpPacket(LogMessages, LogError, "Invalid packet dump", packet);
 			}
 			else
 			{

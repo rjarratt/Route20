@@ -95,7 +95,7 @@ int EthValidPacket(packet_t *packet)
 		ans = packet->rawLen >= 16;
 		if (!ans)
 		{
-			DumpPacket(packet, "Malformed ethernet packet ignored.");
+			DumpPacket(LogMessages, LogError, "Malformed ethernet packet ignored.", packet);
 		}
 		else if (EthSockIsDecnet(packet))
 		{
@@ -128,15 +128,10 @@ void EthSetPayload(packet_t *packet)
 	packet->payloadLen = EthPayloadLen(packet);
 }
 
-void DumpPacket(packet_t *packet, char *msg)
+void DumpPacket(LogSource source, LogLevel level, char *msg, packet_t *packet)
 {
-	int i;
-	Log(LogMessages, LogError, "%s Packet raw length = %d\n", msg, packet->rawLen);
-	for (i = 0; i < packet->rawLen; i++)
-	{
-		Log(LogMessages, LogError, "%02X ", packet->rawData[i]);
-	}
-	Log(LogMessages, LogError, "\n");
+	Log(source, level, "%s Packet raw length = %d\n", msg, packet->rawLen);
+	LogBytes(source, level, packet->rawData, packet->rawLen);
 }
 
 static int is_ethertype(packet_t *packet, int type)
