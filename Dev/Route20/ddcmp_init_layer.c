@@ -313,7 +313,6 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
     {
         Log(LogDdcmpInit, LogVerbose, "Initialization received\n");
 
-        // TODO: Check we get HelloAndTest from peer and close circuit if we don't (check spec for how to detect)
         // TODO: Check possible DDCMP seq no wrap error causing circuit to drop
 
         valid = 1;
