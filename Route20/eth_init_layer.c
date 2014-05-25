@@ -74,7 +74,7 @@ void EthInitLayerStop(void)
 	int i;
 	packet_t *packet;
 
-	StopAllAdjacencies(); // TODO: should only stop those on the Ethernet circuits
+	StopAllAdjacencies(EthernetCircuit);
 
 	for(i = 0; i < ethCircuitCount; i++)
 	{

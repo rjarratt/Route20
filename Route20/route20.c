@@ -215,7 +215,9 @@ void MainLoop(void)
 	nodeInfo.state = Stopping;
 
 	StopAllTimers();
+	Log(LogGeneral, LogInfo, "Stopping Ethernet Initialisation Layer\n");
 	ethernetInitLayer->Stop();
+	Log(LogGeneral, LogInfo, "Stopping DDCMP Initialisation Layer\n");
 	ddcmpInitLayer->Stop();
 	Log(LogGeneral, LogInfo, "Shutdown complete\n");
 }
