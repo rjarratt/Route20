@@ -285,7 +285,7 @@ void CloseSocket(socket_t *sock)
 #if defined(WIN32)
     if (sock->waitHandle != (unsigned int)-1)
     {
-        CloseHandle((HANDLE)sock->waitHandle);
+        CloseHandle((HANDLE)sock->waitHandle); // TODO: Can get invalid handle exception here sometimes (if socket has been closed a while, usually when debugging). Try to avoid exception here.
     }
 #endif
     ClosePrimitiveSocket(sock->socket);

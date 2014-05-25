@@ -889,7 +889,7 @@ static void ProcessPhaseIIMessage(circuit_t *circuit, packet_t *packet)
 	}
 	else
 	{
-		DumpPacket(packet, "Discarding unknown Phase II packet.");
+		DumpPacket(LogMessages, LogError, "Discarding unknown Phase II packet.", packet);
 	}
 }
 
@@ -1064,7 +1064,7 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 	}
 	else
 	{
-		DumpPacket(packet, "Discarding unknown packet.");
+		DumpPacket(LogMessages, LogError, "Discarding unknown packet.", packet);
 	}
 }
 
