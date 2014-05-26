@@ -135,12 +135,6 @@ int Initialise(char *configFileName)
 		for (i = 1; i <= numCircuits; i++)
 		{
 			ans &= (*(Circuits[i].Open))(&Circuits[i]);
-			if (Circuits[i].circuitType == EthernetCircuit)
-            {
-                /* non-ethernet circuits start when the line is up */
-                /* TODO: change to have a Line Up event that starts all circuits rather than have this condition, makes it more general */
-                (*(Circuits[i].Start))(&Circuits[i]);
-            }
 		}
 		time(&now);
 		CreateTimer("PurgeAdjacencies", now + 1, 1, NULL, PurgeAdjacenciesCallback);

@@ -53,6 +53,7 @@ void SetCircuitStateChangeCallback(void (*callback)(circuit_t *circuit))
 void CircuitUp(circuit_t *circuit)
 {
 	circuit->state = CircuitStateUp;
+	circuit->Up(circuit);
     if (circuit->circuitType == EthernetCircuit)
     {
 	    Log(LogCircuit, LogInfo, "Circuit %s up\n", circuit->name);
@@ -69,6 +70,7 @@ void CircuitUp(circuit_t *circuit)
 void CircuitDown(circuit_t *circuit)
 {
 	Log(LogCircuit, LogInfo, "Circuit %s down\n", circuit->name);
+	circuit->Down(circuit);
 	circuit->state = CircuitStateOff;
 	stateChangeCallback(circuit);
 }
@@ -99,7 +101,8 @@ void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost, void (
 	circuit->nextLevel1Node = FirstLevel1Node();
 
 	circuit->Open = EthCircuitOpen;
-	circuit->Start = EthCircuitStart;
+	circuit->Up = EthCircuitUp;
+	circuit->Down = EthCircuitDown;
 	circuit->ReadPacket = EthCircuitReadPacket;
 	circuit->WritePacket = EthCircuitWritePacket;
 	circuit->Close = EthCircuitClose;
@@ -120,7 +123,8 @@ void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receive
 	circuit->nextLevel1Node = FirstLevel1Node();
 
     circuit->Open = EthCircuitOpen;
-	circuit->Start = EthCircuitStart;
+	circuit->Up = EthCircuitUp;
+	circuit->Down = EthCircuitDown;
 	circuit->ReadPacket = EthCircuitReadPacket;
 	circuit->WritePacket = EthCircuitWritePacket;
 	circuit->Close = EthCircuitClose;
@@ -141,7 +145,8 @@ void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, int cost, void (*
 	circuit->nextLevel1Node = FirstLevel1Node();
 
     circuit->Open = DdcmpCircuitOpen;
-	circuit->Start = DdcmpCircuitStart;
+	circuit->Up = DdcmpCircuitUp;
+	circuit->Down = DdcmpCircuitDown;
 	circuit->ReadPacket = DdcmpCircuitReadPacket;
 	circuit->WritePacket = DdcmpCircuitWritePacket;
 	circuit->Close = DdcmpCircuitClose;

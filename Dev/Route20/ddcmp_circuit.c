@@ -38,6 +38,9 @@
 #include "messages.h"
 
 static void DdcmpCircuitRejectionCompleteCallback(void *context);
+static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context);
+static void StopTimerIfRunning(ddcmp_circuit_t *ddcmpCircuit);
+static void StartTimer(ddcmp_circuit_t *ddcmpCircuit);
 
 ddcmp_circuit_t *DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName)
 {
@@ -63,13 +66,21 @@ ddcmp_circuit_t *DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationH
 
 int DdcmpCircuitOpen(circuit_t *circuit)
 {
-	ddcmp_circuit_t *context = (ddcmp_circuit_t *)circuit->context;
-	return context->Open(context);
+	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+	return ddcmpCircuit->Open(ddcmpCircuit);
 }
 
-int DdcmpCircuitStart(circuit_t *circuit)
+int DdcmpCircuitUp(circuit_t *circuit)
 {
-	return 0;
+	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+	StartTimer(ddcmpCircuit);
+	return 1;
+}
+
+void DdcmpCircuitDown(circuit_ptr circuit)
+{
+	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+	StopTimerIfRunning(ddcmpCircuit);
 }
 
 packet_t *DdcmpCircuitReadPacket(circuit_t *circuit)
@@ -126,4 +137,30 @@ void DdcmpCircuitReject(circuit_ptr circuit)
 static void DdcmpCircuitRejectionCompleteCallback(void *context)
 {
     DdcmpInitProcessCircuitRejectComplete((circuit_ptr)context);
+}
+
+static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context)
+{
+	packet_t *packet;
+	circuit_t *circuit = (circuit_t *)context;
+	Log(LogDdcmpInit, LogDetail, "Sending Hello And Test on %s\n", circuit->name);
+	packet = CreateHelloAndTest(nodeInfo.address);
+	circuit->WritePacket(circuit, NULL, NULL, packet);
+}
+
+static void StopTimerIfRunning(ddcmp_circuit_t *ddcmpCircuit)
+{
+    if (ddcmpCircuit->helloTimer != NULL)
+    {
+        StopTimer(ddcmpCircuit->helloTimer);
+        ddcmpCircuit->helloTimer = NULL;
+    }
+}
+
+static void StartTimer(ddcmp_circuit_t *ddcmpCircuit)
+{
+    time_t now;
+    time(&now);
+    StopTimerIfRunning(ddcmpCircuit);
+    ddcmpCircuit->helloTimer = CreateTimer("HelloAndTest", now, T3, ddcmpCircuit->circuit, HandleHelloAndTestTimer);
 }

@@ -64,7 +64,8 @@ typedef struct ddcmp_circuit
 ddcmp_circuit_ptr DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName);
 
 int DdcmpCircuitOpen(circuit_ptr circuit);
-int DdcmpCircuitStart(circuit_ptr circuit);
+int DdcmpCircuitUp(circuit_ptr circuit);
+void DdcmpCircuitDown(circuit_ptr circuit);
 packet_t *DdcmpCircuitReadPacket(circuit_ptr circuit);
 int DdcmpCircuitWritePacket(circuit_ptr circuit, decnet_address_t *from, decnet_address_t *to, packet_t *);
 void DdcmpCircuitClose(circuit_ptr circuit);
