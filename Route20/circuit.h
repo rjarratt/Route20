@@ -28,6 +28,7 @@
 
 #include "packet.h"
 #include "decnet.h"
+#include "timer.h"
 
 #if !defined(CIRCUIT_H)
 
@@ -65,6 +66,7 @@ typedef struct circuit
 	CircuitType       circuitType;
 	CircuitState      state;
 	decnet_address_t  adjacentNode; /* valid for non-broadcast circuits only */
+	rtimer_t *        helloTimer;
 	int               cost;
 	int               nextLevel1Node;
 	circuit_stats_t   stats;
