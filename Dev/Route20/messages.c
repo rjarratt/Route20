@@ -193,6 +193,11 @@ AdjacencyType GetAdjacencyType(int iinfo)
 	return at;
 }
 
+int VerificationRequired(int iinfo)
+{
+	return iinfo & 0x04;
+}
+
 int VersionSupported(byte tiver[3])
 {
 	int ans = 0;

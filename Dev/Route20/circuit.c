@@ -50,17 +50,17 @@ void SetCircuitStateChangeCallback(void (*callback)(circuit_t *circuit))
 	stateChangeCallback = callback;
 }
 
-void CircuitUp(circuit_t *circuit, decnet_address_t *adjacentNode)
+void CircuitUp(circuit_t *circuit)
 {
 	circuit->state = CircuitStateUp;
-    if (adjacentNode == NULL)
+    if (circuit->circuitType == EthernetCircuit)
     {
 	    Log(LogCircuit, LogInfo, "Circuit %s up\n", circuit->name);
     }
     else
     {
 	    Log(LogCircuit, LogInfo, "Circuit %s up, adjacent node = ", circuit->name);
-        LogDecnetAddress(LogCircuit, LogInfo, adjacentNode);
+        LogDecnetAddress(LogCircuit, LogInfo, &circuit->adjacentNode);
 	    Log(LogCircuit, LogInfo, "\n");
     }
 	stateChangeCallback(circuit);
