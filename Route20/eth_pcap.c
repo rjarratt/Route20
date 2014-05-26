@@ -121,7 +121,7 @@ int EthPcapOpen(eth_circuit_t *ethCircuit)
 				}
 				else
 				{
-					CircuitUp(ethCircuit->circuit);
+					QueueImmediate(ethCircuit->circuit, CircuitUp); // TODO: close pcap and return failure if don't reach here.
 				}
 			}
 		}

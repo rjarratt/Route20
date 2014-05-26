@@ -63,7 +63,7 @@ int EthSockOpen(eth_circuit_t *ethCircuit)
 			ethCircuit->circuit->waitHandle = sockContext->socket.waitHandle;
 			RegisterEventHandler(ethCircuit->circuit->waitHandle, "EthSock Circuit", ethCircuit->circuit, ethCircuit->circuit->WaitEventHandler);
 			memcpy(&sockContext->destinationAddress, destinationAddress, sizeof(sockContext->destinationAddress));
-			CircuitUp(ethCircuit->circuit);
+			QueueImmediate(ethCircuit->circuit, CircuitUp);
 		}
 	}
 	else
