@@ -170,13 +170,6 @@ void CheckCircuitAdjacency(decnet_address_t *from, circuit_t *circuit)
 
         if (adjacency != NULL)
         {
-            // TODO: I think we should not be changing the circuit state here, why is this code here at all? SoftAdjacencyUp seems to be needed to allow Hello And Test to poll the other side.
-            // TODO: I am also wondering if the SoftAdjacencyUp after the CircuitUp is something needed before introducing QueueImmediate.
-            if (circuit->state != CircuitStateUp)
-            {
-                CircuitUp(circuit, &adjacency->id);
-            }
-
 		    UpdateAdjacencyLiveness(adjacency);
             SoftAdjacencyUp(adjacency);
         }

@@ -32,7 +32,6 @@ in this Software without prior written authorization from the author.
 #include "route20.h"
 #include "socket.h"
 #include "decnet.h"
-#include "adjacency.h"
 #include "platform.h"
 #include "circuit.h"
 #include "ddcmp_init_layer.h"
@@ -318,8 +317,13 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
         valid = 1;
     }
 
+	if (valid)
+	{
+		memcpy( &circuit->adjacentNode, &from, sizeof(decnet_address_t)); 
+	}
+
     at = GetAdjacencyType(msg->tiinfo);
-    if (valid && msg->tiinfo & 0x04)
+    if (valid && VerificationRequired(msg->tiinfo))
     {
         ProcessEvent(ddcmpCircuit, DdcmpInitNRIVREvent);
 	    InitialiseCircuitAdjacency(&from, circuit, at, msg->timer);
@@ -350,7 +354,6 @@ void DdcmpInitProcessVerificationMessage(circuit_t *circuit, verification_msg_t 
 
     GetDecnetAddressFromId((byte *)&msg->srcnode, &from);
     ProcessEvent(ddcmpCircuit, DdcmpInitNRVEvent);
-    CheckCircuitAdjacency(&from, circuit);
 }
 
 void DdcmpInitProcessPhaseIINodeInitializationMessage(circuit_t *circuit, node_init_phaseii_t *msg)
@@ -385,8 +388,9 @@ void DdcmpInitProcessCircuitRejectComplete(circuit_t *circuit)
 
 static void DdcmpInitCircuitUp(ddcmp_circuit_t *ddcmpCircuit)
 {
-	StartTimer(ddcmpCircuit);
-    QueueEvent(ddcmpCircuit, DdcmpInitCUCEvent); /* TODO: see if CircuitUp callback can do this, at the moment no separate decision process to do this */
+	CircuitUp(ddcmpCircuit->circuit);
+	StartTimer(ddcmpCircuit); // TODO: Get all circuits to start their hello timers in the CircuitUp, and stop in CircuitDown?
+    QueueEvent(ddcmpCircuit, DdcmpInitCUCEvent); /* TODO: If there was a CircuitUp callback, it might be able to do this, is it right though, just sets stete to RU */
 }
 
 static void DdcmpInitCircuitDown(ddcmp_circuit_t *ddcmpCircuit)
