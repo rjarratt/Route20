@@ -70,6 +70,7 @@ static char *eth_translate(char *name, char *translated_name);
 
 int EthPcapOpen(eth_circuit_t *ethCircuit)
 {
+	int ans = 0;
 	eth_pcap_t *pcapContext = (eth_pcap_t *)ethCircuit->context;
 	char devname[1024];
 	char ebuf[PCAP_ERRBUF_SIZE];
@@ -121,13 +122,19 @@ int EthPcapOpen(eth_circuit_t *ethCircuit)
 				}
 				else
 				{
-					QueueImmediate(ethCircuit->circuit, CircuitUp); // TODO: close pcap and return failure if don't reach here.
+					QueueImmediate(ethCircuit->circuit, CircuitUp);
+					ans = 1;
 				}
+			}
+
+			if (!ans)
+			{
+				EthPcapClose(ethCircuit);
 			}
 		}
 	}
 
-	return pcapContext->pcap != NULL;
+	return ans;
 }
 
 packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
