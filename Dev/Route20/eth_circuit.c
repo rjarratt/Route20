@@ -89,13 +89,13 @@ int EthCircuitUp(circuit_t *circuit)
 {
 	time_t now;
 	time(&now);
-	CreateTimer("AllRoutersHello", now, T3, circuit, HandleHelloTimer);
+	circuit->helloTimer = CreateTimer("AllRoutersHello", now, T3, circuit, HandleHelloTimer);
 	return 0;
 }
 
 void EthCircuitDown(circuit_ptr circuit)
 {
-	// TODO: Stop hello timer (and designated router timer if appropriate)
+	StopTimer(circuit->helloTimer);
 }
 
 packet_t *EthCircuitReadPacket(circuit_t *circuit)

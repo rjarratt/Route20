@@ -62,15 +62,15 @@ typedef struct
 	AdjacencyType    type;
 	decnet_address_t id;
 	time_t           lastHeardFrom;
-	int              helloTimer;
+	int              helloTimerPeriod;
 	AdjacencyState   state;
 	byte             priority;
 } adjacency_t;
 
 void InitialiseAdjacencies(void);
-void CheckRouterAdjacency(decnet_address_t *from, circuit_t *circuit, AdjacencyType type, int helloTimer, int priority, rslist_t *routers, int routersCount);
-void CheckEndnodeAdjacency(decnet_address_t *from, circuit_t *circuit, int helloTimer);
-void InitialiseCircuitAdjacency(decnet_address_t *from, circuit_t *circuit, AdjacencyType type, int helloTimer);
+void CheckRouterAdjacency(decnet_address_t *from, circuit_t *circuit, AdjacencyType type, int helloTimerPeriod, int priority, rslist_t *routers, int routersCount);
+void CheckEndnodeAdjacency(decnet_address_t *from, circuit_t *circuit, int helloTimerPeriod);
+void InitialiseCircuitAdjacency(decnet_address_t *from, circuit_t *circuit, AdjacencyType type, int helloTimerPeriod);
 void CheckCircuitAdjacency(decnet_address_t *from, circuit_t *circuit);
 void AdjacencyDown(adjacency_t *adjacency);
 void ProcessRouterAdjacencies(int (*process)(adjacency_t *adjacency, void *context), void *context);

@@ -150,10 +150,10 @@ static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context)
 
 static void StopTimerIfRunning(ddcmp_circuit_t *ddcmpCircuit)
 {
-    if (ddcmpCircuit->helloTimer != NULL)
+    if (ddcmpCircuit->circuit->helloTimer != NULL)
     {
-        StopTimer(ddcmpCircuit->helloTimer);
-        ddcmpCircuit->helloTimer = NULL;
+        StopTimer(ddcmpCircuit->circuit->helloTimer);
+        ddcmpCircuit->circuit->helloTimer = NULL;
     }
 }
 
@@ -162,5 +162,5 @@ static void StartTimer(ddcmp_circuit_t *ddcmpCircuit)
     time_t now;
     time(&now);
     StopTimerIfRunning(ddcmpCircuit);
-    ddcmpCircuit->helloTimer = CreateTimer("HelloAndTest", now, T3, ddcmpCircuit->circuit, HandleHelloAndTestTimer);
+    ddcmpCircuit->circuit->helloTimer = CreateTimer("HelloAndTest", now, T3, ddcmpCircuit->circuit, HandleHelloAndTestTimer);
 }
