@@ -82,6 +82,8 @@ void EthInitLayerStop(void)
 	    Log(LogEthInit, LogVerbose, "Sending Ethernet Hello to stop all adjacencies to All Routers %s\n", circuit->name);
 		packet = CreateEthernetHello(nodeInfo.address);
 		circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet);
+		CircuitDown(circuit);
+		circuit->Close(circuit);
 	}
 }
 
