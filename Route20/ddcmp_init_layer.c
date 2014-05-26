@@ -83,9 +83,6 @@ static socket_t * TcpAcceptCallback(sockaddr_t *receivedFrom);
 static void TcpConnectCallback(socket_t *sock);
 static void TcpDisconnectCallback(socket_t *sock);
 static ddcmp_circuit_t *FindCircuit(socket_t *sock);
-static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context);
-static void StopTimerIfRunning(ddcmp_circuit_t *ddcmpCircuit);
-static void StartTimer(ddcmp_circuit_t *ddcmpCircuit);
 
 static void QueueEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt);
 static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt);
@@ -389,15 +386,13 @@ void DdcmpInitProcessCircuitRejectComplete(circuit_t *circuit)
 static void DdcmpInitCircuitUp(ddcmp_circuit_t *ddcmpCircuit)
 {
 	CircuitUp(ddcmpCircuit->circuit);
-	StartTimer(ddcmpCircuit); // TODO: Get all circuits to start their hello timers in the CircuitUp, and stop in CircuitDown?
-    QueueEvent(ddcmpCircuit, DdcmpInitCUCEvent); /* TODO: If there was a CircuitUp callback, it might be able to do this, is it right though, just sets stete to RU */
+    QueueEvent(ddcmpCircuit, DdcmpInitCUCEvent); /* TODO: all init layers should have a circuit up callback that the decision layer calls */
 }
 
 static void DdcmpInitCircuitDown(ddcmp_circuit_t *ddcmpCircuit)
 {
-    StopTimerIfRunning(ddcmpCircuit);
 	CircuitDown(ddcmpCircuit->circuit);
-    QueueEvent(ddcmpCircuit, DdcmpInitCDCEvent); /* TODO: see if CircuitDown callback can do this, at the moment no separate decision process to do this */
+    QueueEvent(ddcmpCircuit, DdcmpInitCDCEvent);/* TODO: all init layers should have a circuit down callback that the decision layer calls */
 }
 
 static void DdcmpInitNotifyRunning(void *context)
@@ -486,32 +481,6 @@ static ddcmp_circuit_t *FindCircuit(socket_t *sock)
 	}
 
     return ans;
-}
-
-static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context)
-{
-	packet_t *packet;
-	circuit_t *circuit = (circuit_t *)context;
-	Log(LogDdcmpInit, LogDetail, "Sending Hello And Test on %s\n", circuit->name);
-	packet = CreateHelloAndTest(nodeInfo.address);
-	circuit->WritePacket(circuit, NULL, NULL, packet);
-}
-
-static void StopTimerIfRunning(ddcmp_circuit_t *ddcmpCircuit)
-{
-    if (ddcmpCircuit->helloTimer != NULL)
-    {
-        StopTimer(ddcmpCircuit->helloTimer);
-        ddcmpCircuit->helloTimer = NULL;
-    }
-}
-
-static void StartTimer(ddcmp_circuit_t *ddcmpCircuit)
-{
-    time_t now;
-    time(&now);
-    StopTimerIfRunning(ddcmpCircuit);
-    ddcmpCircuit->helloTimer = CreateTimer("HelloAndTest", now, T3, ddcmpCircuit->circuit, HandleHelloAndTestTimer);
 }
 
 static void QueueEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)

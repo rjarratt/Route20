@@ -55,7 +55,8 @@ eth_circuit_ptr EthCircuitCreatePcap(circuit_t *circuit);
 eth_circuit_ptr EthCircuitCreateSocket(circuit_t *circuit, uint16 receivePort, char *destinationHostName, uint16 destinationPort);
 
 int EthCircuitOpen(circuit_ptr circuit);
-int EthCircuitStart(circuit_ptr circuit);
+int EthCircuitUp(circuit_ptr circuit);
+void EthCircuitDown(circuit_ptr circuit);
 packet_t *EthCircuitReadPacket(circuit_ptr circuit);
 int EthCircuitWritePacket(circuit_ptr circuit, decnet_address_t *from, decnet_address_t *to, packet_t *);
 void EthCircuitClose(circuit_ptr circuit);

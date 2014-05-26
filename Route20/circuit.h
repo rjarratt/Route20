@@ -70,7 +70,8 @@ typedef struct circuit
 	circuit_stats_t   stats;
 
 	int (*Open)(circuit_ptr circuit);
-	int (*Start)(circuit_ptr circuit);
+	int (*Up)(circuit_ptr circuit);
+	void (*Down)(circuit_ptr circuit);
 	packet_t *(*ReadPacket)(circuit_ptr circuit);
 	int (*WritePacket)(circuit_ptr circuit, decnet_address_t *from, decnet_address_t *to, packet_t *);
 	void (*Close)(circuit_ptr circuit);
