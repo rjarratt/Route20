@@ -210,7 +210,12 @@ int EthPcapWritePacket(eth_circuit_t *ethCircuit, packet_t *packet)
 		len = MIN_PACKET_SIZE;
 	}
 
-	return pcap_sendpacket(pcapContext->pcap, (const u_char *)data, len);
+	while (pcap_sendpacket(pcapContext->pcap, (const u_char *)data, len) != 0)
+	{
+		Sleep(1);
+	}
+
+	return 1;
 }
 
 void EthPcapClose(eth_circuit_t *ethCircuit)
