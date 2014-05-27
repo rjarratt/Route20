@@ -32,6 +32,8 @@
 #include "constants.h"
 #include "decnet.h"
 #include "timer.h"
+#include "init_layer.h"
+#include "circuit.h"
 #include "adjacency.h"
 #include "messages.h"
 #include "routing_database.h"
@@ -340,7 +342,8 @@ static void ProcessCircuitDown(circuit_t *circuit)
 	}
 
 	Routes(0, NN);
-}
+
+	QueueImmediate(circuit, circuit->initLayer->CircuitDownComplete);
 
 static void ProcessCircuitUp(circuit_t *circuit)
 {
@@ -394,6 +397,8 @@ static void ProcessCircuitUp(circuit_t *circuit)
 			}
 		}
 	}
+
+	QueueImmediate(circuit, circuit->initLayer->CircuitUpComplete);
 }
 
 static int DownAdjacencyAssociatedWithCircuit(adjacency_t *adjacency, void *context)

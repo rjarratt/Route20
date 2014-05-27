@@ -138,10 +138,15 @@ int Initialise(char *configFileName)
 		}
 		time(&now);
 		CreateTimer("PurgeAdjacencies", now + 1, 1, NULL, PurgeAdjacenciesCallback);
+
 		ethernetInitLayer = CreateEthernetInitializationSublayer();
+		InitializationSublayerAssociateCircuits(Circuits, numCircuits, EthernetCircuit, ethernetInitLayer);
 		ethernetInitLayer->Start(Circuits, numCircuits);
+
 		ddcmpInitLayer = CreateDdcmpInitializationSublayer();
+		InitializationSublayerAssociateCircuits(Circuits, numCircuits, DDCMPCircuit, ddcmpInitLayer);
 		ddcmpInitLayer->Start(Circuits, numCircuits);
+
 		//CreateTimer("CircuitStats", now + 3600, 3600, NULL, LogCircuitStats);
 
 		if (DnsConfig.dnsConfigured && dnsNeeded)
@@ -208,11 +213,19 @@ void MainLoop(void)
 	Log(LogGeneral, LogInfo, "Main loop terminated\n");
 	nodeInfo.state = Stopping;
 
-	StopAllTimers();
 	Log(LogGeneral, LogInfo, "Stopping Ethernet Initialisation Layer\n");
 	ethernetInitLayer->Stop();
+
 	Log(LogGeneral, LogInfo, "Stopping DDCMP Initialisation Layer\n");
 	ddcmpInitLayer->Stop();
+
+	/* handle any final events queued for immediate processing as part of shutdown */
+	while (SecondsUntilNextDue() == 0)
+	{
+	    ProcessTimers();
+	}
+
+	StopAllTimers();
 	Log(LogGeneral, LogInfo, "Shutdown complete\n");
 }
 

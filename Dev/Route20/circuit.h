@@ -59,17 +59,18 @@ typedef struct circuit_stats
 
 typedef struct circuit
 {
-	int               slot;
-	char             *name;
-	void             *context;
-	int               waitHandle;
-	CircuitType       circuitType;
-	CircuitState      state;
-	decnet_address_t  adjacentNode; /* valid for non-broadcast circuits only */
-	rtimer_t *        helloTimer;
-	int               cost;
-	int               nextLevel1Node;
-	circuit_stats_t   stats;
+	int                slot;
+	char              *name;
+	void              *context;
+	int                waitHandle;
+	CircuitType        circuitType;
+	CircuitState       state;
+	struct init_layer *initLayer;
+	decnet_address_t   adjacentNode; /* valid for non-broadcast circuits only */
+	rtimer_t          *helloTimer;
+	int                cost;
+	int                nextLevel1Node;
+	circuit_stats_t    stats;
 
 	int (*Open)(circuit_ptr circuit);
 	int (*Up)(circuit_ptr circuit);
@@ -83,7 +84,9 @@ typedef struct circuit
 
 void SetCircuitStateChangeCallback(void (*callback)(circuit_t *circuit));
 void CircuitUp(circuit_t *circuit);
+void CircuitUpComplete(circuit_t *circuit);
 void CircuitDown(circuit_t *circuit);
+void CircuitDownComplete(circuit_t *circuit);
 void CircuitReject(circuit_t *circuit);
 void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost, void (*waitEventHandler)(void *context));
 void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receivePort, uint16 destinationPort, int cost, void (*waitEventHandler)(void *context));

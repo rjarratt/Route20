@@ -35,6 +35,8 @@ init_layer_t *CreateEthernetInitializationSublayer(void)
 	static init_layer_t ethernetInitLayer;
 	ethernetInitLayer.Start = EthInitLayerStart;
 	ethernetInitLayer.Stop = EthInitLayerStop;
+	ethernetInitLayer.CircuitUpComplete = EthInitLayerCircuitUpComplete;
+	ethernetInitLayer.CircuitDownComplete = EthInitLayerCircuitDownComplete;
 	return &ethernetInitLayer;
 }
 
@@ -43,5 +45,21 @@ init_layer_t *CreateDdcmpInitializationSublayer(void)
 	static init_layer_t ddcmpInitLayer;
 	ddcmpInitLayer.Start = DdcmpInitLayerStart;
 	ddcmpInitLayer.Stop = DdcmpInitLayerStop;
+	ddcmpInitLayer.CircuitUpComplete = DdcmpInitLayerCircuitUpComplete;
+	ddcmpInitLayer.CircuitDownComplete = DdcmpInitLayerCircuitDownComplete;
 	return &ddcmpInitLayer;
 }
+
+void InitializationSublayerAssociateCircuits(circuit_t circuits[], int circuitCount, CircuitType circuitType, init_layer_t *initLayer)
+{
+	int i;
+
+	for(i = 1; i <= circuitCount; i++)
+	{
+		if (circuits[i].circuitType == circuitType)
+		{
+		    circuits[i].initLayer = initLayer;
+		}
+	}
+}
+

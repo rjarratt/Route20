@@ -30,15 +30,18 @@
 
 #if !defined(INIT_LAYER_H)
 
-typedef struct
+typedef struct init_layer
 {
 	void (*Start)(circuit_t circuits[], int circuitCount);
 	void (*Stop)(void);
+	void (*CircuitUpComplete)(circuit_ptr circuit);
+	void (*CircuitDownComplete)(circuit_ptr circuit);
 }
 init_layer_t;
 
 init_layer_t *CreateEthernetInitializationSublayer(void);
 init_layer_t *CreateDdcmpInitializationSublayer(void);
+void InitializationSublayerAssociateCircuits(circuit_t circuits[], int circuitCount, CircuitType circuitType, init_layer_t *initLayer);
 
 #define INIT_LAYER_H
 #endif

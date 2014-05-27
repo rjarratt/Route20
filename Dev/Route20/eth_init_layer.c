@@ -87,6 +87,16 @@ void EthInitLayerStop(void)
 	}
 }
 
+void EthInitLayerCircuitUpComplete(circuit_ptr circuit)
+{
+    CircuitUpComplete(circuit);
+}
+
+void EthInitLayerCircuitDownComplete(circuit_ptr circuit)
+{
+    CircuitDownComplete(circuit);
+}
+
 void EthInitCheckDesignatedRouter(void)
 {
 	int i;

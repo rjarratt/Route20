@@ -52,7 +52,13 @@ void SetCircuitStateChangeCallback(void (*callback)(circuit_t *circuit))
 
 void CircuitUp(circuit_t *circuit)
 {
+	Log(LogCircuit, LogWarning, "Circuit %s is coming up\n", circuit->name);
 	circuit->state = CircuitStateUp;
+	stateChangeCallback(circuit);
+}
+
+void CircuitUpComplete(circuit_t *circuit)
+{
 	circuit->Up(circuit);
     if (circuit->circuitType == EthernetCircuit)
     {
@@ -64,15 +70,19 @@ void CircuitUp(circuit_t *circuit)
         LogDecnetAddress(LogCircuit, LogInfo, &circuit->adjacentNode);
 	    Log(LogCircuit, LogInfo, "\n");
     }
-	stateChangeCallback(circuit);
 }
 
 void CircuitDown(circuit_t *circuit)
 {
-	Log(LogCircuit, LogInfo, "Circuit %s down\n", circuit->name);
-	circuit->Down(circuit);
+	Log(LogCircuit, LogWarning, "Circuit %s going down\n", circuit->name);
 	circuit->state = CircuitStateOff;
 	stateChangeCallback(circuit);
+}
+
+void CircuitDownComplete(circuit_t *circuit)
+{
+	circuit->Down(circuit);
+	Log(LogCircuit, LogInfo, "Circuit %s down\n", circuit->name);
 }
 
 void CircuitReject(circuit_t *circuit)
