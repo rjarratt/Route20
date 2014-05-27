@@ -128,7 +128,7 @@ packet_t *EthCircuitReadPacket(circuit_t *circuit)
 	return ans;
 }
 
-int EthCircuitWritePacket(circuit_t *circuit, decnet_address_t *from, decnet_address_t *to, packet_t *packet)
+int EthCircuitWritePacket(circuit_t *circuit, decnet_address_t *from, decnet_address_t *to, packet_t *packet, int isHello)
 {
 	int ans;
 	int len;
@@ -166,7 +166,7 @@ static void HandleHelloTimer(rtimer_t *timer, char *name, void *context)
 	circuit_t *circuit = (circuit_t *)context;
 	Log(LogEthInit, LogVerbose, "Sending Ethernet Hello to All Routers %s\n", circuit->name);
 	packet = CreateEthernetHello(nodeInfo.address);
-	circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet);
+	circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet, 1);
 }
 
 static int IsAddressedToThisNode(packet_t * packet)

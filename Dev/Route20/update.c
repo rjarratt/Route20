@@ -91,11 +91,11 @@ static void ProcessCircuitLevel1Update(circuit_t *circuit)
 		    packet = CreateLevel1RoutingMessage(circuit->nextLevel1Node, LEVEL1_BATCH_SIZE);
 			if (IsBroadcastCircuit(circuit))
 			{
-				circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet);
+				circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet, 0);
 			}
 			else
 			{
-				circuit->WritePacket(circuit, NULL, NULL, packet);
+				circuit->WritePacket(circuit, NULL, NULL, packet, 0);
 			}
 		}
 
@@ -117,11 +117,11 @@ static void ProcessCircuitLevel2Update(circuit_t *circuit)
 		packet = CreateLevel2RoutingMessage();
 		if (IsBroadcastCircuit(circuit))
 		{
-			circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet);
+			circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet, 0);
 		}
 		else
 		{
-			circuit->WritePacket(circuit, NULL, NULL, packet);
+			circuit->WritePacket(circuit, NULL, NULL, packet, 0);
 		}
 	}
 }

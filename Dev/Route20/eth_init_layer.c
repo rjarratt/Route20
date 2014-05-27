@@ -81,7 +81,7 @@ void EthInitLayerStop(void)
 		circuit_t *circuit = ethCircuits[i];
 	    Log(LogEthInit, LogVerbose, "Sending Ethernet Hello to stop all adjacencies to All Routers %s\n", circuit->name);
 		packet = CreateEthernetHello(nodeInfo.address);
-		circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet);
+		circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet, 1);
 		CircuitDown(circuit);
 		circuit->Close(circuit);
 	}
@@ -162,7 +162,7 @@ static void HandleDesignatedRouterHelloTimer(rtimer_t * timer, char *name, void 
 		time(&now);
 	    Log(LogEthInit, LogVerbose, "Sending Ethernet Hello to All End Nodes %s\n", circuit->name);
 		packet = CreateEthernetHello(nodeInfo.address);
-		circuit->WritePacket(circuit, &nodeInfo.address, &AllEndNodesAddress, packet);
+		circuit->WritePacket(circuit, &nodeInfo.address, &AllEndNodesAddress, packet, 1);
 	}
 	else
 	{

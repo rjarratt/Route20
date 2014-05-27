@@ -610,7 +610,7 @@ static int SendInitMessageAction(circuit_t *circuit)
 {
     packet_t *pkt = CreateInitialization(nodeInfo.address);
     Log(LogDdcmpInit, LogDetail, "Sending Initialization message on %s\n", circuit->name);
-    circuit->WritePacket(circuit, NULL, NULL, pkt);
+    circuit->WritePacket(circuit, NULL, NULL, pkt, 0);
     return 1;
 }
 
@@ -618,7 +618,7 @@ static int SendVerifyMessageAction(circuit_t *circuit)
 {
     packet_t *packet = CreateVerification(nodeInfo.address);
     Log(LogDdcmpInit, LogDetail, "Sending verification message\n");
-    circuit->WritePacket(circuit, NULL, NULL, packet);
+    circuit->WritePacket(circuit, NULL, NULL, packet, 0);
     return 1;
 }
 

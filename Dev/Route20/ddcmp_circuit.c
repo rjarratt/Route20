@@ -114,12 +114,17 @@ packet_t *DdcmpCircuitReadPacket(circuit_t *circuit)
 	return ans;
 }
 
-int DdcmpCircuitWritePacket(circuit_t *circuit, decnet_address_t *from, decnet_address_t *to, packet_t *packet)
+int DdcmpCircuitWritePacket(circuit_t *circuit, decnet_address_t *from, decnet_address_t *to, packet_t *packet, int isHello)
 {
 	int ans = 0;
 	ddcmp_circuit_t *context = (ddcmp_circuit_t *)circuit->context;
     ans = context->WritePacket(context, packet);
 	circuit->stats.packetsSent++;
+	if (circuit->state == CircuitStateUp && !isHello)
+	{
+	    ResetTimer(circuit->helloTimer); /* no need to send Hello and Test if we have recently sent a message */
+	}
+
 	return ans;
 }
 
@@ -145,7 +150,7 @@ static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context)
 	circuit_t *circuit = (circuit_t *)context;
 	Log(LogDdcmpInit, LogDetail, "Sending Hello And Test on %s\n", circuit->name);
 	packet = CreateHelloAndTest(nodeInfo.address);
-	circuit->WritePacket(circuit, NULL, NULL, packet);
+	circuit->WritePacket(circuit, NULL, NULL, packet, 1);
 }
 
 static void StopTimerIfRunning(ddcmp_circuit_t *ddcmpCircuit)

@@ -46,6 +46,7 @@ typedef struct rtimer
 } rtimer_t;
 
 rtimer_t *CreateTimer(char *name, time_t due, int interval, void *context, void (*callback)(rtimer_t *, char *,void *));
+void ResetTimer(rtimer_t *timer);
 void QueueImmediate(void *context, void (*callback)(void *));
 void StopTimer(rtimer_t *);
 void StopAllTimers(void);
