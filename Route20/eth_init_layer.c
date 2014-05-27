@@ -97,6 +97,16 @@ void EthInitLayerCircuitDownComplete(circuit_ptr circuit)
     CircuitDownComplete(circuit);
 }
 
+void EthInitLayerAdjacencyUpComplete(adjacency_t *adjacency)
+{
+    AdjacencyUpComplete(adjacency);
+}
+
+void EthInitLayerAdjacencyDownComplete(adjacency_t *adjacency)
+{
+    AdjacencyDownComplete(adjacency);
+}
+
 void EthInitCheckDesignatedRouter(void)
 {
 	int i;

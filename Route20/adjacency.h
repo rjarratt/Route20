@@ -72,7 +72,9 @@ void CheckRouterAdjacency(decnet_address_t *from, circuit_t *circuit, AdjacencyT
 void CheckEndnodeAdjacency(decnet_address_t *from, circuit_t *circuit, int helloTimerPeriod);
 void InitialiseCircuitAdjacency(decnet_address_t *from, circuit_t *circuit, AdjacencyType type, int helloTimerPeriod);
 void CheckCircuitAdjacency(decnet_address_t *from, circuit_t *circuit);
+void AdjacencyUpComplete(adjacency_t *adjacency);
 void AdjacencyDown(adjacency_t *adjacency);
+void AdjacencyDownComplete(adjacency_t *adjacency);
 void ProcessRouterAdjacencies(int (*process)(adjacency_t *adjacency, void *context), void *context);
 void PurgeAdjacencies(void);
 void StopAllAdjacencies(CircuitType circuitType);

@@ -37,6 +37,8 @@ init_layer_t *CreateEthernetInitializationSublayer(void)
 	ethernetInitLayer.Stop = EthInitLayerStop;
 	ethernetInitLayer.CircuitUpComplete = EthInitLayerCircuitUpComplete;
 	ethernetInitLayer.CircuitDownComplete = EthInitLayerCircuitDownComplete;
+	ethernetInitLayer.AdjacencyUpComplete = EthInitLayerAdjacencyUpComplete;
+	ethernetInitLayer.AdjacencyDownComplete = EthInitLayerAdjacencyDownComplete;
 	return &ethernetInitLayer;
 }
 
@@ -47,6 +49,8 @@ init_layer_t *CreateDdcmpInitializationSublayer(void)
 	ddcmpInitLayer.Stop = DdcmpInitLayerStop;
 	ddcmpInitLayer.CircuitUpComplete = DdcmpInitLayerCircuitUpComplete;
 	ddcmpInitLayer.CircuitDownComplete = DdcmpInitLayerCircuitDownComplete;
+	ddcmpInitLayer.AdjacencyUpComplete = DdcmpInitLayerAdjacencyUpComplete;
+	ddcmpInitLayer.AdjacencyDownComplete = DdcmpInitLayerAdjacencyDownComplete;
 	return &ddcmpInitLayer;
 }
 

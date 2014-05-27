@@ -35,6 +35,8 @@ void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount);
 void DdcmpInitLayerStop(void);
 void DdcmpInitLayerCircuitUpComplete(circuit_ptr circuit);
 void DdcmpInitLayerCircuitDownComplete(circuit_ptr circuit);
+void DdcmpInitLayerAdjacencyUpComplete(adjacency_t *adjacency);
+void DdcmpInitLayerAdjacencyDownComplete(adjacency_t *adjacency);
 
 void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_msg_t *msg);
 void DdcmpInitProcessVerificationMessage(circuit_t *circuit, verification_msg_t *msg);
