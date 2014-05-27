@@ -272,6 +272,20 @@ void DdcmpInitLayerStop(void)
 	}
 }
 
+void DdcmpInitLayerCircuitUpComplete(circuit_ptr circuit)
+{
+	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+    CircuitUpComplete(circuit);
+    ProcessEvent(ddcmpCircuit, DdcmpInitCUCEvent);
+}
+
+void DdcmpInitLayerCircuitDownComplete(circuit_ptr circuit)
+{
+	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+    CircuitDownComplete(circuit);
+    ProcessEvent(ddcmpCircuit, DdcmpInitCDCEvent);
+}
+
 void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_msg_t *msg)
 {
     AdjacencyType at;
@@ -385,14 +399,12 @@ void DdcmpInitProcessCircuitRejectComplete(circuit_t *circuit)
 
 static void DdcmpInitCircuitUp(ddcmp_circuit_t *ddcmpCircuit)
 {
-	CircuitUp(ddcmpCircuit->circuit);
-    QueueEvent(ddcmpCircuit, DdcmpInitCUCEvent); /* TODO: all init layers should have a circuit up callback that the decision layer calls */
+	QueueImmediate(ddcmpCircuit->circuit, CircuitUp);
 }
 
 static void DdcmpInitCircuitDown(ddcmp_circuit_t *ddcmpCircuit)
 {
-	CircuitDown(ddcmpCircuit->circuit);
-    QueueEvent(ddcmpCircuit, DdcmpInitCDCEvent);/* TODO: all init layers should have a circuit down callback that the decision layer calls */
+	QueueImmediate(ddcmpCircuit->circuit, CircuitDown);
 }
 
 static void DdcmpInitNotifyRunning(void *context)
