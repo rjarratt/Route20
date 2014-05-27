@@ -52,6 +52,16 @@ rtimer_t *CreateTimer(char *name, time_t due, int interval, void *context, void 
 	return newTimer;
 }
 
+void ResetTimer(rtimer_t *timer)
+{
+	time_t now;
+	if (timer->interval > 0)
+	{
+		time(&now);
+		timer->due = now + timer->interval;
+	}
+}
+
 void QueueImmediate(void *context, void (*callback)(void *))
 {
     time_t now;

@@ -58,7 +58,7 @@ int EthCircuitOpen(circuit_ptr circuit);
 int EthCircuitUp(circuit_ptr circuit);
 void EthCircuitDown(circuit_ptr circuit);
 packet_t *EthCircuitReadPacket(circuit_ptr circuit);
-int EthCircuitWritePacket(circuit_ptr circuit, decnet_address_t *from, decnet_address_t *to, packet_t *);
+int EthCircuitWritePacket(circuit_ptr circuit, decnet_address_t *from, decnet_address_t *to, packet_t *, int isHello);
 void EthCircuitClose(circuit_ptr circuit);
 
 #define ETH_CIRCUIT_H

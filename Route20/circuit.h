@@ -76,7 +76,7 @@ typedef struct circuit
 	int (*Up)(circuit_ptr circuit);
 	void (*Down)(circuit_ptr circuit);
 	packet_t *(*ReadPacket)(circuit_ptr circuit);
-	int (*WritePacket)(circuit_ptr circuit, decnet_address_t *from, decnet_address_t *to, packet_t *);
+	int (*WritePacket)(circuit_ptr circuit, decnet_address_t *from, decnet_address_t *to, packet_t *, int isHello);
 	void (*Close)(circuit_ptr circuit);
 	void (*Reject)(circuit_ptr circuit);
 	void (*WaitEventHandler)(void *context);

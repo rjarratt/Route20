@@ -177,7 +177,7 @@ int SendPacket(circuit_t *srcCircuit, decnet_address_t *dstNode, packet_t *packe
 			}
 
 			Log(LogForwarding, LogVerbose, "Forwarding to %s\n", dstAdjacency->circuit->name);
-			if (!dstAdjacency->circuit->WritePacket(dstAdjacency->circuit, &nodeInfo.address, &dstAdjacency->id, packet))
+			if (!dstAdjacency->circuit->WritePacket(dstAdjacency->circuit, &nodeInfo.address, &dstAdjacency->id, packet, 0))
 			{
 				Log(LogForwarding, LogWarning, "Packet could not be forwarded to %s\n", dstAdjacency->circuit->name);
 			}
