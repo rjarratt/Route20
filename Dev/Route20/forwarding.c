@@ -38,6 +38,7 @@
 #include "forwarding.h"
 
 static adjacency_t *GetAdjacencyForNode(decnet_address_t *node);
+static int ReturnToSender(byte requestFlags, byte *forwardFlags, decnet_address_t *srcNode, decnet_address_t *dstNode, char *reason);
 
 int IsReachable(decnet_address_t *address)
 {
@@ -67,6 +68,7 @@ void ForwardPacket(circuit_t *srcCircuit, packet_t *packet)
 	byte *data;
 	int dataLength;
 	int forward = 1;
+	int rejectingForward = 0;
 
 	ExtractDataPacketData(packet, &srcNode, &dstNode, &flags, &visits, &data, &dataLength);
 	Log(LogForwarding, LogVerbose, "Forward from ");
@@ -109,20 +111,9 @@ void ForwardPacket(circuit_t *srcCircuit, packet_t *packet)
 
 		if (!IsReachable(&dstNode))
 		{
-			if (IsReturnToSenderRequest(flags))
-			{
-				decnet_address_t temp;
-				memcpy(&temp, &srcNode, sizeof(decnet_address_t));
-				memcpy(&srcNode, &dstNode, sizeof(decnet_address_t));
-				memcpy(&dstNode, &temp, sizeof(decnet_address_t));
-				Log(LogForwarding, LogVerbose, "Returning packet to sender as node unreachable\n");
-				forwardFlags = 0x16;
-			}
-			else
-			{
-				Log(LogForwarding, LogVerbose, "Dropping packet to unreachable node because return not requested\n");
-				forward = 0;
-			}
+			forward = ReturnToSender(flags, &forwardFlags, &srcNode, &dstNode, "node unreachable");
+			rejectingForward = 1;
+
 		}
 		else if (visits > Maxv)
 		{
@@ -133,7 +124,14 @@ void ForwardPacket(circuit_t *srcCircuit, packet_t *packet)
 		if (forward)
 		{
 			packetToForward = CreateLongDataMessage(&srcNode, &dstNode, forwardFlags, visits, data, dataLength);
-			SendPacket(srcCircuit, &dstNode, packetToForward);
+			if (!SendPacket(srcCircuit, &dstNode, packetToForward) && !rejectingForward)
+			{
+				if (ReturnToSender(flags, &forwardFlags, &srcNode, &dstNode, "congestion on forwarded link"))
+				{
+			        packetToForward = CreateLongDataMessage(&srcNode, &dstNode, forwardFlags, visits, data, dataLength);
+                    SendPacket(srcCircuit, &dstNode, packetToForward);
+				}
+			}
 		}
 	}
 	else
@@ -142,9 +140,10 @@ void ForwardPacket(circuit_t *srcCircuit, packet_t *packet)
 	}
 }
 
-void SendPacket(circuit_t *srcCircuit, decnet_address_t *dstNode, packet_t *packet)
+int SendPacket(circuit_t *srcCircuit, decnet_address_t *dstNode, packet_t *packet)
 {
     adjacency_t *dstAdjacency;
+	int ans = 0;
 	int forward = 1;
 
 	dstAdjacency = GetAdjacencyForNode(dstNode);
@@ -182,12 +181,18 @@ void SendPacket(circuit_t *srcCircuit, decnet_address_t *dstNode, packet_t *pack
 			{
 				Log(LogForwarding, LogWarning, "Packet could not be forwarded to %s\n", dstAdjacency->circuit->name);
 			}
+			else
+			{
+				ans = 1;
+			}
 		}
 	}
 	else
 	{
 		Log(LogForwarding, LogWarning, "Destination adjacency not found.\n");
 	}
+
+	return ans;
 }
 
 static adjacency_t *GetAdjacencyForNode(decnet_address_t *node)
@@ -215,6 +220,27 @@ static adjacency_t *GetAdjacencyForNode(decnet_address_t *node)
 	else
 	{
 		ans = GetAdjacency(adjacencyNum);
+	}
+
+	return ans;
+}
+
+static int ReturnToSender(byte requestFlags, byte *forwardFlags, decnet_address_t *srcNode, decnet_address_t *dstNode, char *reason)
+{
+	int ans = 1;
+	if (IsReturnToSenderRequest(requestFlags))
+	{
+		decnet_address_t temp;
+		memcpy(&temp, srcNode, sizeof(decnet_address_t));
+		memcpy(srcNode, dstNode, sizeof(decnet_address_t));
+		memcpy(dstNode, &temp, sizeof(decnet_address_t));
+		Log(LogForwarding, LogVerbose, "Returning packet to sender as %s\n", reason);
+		*forwardFlags = 0x16;
+	}
+	else
+	{
+		Log(LogForwarding, LogVerbose, "Dropping packet because return not requested: %s\n", reason);
+		ans = 0;
 	}
 
 	return ans;
