@@ -27,6 +27,7 @@
   ------------------------------------------------------------------------------*/
 
 #include "circuit.h"
+#include "adjacency.h"
 
 #if !defined(ETH_INIT_LAYER_H)
 
@@ -34,6 +35,8 @@ void EthInitLayerStart(circuit_t circuits[], int circuitCount);
 void EthInitLayerStop(void);
 void EthInitLayerCircuitUpComplete(circuit_ptr circuit);
 void EthInitLayerCircuitDownComplete(circuit_ptr circuit);
+void EthInitLayerAdjacencyUpComplete(adjacency_t *adjacency);
+void EthInitLayerAdjacencyDownComplete(adjacency_t *adjacency);
 void EthInitCheckDesignatedRouter(void);
 
 #define ETH_INIT_LAYER_H

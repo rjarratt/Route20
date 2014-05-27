@@ -274,6 +274,8 @@ static void ProcessBroadcastAdjacencyDown(adjacency_t *adjacency)
 		}
 
 		Routes(0,NN);
+
+		adjacency->circuit->initLayer->AdjacencyDownComplete(adjacency);
 	}
 	else if (IsBroadcastEndnodeAdjacency(adjacency))
 	{
@@ -282,6 +284,8 @@ static void ProcessBroadcastAdjacencyDown(adjacency_t *adjacency)
 		Hop[nodeid][k] = Infh;
 		Cost[nodeid][k] = Infc;
 		Routes(nodeid, adjacency->id.node);
+
+		adjacency->circuit->initLayer->AdjacencyDownComplete(adjacency);
 	}
 }
 
@@ -303,6 +307,8 @@ static void ProcessBroadcastAdjacencyUp(adjacency_t *adjacency)
 				ASrm[i][circ] = 1;
 			}
 		}
+
+		adjacency->circuit->initLayer->AdjacencyUpComplete(adjacency);
 	}
 	else if (IsBroadcastEndnodeAdjacency(adjacency))
 	{
@@ -311,6 +317,8 @@ static void ProcessBroadcastAdjacencyUp(adjacency_t *adjacency)
 		Hop[nodeid][k] = 1;
 		Cost[nodeid][k] = adjacency->circuit->cost;
 		Routes(nodeid, nodeid);
+
+		adjacency->circuit->initLayer->AdjacencyUpComplete(adjacency);
 	}
 }
 
@@ -344,6 +352,7 @@ static void ProcessCircuitDown(circuit_t *circuit)
 	Routes(0, NN);
 
 	QueueImmediate(circuit, circuit->initLayer->CircuitDownComplete);
+}
 
 static void ProcessCircuitUp(circuit_t *circuit)
 {

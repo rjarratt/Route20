@@ -27,6 +27,7 @@
   ------------------------------------------------------------------------------*/
 
 #include "circuit.h"
+#include "adjacency.h"
 
 #if !defined(INIT_LAYER_H)
 
@@ -36,6 +37,8 @@ typedef struct init_layer
 	void (*Stop)(void);
 	void (*CircuitUpComplete)(circuit_ptr circuit);
 	void (*CircuitDownComplete)(circuit_ptr circuit);
+	void (*AdjacencyUpComplete)(adjacency_t *adjacency);
+	void (*AdjacencyDownComplete)(adjacency_t *adjacency);
 }
 init_layer_t;
 

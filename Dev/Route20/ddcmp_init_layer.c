@@ -286,6 +286,18 @@ void DdcmpInitLayerCircuitDownComplete(circuit_ptr circuit)
     ProcessEvent(ddcmpCircuit, DdcmpInitCDCEvent);
 }
 
+void DdcmpInitLayerAdjacencyUpComplete(adjacency_t *adjacency)
+{
+	/* this will not normally be called because the decision layer does not report adjacency up complete for non-broadcast circuits */
+    AdjacencyUpComplete(adjacency);
+}
+
+void DdcmpInitLayerAdjacencyDownComplete(adjacency_t *adjacency)
+{
+	/* this will not normally be called because the decision layer does not report adjacency down complete for non-broadcast circuits */
+    AdjacencyDownComplete(adjacency);
+}
+
 void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_msg_t *msg)
 {
     AdjacencyType at;

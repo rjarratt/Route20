@@ -248,7 +248,6 @@ static void AdjacencyUp(adjacency_t *adjacency)
 {
 	SoftAdjacencyUp(adjacency);
 	stateChangeCallback(adjacency);
-	Log(LogAdjacency, LogInfo, "Adjacency up "); LogDecnetAddress(LogAdjacency, LogInfo, &adjacency->id); Log(LogAdjacency, LogInfo, " (Slot %d) on %s\n", adjacency->slot, adjacency->circuit->name);
 }
 
 static void SoftAdjacencyUp(adjacency_t *adjacency)
@@ -256,10 +255,19 @@ static void SoftAdjacencyUp(adjacency_t *adjacency)
 	adjacency->state = Up;
 }
 
+void AdjacencyUpComplete(adjacency_t *adjacency)
+{
+	Log(LogAdjacency, LogInfo, "Adjacency up "); LogDecnetAddress(LogAdjacency, LogInfo, &adjacency->id); Log(LogAdjacency, LogInfo, " (Slot %d) on %s\n", adjacency->slot, adjacency->circuit->name);
+}
+
 void AdjacencyDown(adjacency_t *adjacency)
 {
 	adjacency->state = Initialising;
 	stateChangeCallback(adjacency);
+}
+
+void AdjacencyDownComplete(adjacency_t *adjacency)
+{
 	Log(LogAdjacency, LogInfo, "Adjacency down "); LogDecnetAddress(LogAdjacency, LogInfo, &adjacency->id); Log(LogAdjacency, LogInfo, " (Slot %d)\n", adjacency->slot);
 }
 
@@ -471,6 +479,7 @@ static int PurgeAdjacencyCallback(adjacency_t *adjacency, void *context)
 
 	if ((now - adjacency->lastHeardFrom) > (mult * adjacency->helloTimerPeriod))
 	{
+	    Log(LogAdjacency, LogInfo, "Adjacency timeout "); LogDecnetAddress(LogAdjacency, LogInfo, &adjacency->id); Log(LogAdjacency, LogInfo, " (Slot %d)\n", adjacency->slot);
         if (IsBroadcastCircuit(adjacency->circuit))
         {
             if (adjacency->state == Up)
@@ -485,7 +494,6 @@ static int PurgeAdjacencyCallback(adjacency_t *adjacency, void *context)
         }
         else
         {
-	        Log(LogAdjacency, LogInfo, "Adjacency timeout "); LogDecnetAddress(LogAdjacency, LogInfo, &adjacency->id); Log(LogAdjacency, LogInfo, " (Slot %d)\n", adjacency->slot);
             if (adjacency->circuit->state == CircuitStateUp)
             {
                 CircuitReject(adjacency->circuit);
