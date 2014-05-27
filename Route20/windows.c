@@ -56,6 +56,8 @@ static void LogWin32Error(char *format, DWORD err);
 static void ProcessStopEvent(void *context);
 static void ProcessPackets(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *));
 static BOOL WINAPI StopSignalHandler(DWORD controlType);
+static void SetupConfigWatcher();
+static void ConfigWatchHandler(void *context);
 
 static LONG WINAPI ExceptionFilter(EXCEPTION_POINTERS* pExp, DWORD dwExpCode);
 static void LogCallStack(CONTEXT *context, HANDLE thread, unsigned long code);
@@ -81,6 +83,7 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 	int err;
 
     InitialiseLogging(CONFIG_FILE_NAME);
+	SetupConfigWatcher();
     OpenLog();
 	SymSetOptions(SYMOPT_LOAD_LINES);
 
@@ -314,6 +317,22 @@ static BOOL WINAPI StopSignalHandler(DWORD controlType)
 	Log(LogGeneral, LogInfo, "Stop signal received\n");
 	SetEvent(ghSvcStopEvent);
 	return TRUE;
+}
+
+static void SetupConfigWatcher()
+{
+	TCHAR path[MAX_PATH + 1];
+	unsigned int watchHandle;
+	GetCurrentDirectory(MAX_PATH + 1, path);
+	watchHandle = (unsigned int)FindFirstChangeNotification(path, FALSE, FILE_NOTIFY_CHANGE_LAST_WRITE);
+	RegisterEventHandler(watchHandle, "FileWatcher", (void *)watchHandle, ConfigWatchHandler);
+}
+
+static void ConfigWatchHandler(void *context)
+{
+	FindNextChangeNotification((HANDLE)context);
+	/* ought to check if the actual config file has changed, the notify just means any file in the current directory has changed */
+    InitialiseLogging(CONFIG_FILE_NAME);
 }
 
 static VOID SvcInstall()
