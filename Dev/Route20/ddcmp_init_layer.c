@@ -26,6 +26,8 @@ in this Software without prior written authorization from the author.
 
 ------------------------------------------------------------------------------*/
 
+// TODO: Consider active connections over DDCMP so two routers can connect back to back. Requires connection arbitration.
+
 #include "constants.h"
 #include "basictypes.h"
 #include "platform.h"
