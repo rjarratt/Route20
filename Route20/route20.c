@@ -910,7 +910,10 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 		if (IsValidInitializationMessage(packet))
 		{
 			initialization_msg_t *msg = ParseInitializationMessage(packet);
-            DdcmpInitProcessInitializationMessage(circuit, msg);
+			if (msg != NULL)
+			{
+                DdcmpInitProcessInitializationMessage(circuit, msg);
+			}
 		}
 		else
 		{
@@ -974,14 +977,17 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 			routing_msg_t *msg;
 			LogMessage(circuit, packet, "Level 2 Routing");
 			msg = ParseRoutingMessage(packet);
-			if (CompareDecnetAddress(&msg->srcnode, &nodeInfo.address))
+			if (msg != NULL)
 			{
-				LogLoopbackMessage(circuit, packet, "Level 2 Routing");
-			}
-			else if (msg != NULL)
-			{
-				ProcessLevel2RoutingMessage(msg);
-				FreeRoutingMessage(msg);
+				if (CompareDecnetAddress(&msg->srcnode, &nodeInfo.address))
+				{
+					LogLoopbackMessage(circuit, packet, "Level 2 Routing");
+				}
+				else if (msg != NULL)
+				{
+					ProcessLevel2RoutingMessage(msg);
+					FreeRoutingMessage(msg);
+				}
 			}
 		}
 	}
