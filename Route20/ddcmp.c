@@ -982,25 +982,39 @@ static void ProcessDataMessage(ddcmp_line_t *ddcmpLine)
 	byte resp;
 	byte num;
 	int addr;
+	int valid = 1;
+	char *msgName = "DATA";
+
 	count = GetDataMessageCount(cb->currentMessage);
 	flags = GetMessageFlags(cb->currentMessage);
 	resp = GetMessageResp(cb->currentMessage);
 	num = GetMessageNum(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
-	ddcmpLine->Log(LogDetail, "Received DATA message from %s. Len=%d, Flags=%s%s, R=%d, N=%d, Addr=%d\n", ddcmpLine->name, count, LOGFLAGS(flags), resp, num, addr);
+	ddcmpLine->Log(LogDetail, "Received %s message from %s. Len=%d, Flags=%s%s, R=%d, N=%d, Addr=%d\n", msgName, ddcmpLine->name, count, LOGFLAGS(flags), resp, num, addr);
 
-	if (Mod256Cmp(cb->A, resp) < 0 && Mod256Cmp(resp, cb->N) <= 0)
-	{
-		ProcessEvent(ddcmpLine, ReceiveAckForOutstandingMsg);
-	}
+	ValidateMessage(ddcmpLine, &valid, addr == 1, msgName, "Address should be 1");
+	ValidateMessage(ddcmpLine, &valid, count == cb->currentMessage->length - 10, msgName, "Data length does not match count in header");
 
-	if (num == ((cb->R + 1) & 0xFF))
+	if (valid)
 	{
-		ProcessEvent(ddcmpLine, ReceiveDataMsgInSequence);
+		if (Mod256Cmp(cb->A, resp) < 0 && Mod256Cmp(resp, cb->N) <= 0)
+		{
+			ProcessEvent(ddcmpLine, ReceiveAckForOutstandingMsg);
+		}
+
+		if (num == ((cb->R + 1) & 0xFF))
+		{
+			ProcessEvent(ddcmpLine, ReceiveDataMsgInSequence);
+		}
+		else
+		{
+			ProcessEvent(ddcmpLine, ReceiveDataMsgOutOfSequence);
+		}
 	}
 	else
 	{
-		ProcessEvent(ddcmpLine, ReceiveDataMsgOutOfSequence);
+		cb->NAKReason = 17;
+		SendNak(ddcmpLine);
 	}
 }
 
