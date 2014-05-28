@@ -1,31 +1,31 @@
 /* ddcmp.c: DDCMP protocol
-  ------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 
-   Copyright (c) 2013, Robert M. A. Jarratt
-   CRC-16 code Mark Pizzolato
+Copyright (c) 2013, Robert M. A. Jarratt
+CRC-16 code Mark Pizzolato
 
-   Permission is hereby granted, free of charge, to any person obtaining a
-   copy of this software and associated documentation files (the "Software"),
-   to deal in the Software without restriction, including without limitation
-   the rights to use, copy, modify, merge, publish, distribute, sublicense,
-   and/or sell copies of the Software, and to permit persons to whom the
-   Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
 
-   The above copyright notice and this permission notice shall be included in
-   all copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-   THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-   IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-   CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-   Except as contained in this notice, the name of the author shall not be
-   used in advertising or otherwise to promote the sale, use or other dealings
-   in this Software without prior written authorization from the author.
+Except as contained in this notice, the name of the author shall not be
+used in advertising or otherwise to promote the sale, use or other dealings
+in this Software without prior written authorization from the author.
 
-  ------------------------------------------------------------------------------*/
+------------------------------------------------------------------------------*/
 
 // TODO: Make sure buffers cannot overflow if receive malformed message (test with a buffer size that is too small).
 // TODO: Implement SELECT for half-duplex
@@ -196,7 +196,9 @@ static void ProcessStackMessage(ddcmp_line_t *ddcmpLine);
 static void ProcessAckMessage(ddcmp_line_t *ddcmpLine);
 static void ProcessNakMessage(ddcmp_line_t *ddcmpLine);
 static void ProcessRepMessage(ddcmp_line_t *ddcmpLine);
+static void ValidateMessage(ddcmp_line_t *ddcmpLine, int *valid, int validTerm, char *messageName, char *errorMessage);
 static unsigned int GetDataMessageCount(buffer_t *message);
+static byte GetSubtype(buffer_t *message);
 static byte GetMessageFlags(buffer_t *message);
 static byte GetMessageNum(buffer_t *message);
 static byte GetMessageResp(buffer_t *message);
@@ -282,9 +284,9 @@ static state_table_entry_t stateTable[] =
 
 /* crc16 polynomial x^16 + x^15 + x^2 + 1 (0xA001) CCITT LSB */
 static uint16 crc16_nibble[16] = {
-    0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00, 0x2800, 0xE401,
-    0xA001, 0x6C00, 0x7800, 0xB401, 0x5000, 0x9C01, 0x8801, 0x4400,
-    };
+	0x0000, 0xCC01, 0xD801, 0x1400, 0xF001, 0x3C00, 0x2800, 0xE401,
+	0xA001, 0x6C00, 0x7800, 0xB401, 0x5000, 0x9C01, 0x8801, 0x4400,
+};
 
 void DdcmpStart(ddcmp_line_t *ddcmpLine)
 {
@@ -323,9 +325,9 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 	//LogBuffer(ddcmpLine, LogFatal, &cb->partialBuffer);
 	//ddcmpLine->Log(LogFatal, "\n");
 
-    messageReadyToRead = 0;
+	messageReadyToRead = 0;
 
-    /* to avoid overrunning the single-message buffer, stop the loop if a message is ready to be read */
+	/* to avoid overrunning the single-message buffer, stop the loop if a message is ready to be read */
 	while(BufferStillHasData(&cb->partialBuffer) && !messageReadyToRead)
 	{
 		if (!cb->partialBufferIsSynchronized)
@@ -334,7 +336,7 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 			TruncateUsedBufferPortion(&cb->partialBuffer);
 		}
 
-	    if (cb->partialBufferIsSynchronized)
+		if (cb->partialBufferIsSynchronized)
 		{
 			ExtractBufferResult extractResult;
 			cb->currentMessage = &extractedBuffer; /* set up location to store buffer to */
@@ -368,7 +370,7 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 					}
 				}
 			}
-			
+
 			if (extractResult == Incomplete)
 			{
 				break;
@@ -394,25 +396,25 @@ int DdcmpSendDataMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
 	else if (cb->state == DdcmpLineRunning)
 	{
 		if (cb->T == ((cb->N + (byte)1) & 0xFF) && cb->SACKNAK != SNAK && !cb->SREP)
-        {
-            transmit_queue_entry_t *entry = AllocateNextTransmitQueueEntry(&cb->transmitQueueCtrl);
-            if (entry != NULL)
-            {
-                entry->header[0] = SOH;
-                entry->header[1] = length & 0xFF;
-                entry->header[2] = (length >> 8) & 0x3F;
-                entry->header[3] = cb->R;
-                entry->header[4] = cb->N + (byte)1;
-                entry->header[5] = station;
-                AddCrc16ToBuffer(entry->header, 6);
-                memcpy(entry->data, data, length);
-                AddCrc16ToBuffer(entry->data, length);
-                InitialiseBuffer(&entry->buffer, entry->header, 8 + length +2);
-                cb->currentMessage = &entry->buffer;
-                ProcessEvent(ddcmpLine, UserRequestsDataSendAndReadyToSend);
-                ans = 1;
-            }
-        }
+		{
+			transmit_queue_entry_t *entry = AllocateNextTransmitQueueEntry(&cb->transmitQueueCtrl);
+			if (entry != NULL)
+			{
+				entry->header[0] = SOH;
+				entry->header[1] = length & 0xFF;
+				entry->header[2] = (length >> 8) & 0x3F;
+				entry->header[3] = cb->R;
+				entry->header[4] = cb->N + (byte)1;
+				entry->header[5] = station;
+				AddCrc16ToBuffer(entry->header, 6);
+				memcpy(entry->data, data, length);
+				AddCrc16ToBuffer(entry->data, length);
+				InitialiseBuffer(&entry->buffer, entry->header, 8 + length +2);
+				cb->currentMessage = &entry->buffer;
+				ProcessEvent(ddcmpLine, UserRequestsDataSendAndReadyToSend);
+				ans = 1;
+			}
+		}
 	}
 
 	DoIdle(ddcmpLine);
@@ -452,7 +454,7 @@ static int ExtendBuffer(buffer_t *originalBuffer, buffer_t *buffer, int length)
 	int ans = 0;
 	if (RemainingBytesInBuffer(originalBuffer) >= length)
 	{
-	    buffer->length += length;
+		buffer->length += length;
 		AdvanceBufferPostion(originalBuffer, length);
 		ans = 1;
 	}
@@ -583,7 +585,7 @@ static transmit_queue_entry_t *AllocateNextTransmitQueueEntry(transmit_queue_ctr
 
 static transmit_queue_entry_t *GetFirstUnacknowledgedTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl)
 {
-    transmit_queue_entry_t *ans = NULL;
+	transmit_queue_entry_t *ans = NULL;
 	if (transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry->slotInUse)
 	{
 		ans = transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry;
@@ -595,7 +597,7 @@ static transmit_queue_entry_t *GetFirstUnacknowledgedTransmitQueueEntry(transmit
 
 static transmit_queue_entry_t *GetCurrentTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl)
 {
-    transmit_queue_entry_t *ans = NULL;
+	transmit_queue_entry_t *ans = NULL;
 	if (transmitQueueCtrl->currentTransmitQueueEntry->slotInUse)
 	{
 		ans = transmitQueueCtrl->currentTransmitQueueEntry;
@@ -607,10 +609,10 @@ static transmit_queue_entry_t *GetCurrentTransmitQueueEntry(transmit_queue_ctrl_
 static void FreeTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl)
 {
 	transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry->slotInUse = 0;
-    if (transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry != transmitQueueCtrl->lastAllocatedTransmitQueueEntry)
-    {
-	    transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry = transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry->next;
-    }
+	if (transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry != transmitQueueCtrl->lastAllocatedTransmitQueueEntry)
+	{
+		transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry = transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry->next;
+	}
 }
 
 static ddcmp_line_control_block_t *GetControlBlock(ddcmp_line_t *ddcmpLine)
@@ -620,29 +622,29 @@ static ddcmp_line_control_block_t *GetControlBlock(ddcmp_line_t *ddcmpLine)
 
 static int Mod256Cmp(byte a, byte b)
 {
-    int ans;
-    int abdiff = b - a;
-    int badiff = a - b;
+	int ans;
+	int abdiff = b - a;
+	int badiff = a - b;
 
-    if (abdiff == 0)
-    {
-        ans = 0;
-    }
-    else if (abdiff < 0)
-    {
-        ans = -1;
-    }
-    else
-    {
-        ans = 1;
-    }
+	if (abdiff == 0)
+	{
+		ans = 0;
+	}
+	else if (abdiff < 0)
+	{
+		ans = -1;
+	}
+	else
+	{
+		ans = 1;
+	}
 
-    if (abs(badiff) <= MAX_TRANSMIT_QUEUE_LEN)
-    {
-        ans = -1 * ans;
-    }
+	if (abs(badiff) <= MAX_TRANSMIT_QUEUE_LEN)
+	{
+		ans = -1 * ans;
+	}
 
-    return ans;
+	return ans;
 }
 
 static uint16 Crc16(uint16 crc, buffer_t *buffer)
@@ -676,7 +678,7 @@ static void DoIdle(ddcmp_line_t *ddcmpLine)
 
 	/* Order is as per note 5 of section 5.3.9 of the spec */
 
-    if (cb->SACKNAK == SNAK)
+	if (cb->SACKNAK == SNAK)
 	{
 		SendNak(ddcmpLine);
 	}
@@ -825,7 +827,7 @@ static int SendMessageAddingCrc16(ddcmp_line_t *ddcmpLine, byte *data, int lengt
 	buffer_t msgBuf;
 
 	InitialiseBuffer(&msgBuf, data, length);
-    crc16 = Crc16 (0, &msgBuf);
+	crc16 = Crc16 (0, &msgBuf);
 	crc[0] = crc16 & 0xFF;
 	crc[1] = crc16 >> 8;
 	ddcmpLine->SendData(ddcmpLine->context, data, length);
@@ -855,7 +857,7 @@ static void StartTimer(ddcmp_line_t *ddcmpLine, int seconds)
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	if (cb->replyTimerHandle == NULL)
 	{
-	    ddcmpLine->Log(LogVerbose, "Starting timer for %d seconds\n", seconds);
+		ddcmpLine->Log(LogVerbose, "Starting timer for %d seconds\n", seconds);
 		cb->replyTimerHandle = ddcmpLine->CreateOneShotTimer(ddcmpLine, "Reply timer", seconds, ReplyTimerHandler);
 	}
 }
@@ -865,7 +867,7 @@ static void StopTimer(ddcmp_line_t *ddcmpLine)
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	if (cb->replyTimerHandle != NULL)
 	{
-	    ddcmpLine->Log(LogVerbose, "Stopping timer\n");
+		ddcmpLine->Log(LogVerbose, "Stopping timer\n");
 		ddcmpLine->CancelOneShotTimer(cb->replyTimerHandle);
 		cb->replyTimerHandle = NULL;
 	}
@@ -987,106 +989,184 @@ static void ProcessDataMessage(ddcmp_line_t *ddcmpLine)
 
 static void ProcessStartMessage(ddcmp_line_t *ddcmpLine)
 {
-	// TODO: proper message validation
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	int flags;
 	int addr;
+	int valid = 1;
+	char *msgName = "STRT";
 
 	flags = GetMessageFlags(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogDetail, "Received STRT message from %s. Flags=%s%s, Addr=%d\n", ddcmpLine->name, LOGFLAGS(flags), addr);
-	ProcessEvent(ddcmpLine, ReceiveStrt);
+	ValidateMessage(ddcmpLine, &valid, GetSubtype(cb->currentMessage) != 0, msgName, "Subtype should be 0");
+	ValidateMessage(ddcmpLine, &valid, flags == 3, msgName, "Flags should be 3");
+	ValidateMessage(ddcmpLine, &valid, ByteAt(cb->currentMessage, 3) == 0, msgName, "Fill byte should be 0");
+	ValidateMessage(ddcmpLine, &valid, ByteAt(cb->currentMessage, 4) == 0, msgName, "Fill byte should be 0");
+	ValidateMessage(ddcmpLine, &valid, addr == 1, msgName, "Address should be 1");
+
+	if (valid)
+	{
+		ddcmpLine->Log(LogDetail, "Received %s message from %s. Flags=%s%s, Addr=%d\n", msgName, ddcmpLine->name, LOGFLAGS(flags), addr);
+		ProcessEvent(ddcmpLine, ReceiveStrt);
+	}
+	else
+	{
+		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored\n", msgName, ddcmpLine->name);
+	}
 }
 
 static void ProcessStackMessage(ddcmp_line_t *ddcmpLine)
 {
-	// TODO: proper message validation
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	int flags;
 	int addr;
+	int valid = 1;
+	char *msgName = "STACK";
 
 	flags = GetMessageFlags(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogDetail, "Received STACK message from %s. Flags=%s%s, Addr=%d\n", ddcmpLine->name, LOGFLAGS(flags), addr);
-	ProcessEvent(ddcmpLine, ReceiveStack);
+	ValidateMessage(ddcmpLine, &valid, GetSubtype(cb->currentMessage) != 0, msgName, "Subtype should be 0");
+	ValidateMessage(ddcmpLine, &valid, flags == 3, msgName, "Flags should be 3");
+	ValidateMessage(ddcmpLine, &valid, ByteAt(cb->currentMessage, 3) == 0, msgName, "Fill byte should be 0");
+	ValidateMessage(ddcmpLine, &valid, ByteAt(cb->currentMessage, 4) == 0, msgName, "Fill byte should be 0");
+	ValidateMessage(ddcmpLine, &valid, addr == 1, msgName, "Address should be 1");
+
+	if (valid)
+	{
+	    ddcmpLine->Log(LogDetail, "Received %s message from %s. Flags=%s%s, Addr=%d\n", msgName, ddcmpLine->name, LOGFLAGS(flags), addr);
+	    ProcessEvent(ddcmpLine, ReceiveStack);
+	}
+	else
+	{
+		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored\n", msgName, ddcmpLine->name);
+	}
 }
 
 static void ProcessAckMessage(ddcmp_line_t *ddcmpLine)
 {
-	// TODO: proper message validation
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	byte flags;
 	byte addr;
 	byte resp;
+	int valid = 1;
+	char *msgName = "ACK";
 
 	flags = GetMessageFlags(cb->currentMessage);
 	resp = GetMessageResp(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogDetail, "Received ACK message from %s. Flags=%s%s, R=%d, Addr=%d\n", ddcmpLine->name, LOGFLAGS(flags), resp, addr);
-	if (resp == 0)
+	ValidateMessage(ddcmpLine, &valid, GetSubtype(cb->currentMessage) != 0, msgName, "Subtype should be 0");
+	ValidateMessage(ddcmpLine, &valid, ByteAt(cb->currentMessage, 4) == 0, msgName, "Fill byte should be 0");
+	ValidateMessage(ddcmpLine, &valid, addr == 1, msgName, "Address should be 1");
+
+	if (valid)
 	{
-	    ProcessEvent(ddcmpLine, ReceiveAckResp0);
+		ddcmpLine->Log(LogDetail, "Received %s message from %s. Flags=%s%s, R=%d, Addr=%d\n", msgName, ddcmpLine->name, LOGFLAGS(flags), resp, addr);
+		if (resp == 0)
+		{
+			ProcessEvent(ddcmpLine, ReceiveAckResp0);
+		}
+		else if (Mod256Cmp(cb->A, resp) < 0 && Mod256Cmp(resp, cb->N) <= 0)
+		{
+			ProcessEvent(ddcmpLine, ReceiveAckForOutstandingMsg);
+		}
 	}
-	else if (Mod256Cmp(cb->A, resp) < 0 && Mod256Cmp(resp, cb->N) <= 0)
+	else
 	{
-	    ProcessEvent(ddcmpLine, ReceiveAckForOutstandingMsg);
+		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored\n", msgName, ddcmpLine->name);
 	}
 }
 
 static void ProcessNakMessage(ddcmp_line_t *ddcmpLine)
 {
-	// TODO: proper message validation
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	byte flags;
 	byte addr;
 	byte resp;
+	int valid = 1;
+	char *msgName = "NAK";
 
 	flags = GetMessageFlags(cb->currentMessage);
 	resp = GetMessageResp(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogDetail, "Received NAK message from %s. Flags=%s%s, R=%d, Addr=%d\n", ddcmpLine->name, LOGFLAGS(flags), resp, addr);
-	if (Mod256Cmp(cb->A, resp) <= 0 || Mod256Cmp(resp, cb->N) > 0)
+	ValidateMessage(ddcmpLine, &valid, ByteAt(cb->currentMessage, 4) == 0, msgName, "Fill byte should be 0");
+	ValidateMessage(ddcmpLine, &valid, addr == 1, msgName, "Address should be 1");
+
+	if (valid)
 	{
-	    ProcessEvent(ddcmpLine, ReceiveNakForOutstandingMsg);
+		ddcmpLine->Log(LogDetail, "Received %s message from %s. Flags=%s%s, R=%d, Addr=%d\n", msgName, ddcmpLine->name, LOGFLAGS(flags), resp, addr);
+		if (Mod256Cmp(cb->A, resp) <= 0 || Mod256Cmp(resp, cb->N) > 0)
+		{
+			ProcessEvent(ddcmpLine, ReceiveNakForOutstandingMsg);
+		}
+	}
+	else
+	{
+		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored\n", msgName, ddcmpLine->name);
 	}
 }
 
 static void ProcessRepMessage(ddcmp_line_t *ddcmpLine)
 {
-	// TODO: proper message validation
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	int flags;
 	int addr;
 	int num;
+	int valid = 1;
+	char *msgName = "REP";
 
 	flags = GetMessageFlags(cb->currentMessage);
 	num = GetMessageNum(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ddcmpLine->Log(LogDetail, "Received REP message from %s. Flags=%s%s, N=%d, Addr=%d\n", ddcmpLine->name, LOGFLAGS(flags), num, addr);
+	ValidateMessage(ddcmpLine, &valid, GetSubtype(cb->currentMessage) != 0, msgName, "Subtype should be 0");
+	ValidateMessage(ddcmpLine, &valid, ByteAt(cb->currentMessage, 3) == 0, msgName, "Fill byte should be 0");
+	ValidateMessage(ddcmpLine, &valid, addr == 1, msgName, "Address should be 1");
 
-	if (num == cb->R)
+	if (valid)
 	{
-		ProcessEvent(ddcmpLine, ReceiveRepNumEqualsR);
+		ddcmpLine->Log(LogDetail, "Received %s message from %s. Flags=%s%s, N=%d, Addr=%d\n", msgName, ddcmpLine->name, LOGFLAGS(flags), num, addr);
+
+		if (num == cb->R)
+		{
+			ProcessEvent(ddcmpLine, ReceiveRepNumEqualsR);
+		}
+		else
+		{
+			ProcessEvent(ddcmpLine, ReceiveRepNumNotEqualsR);
+		}
 	}
 	else
 	{
-		ProcessEvent(ddcmpLine, ReceiveRepNumNotEqualsR);
+		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored\n", msgName, ddcmpLine->name);
 	}
+}
+
+static void ValidateMessage(ddcmp_line_t *ddcmpLine, int *valid, int validTerm, char *messageName, char *errorMessage)
+{
+	if (!validTerm)
+	{
+		ddcmpLine->Log(LogWarning, "Invalid %s message from %s: %s\n", messageName, ddcmpLine->name, errorMessage);
+	}
+
+	*valid = *valid && validTerm;
 }
 
 static unsigned int GetDataMessageCount(buffer_t *message)
 {
 	unsigned int count;
 
-    count = ByteAt(message, 1) & 0xFF;
+	count = ByteAt(message, 1) & 0xFF;
 	count += (ByteAt(message,2) & 0x3F) << 8;
 
 	return count;
+}
+
+static byte GetSubtype(buffer_t *message)
+{
+	return ByteAt(message, 2) & 0xC0;
 }
 
 static byte GetMessageFlags(buffer_t *message)
@@ -1271,26 +1351,26 @@ static int GiveMessageToUserAction(ddcmp_line_t *ddcmpLine)
 		cb->SACKNAK = SNAK;
 		ans = 0;
 	}
-    else
-    {
-        messageReadyToRead = 1;
-    }
+	else
+	{
+		messageReadyToRead = 1;
+	}
 
 	return ans;
 }
 
 static int SendMessageAction(ddcmp_line_t *ddcmpLine)
 {
-    ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-    int num;
-    int resp;
-    UpdateTransmitHeader(cb->currentMessage, cb);
-    num = GetMessageNum(cb->currentMessage);
-    resp = GetMessageResp(cb->currentMessage);
-    ddcmpLine->Log(LogVerbose, "Send next message action for %s\n", ddcmpLine->name);
-    ddcmpLine->Log(LogDetail, "Sending Data to %s. N=%d, R=%d\n", ddcmpLine->name, num, resp);
-    SendRawMessage(ddcmpLine, cb->currentMessage->data, cb->currentMessage->length);
-    return 1;
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	int num;
+	int resp;
+	UpdateTransmitHeader(cb->currentMessage, cb);
+	num = GetMessageNum(cb->currentMessage);
+	resp = GetMessageResp(cb->currentMessage);
+	ddcmpLine->Log(LogVerbose, "Send next message action for %s\n", ddcmpLine->name);
+	ddcmpLine->Log(LogDetail, "Sending Data to %s. N=%d, R=%d\n", ddcmpLine->name, num, resp);
+	SendRawMessage(ddcmpLine, cb->currentMessage->data, cb->currentMessage->length);
+	return 1;
 }
 
 static int IncrementNAction(ddcmp_line_t *ddcmpLine)
@@ -1374,26 +1454,26 @@ static int CompleteMessageAction(ddcmp_line_t *ddcmpLine)
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	byte resp = GetMessageResp(cb->currentMessage);
 	ddcmpLine->Log(LogVerbose, "Complete message action for %s\n", ddcmpLine->name);
-	
+
 	while (1)
 	{
 		transmit_queue_entry_t *entry = GetFirstUnacknowledgedTransmitQueueEntry(&cb->transmitQueueCtrl);
 		if (entry == NULL)
 		{
-            break;
+			break;
 		}
 		else
-        {
-            byte N = GetMessageNum(&entry->buffer);
-            if (Mod256Cmp(N, resp) <= 0)
-            {
-                FreeTransmitQueueEntry(&cb->transmitQueueCtrl);
-            }
-            else
-            {
-                break;
-            }
-        }
+		{
+			byte N = GetMessageNum(&entry->buffer);
+			if (Mod256Cmp(N, resp) <= 0)
+			{
+				FreeTransmitQueueEntry(&cb->transmitQueueCtrl);
+			}
+			else
+			{
+				break;
+			}
+		}
 	}
 
 	return 1;
