@@ -29,7 +29,6 @@ in this Software without prior written authorization from the author.
 
 // TODO: Make sure buffers cannot overflow if receive malformed message (test with a buffer size that is too small).
 // TODO: Implement SELECT for half-duplex
-// TODO: Send NAK if CRC is wrong (2.5.3.1)
 // TODO: perhaps remove position stuff from buffer.
 
 #include <stdlib.h>
@@ -168,6 +167,7 @@ static void SetBufferPosition(buffer_t *buffer, int position);
 static void AppendBuffer(buffer_t *dst, buffer_t *src);
 static void TruncateUsedBufferPortion(buffer_t *buffer);
 static void LogBuffer(ddcmp_line_t *line, LogLevel level, buffer_t *buffer);
+static void LogFullBuffer(ddcmp_line_t *line, LogLevel level, buffer_t *buffer);
 
 static void InitialiseTransmitQueue(transmit_queue_ctrl_t *transmitQueueCtrl);
 static transmit_queue_entry_t *AllocateNextTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl);
@@ -370,6 +370,10 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 					}
 				}
 			}
+			else if (extractResult == CompleteBad && CurrentByte(cb->currentMessage) == SOH)
+			{
+				SendNak(ddcmpLine); /* NAK reason has been set up in ExtractMessage */
+			}
 
 			if (extractResult == Incomplete)
 			{
@@ -526,6 +530,13 @@ static void LogBuffer(ddcmp_line_t *line, LogLevel level, buffer_t *buffer)
 	{
 		line->Log(level, "%02X ", ByteAt(buffer, buffer->position + i));
 	}
+}
+
+static void LogFullBuffer(ddcmp_line_t *line, LogLevel level, buffer_t *buffer)
+{
+	ResetBuffer(buffer);
+	LogBuffer(line, level, buffer);
+	line->Log(level, "\n");
 }
 
 static void InitialiseTransmitQueue(transmit_queue_ctrl_t *transmitQueueCtrl)
@@ -754,7 +765,8 @@ static ExtractBufferResult ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buf
 				else
 				{
 					ans = CompleteBad;
-					ddcmpLine->Log(LogWarning, "CRC error on recieved message\n");
+					ddcmpLine->Log(LogWarning, "CRC error on received message: ");
+					LogFullBuffer(ddcmpLine, LogWarning, cb->currentMessage);
 				}
 			}
 			else
@@ -784,7 +796,9 @@ static ExtractBufferResult ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buf
 						else
 						{
 							ans = CompleteBad;
-							ddcmpLine->Log(LogWarning, "CRC error on recieved data block\n");
+							cb->NAKReason = 2;
+							ddcmpLine->Log(LogWarning, "CRC error on received data block: ");
+					        LogFullBuffer(ddcmpLine, LogWarning, cb->currentMessage);
 						}
 					}
 					else
@@ -795,7 +809,9 @@ static ExtractBufferResult ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buf
 				else
 				{
 					ans = CompleteBad;
-					ddcmpLine->Log(LogWarning, "CRC error on recieved message header\n");
+					cb->NAKReason = 1;
+					ddcmpLine->Log(LogWarning, "CRC error on received message header: ");
+					LogFullBuffer(ddcmpLine, LogWarning, cb->currentMessage);
 				}
 			}
 			else
@@ -959,6 +975,7 @@ static void ProcessControlMessage(ddcmp_line_t *ddcmpLine)
 
 static void ProcessDataMessage(ddcmp_line_t *ddcmpLine)
 {
+	// TODO: validate data message
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	unsigned int count;
 	int flags;
@@ -998,7 +1015,7 @@ static void ProcessStartMessage(ddcmp_line_t *ddcmpLine)
 	flags = GetMessageFlags(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ValidateMessage(ddcmpLine, &valid, GetSubtype(cb->currentMessage) != 0, msgName, "Subtype should be 0");
+	ValidateMessage(ddcmpLine, &valid, GetSubtype(cb->currentMessage) == 0, msgName, "Subtype should be 0");
 	ValidateMessage(ddcmpLine, &valid, flags == 3, msgName, "Flags should be 3");
 	ValidateMessage(ddcmpLine, &valid, ByteAt(cb->currentMessage, 3) == 0, msgName, "Fill byte should be 0");
 	ValidateMessage(ddcmpLine, &valid, ByteAt(cb->currentMessage, 4) == 0, msgName, "Fill byte should be 0");
@@ -1011,7 +1028,8 @@ static void ProcessStartMessage(ddcmp_line_t *ddcmpLine)
 	}
 	else
 	{
-		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored\n", msgName, ddcmpLine->name);
+		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored: ", msgName, ddcmpLine->name);
+		LogFullBuffer(ddcmpLine, LogWarning, cb->currentMessage);
 	}
 }
 
@@ -1026,7 +1044,7 @@ static void ProcessStackMessage(ddcmp_line_t *ddcmpLine)
 	flags = GetMessageFlags(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ValidateMessage(ddcmpLine, &valid, GetSubtype(cb->currentMessage) != 0, msgName, "Subtype should be 0");
+	ValidateMessage(ddcmpLine, &valid, GetSubtype(cb->currentMessage) == 0, msgName, "Subtype should be 0");
 	ValidateMessage(ddcmpLine, &valid, flags == 3, msgName, "Flags should be 3");
 	ValidateMessage(ddcmpLine, &valid, ByteAt(cb->currentMessage, 3) == 0, msgName, "Fill byte should be 0");
 	ValidateMessage(ddcmpLine, &valid, ByteAt(cb->currentMessage, 4) == 0, msgName, "Fill byte should be 0");
@@ -1039,7 +1057,8 @@ static void ProcessStackMessage(ddcmp_line_t *ddcmpLine)
 	}
 	else
 	{
-		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored\n", msgName, ddcmpLine->name);
+		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored: ", msgName, ddcmpLine->name);
+		LogFullBuffer(ddcmpLine, LogWarning, cb->currentMessage);
 	}
 }
 
@@ -1056,7 +1075,7 @@ static void ProcessAckMessage(ddcmp_line_t *ddcmpLine)
 	resp = GetMessageResp(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ValidateMessage(ddcmpLine, &valid, GetSubtype(cb->currentMessage) != 0, msgName, "Subtype should be 0");
+	ValidateMessage(ddcmpLine, &valid, GetSubtype(cb->currentMessage) == 0, msgName, "Subtype should be 0");
 	ValidateMessage(ddcmpLine, &valid, ByteAt(cb->currentMessage, 4) == 0, msgName, "Fill byte should be 0");
 	ValidateMessage(ddcmpLine, &valid, addr == 1, msgName, "Address should be 1");
 
@@ -1074,19 +1093,22 @@ static void ProcessAckMessage(ddcmp_line_t *ddcmpLine)
 	}
 	else
 	{
-		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored\n", msgName, ddcmpLine->name);
+		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored: ", msgName, ddcmpLine->name);
+		LogFullBuffer(ddcmpLine, LogWarning, cb->currentMessage);
 	}
 }
 
 static void ProcessNakMessage(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	byte reason;
 	byte flags;
 	byte addr;
 	byte resp;
 	int valid = 1;
 	char *msgName = "NAK";
 
+	reason = GetSubtype(cb->currentMessage);
 	flags = GetMessageFlags(cb->currentMessage);
 	resp = GetMessageResp(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
@@ -1096,7 +1118,7 @@ static void ProcessNakMessage(ddcmp_line_t *ddcmpLine)
 
 	if (valid)
 	{
-		ddcmpLine->Log(LogDetail, "Received %s message from %s. Flags=%s%s, R=%d, Addr=%d\n", msgName, ddcmpLine->name, LOGFLAGS(flags), resp, addr);
+		ddcmpLine->Log(LogDetail, "Received %s message from %s. Flags=%s%s, Reason=%d, R=%d, Addr=%d\n", msgName, ddcmpLine->name, LOGFLAGS(flags), reason, resp, addr);
 		if (Mod256Cmp(cb->A, resp) <= 0 || Mod256Cmp(resp, cb->N) > 0)
 		{
 			ProcessEvent(ddcmpLine, ReceiveNakForOutstandingMsg);
@@ -1104,7 +1126,8 @@ static void ProcessNakMessage(ddcmp_line_t *ddcmpLine)
 	}
 	else
 	{
-		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored\n", msgName, ddcmpLine->name);
+		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored: ", msgName, ddcmpLine->name);
+		LogFullBuffer(ddcmpLine, LogWarning, cb->currentMessage);
 	}
 }
 
@@ -1121,7 +1144,7 @@ static void ProcessRepMessage(ddcmp_line_t *ddcmpLine)
 	num = GetMessageNum(cb->currentMessage);
 	addr = ByteAt(cb->currentMessage, 5);
 
-	ValidateMessage(ddcmpLine, &valid, GetSubtype(cb->currentMessage) != 0, msgName, "Subtype should be 0");
+	ValidateMessage(ddcmpLine, &valid, GetSubtype(cb->currentMessage) == 0, msgName, "Subtype should be 0");
 	ValidateMessage(ddcmpLine, &valid, ByteAt(cb->currentMessage, 3) == 0, msgName, "Fill byte should be 0");
 	ValidateMessage(ddcmpLine, &valid, addr == 1, msgName, "Address should be 1");
 
@@ -1140,7 +1163,8 @@ static void ProcessRepMessage(ddcmp_line_t *ddcmpLine)
 	}
 	else
 	{
-		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored\n", msgName, ddcmpLine->name);
+		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored: ", msgName, ddcmpLine->name);
+		LogFullBuffer(ddcmpLine, LogWarning, cb->currentMessage);
 	}
 }
 
@@ -1166,7 +1190,7 @@ static unsigned int GetDataMessageCount(buffer_t *message)
 
 static byte GetSubtype(buffer_t *message)
 {
-	return ByteAt(message, 2) & 0xC0;
+	return ByteAt(message, 2) & 0x3F;
 }
 
 static byte GetMessageFlags(buffer_t *message)
