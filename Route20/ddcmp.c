@@ -1410,7 +1410,7 @@ static int SendMessageAction(ddcmp_line_t *ddcmpLine)
 	num = GetMessageNum(cb->currentMessage);
 	resp = GetMessageResp(cb->currentMessage);
 	ddcmpLine->Log(LogVerbose, "Send next message action for %s\n", ddcmpLine->name);
-	ddcmpLine->Log(LogDetail, "Sending Data to %s. N=%d, R=%d\n", ddcmpLine->name, num, resp);
+	ddcmpLine->Log(LogDetail, "Sending Data to %s. Len=%d, N=%d, R=%d\n", ddcmpLine->name, cb->currentMessage->length, num, resp);
 	SendRawMessage(ddcmpLine, cb->currentMessage->data, cb->currentMessage->length);
 	return 1;
 }
