@@ -130,7 +130,7 @@ void EthSetPayload(packet_t *packet)
 
 void DumpPacket(LogSource source, LogLevel level, char *msg, packet_t *packet)
 {
-	Log(source, level, "%s Packet raw length = %d\n", msg, packet->rawLen);
+	Log(source, level, "%s Packet raw length = %d Payload offset = %d, Payload length = %d\n", msg, packet->rawLen, packet->payload - packet->rawData, packet->payloadLen);
 	LogBytes(source, level, packet->rawData, packet->rawLen);
 }
 
