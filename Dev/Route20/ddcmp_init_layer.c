@@ -402,7 +402,6 @@ void DdcmpInitProcessInvalidMessage(circuit_t *circuit)
 {
 	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
     ProcessEvent(ddcmpCircuit, DdcmpInitIMEvent);
-	DdcmpInitCircuitDown(ddcmpCircuit);
 }
 
 void DdcmpInitProcessCircuitRejectComplete(circuit_t *circuit)
