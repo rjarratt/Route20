@@ -852,6 +852,7 @@ static void ProcessCircuitEvent(void *context)
 	packet_t *packet;
 	circuit_t *circuit;
 
+	// TODO: Implement flow control. Look at routing spec, but also avoid pushing all available packets, eg DDCMP may be waiting for acks.
 	circuit = (circuit_t *)context;
 	do
 	{
