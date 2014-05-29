@@ -64,6 +64,7 @@ typedef enum
 	ReceiveRepNumNotEqualsR,
 	ReceiveDataMsgInSequence,
 	ReceiveDataMsgOutOfSequence,
+	ReceiveMessageInError,
 	ReceiveAckForOutstandingMsg,
 	ReceiveNakForOutstandingMsg,
 	ReadyToRetransmitMsg,
@@ -269,6 +270,7 @@ static state_table_entry_t stateTable[] =
 	{ UserRequestsHalt,                   DdcmpLineRunning,  DdcmpLineHalted,   { StopTimerAction} },
 	{ ReceiveDataMsgInSequence,           DdcmpLineRunning,  DdcmpLineRunning,  { GiveMessageToUserAction, SetReceivedSequenceNumberAction, SetSackAction } },
 	{ ReceiveDataMsgOutOfSequence,        DdcmpLineRunning,  DdcmpLineRunning,  { NULL } },
+	{ ReceiveMessageInError,              DdcmpLineRunning,  DdcmpLineRunning,  { SetReceivedSequenceNumberAction, SetSnakAction } }, /* NAKReason must be set before invoking this event */
 	{ ReceiveAckResp0,                    DdcmpLineRunning,  DdcmpLineRunning,  { CompleteMessageAction, SetAVarAction, SetTVarFromAckAction, CheckAckWaitTimerAction } },
 	{ ReceiveAckForOutstandingMsg,        DdcmpLineRunning,  DdcmpLineRunning,  { CompleteMessageAction, SetAVarAction, SetTVarFromAckAction, CheckAckWaitTimerAction } },
 	{ ReceiveNakForOutstandingMsg,        DdcmpLineRunning,  DdcmpLineRunning,  { SetAVarAction, SetTVarFromNakAction, StopTimerAction } },
@@ -372,7 +374,8 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 			}
 			else if (extractResult == CompleteBad && CurrentByte(cb->currentMessage) == SOH)
 			{
-				SendNak(ddcmpLine); /* NAK reason has been set up in ExtractMessage */
+				ProcessEvent(ddcmpLine, ReceiveMessageInError); /* NAK reason has been set up in ExtractMessage */
+				cb->partialBufferIsSynchronized = 0;
 			}
 
 			if (extractResult == Incomplete)
@@ -534,9 +537,11 @@ static void LogBuffer(ddcmp_line_t *line, LogLevel level, buffer_t *buffer)
 
 static void LogFullBuffer(ddcmp_line_t *line, LogLevel level, buffer_t *buffer)
 {
+	int savePos = CurrentBufferPosition(buffer);
 	ResetBuffer(buffer);
 	LogBuffer(line, level, buffer);
 	line->Log(level, "\n");
+	SetBufferPosition(buffer, savePos);
 }
 
 static void InitialiseTransmitQueue(transmit_queue_ctrl_t *transmitQueueCtrl)
@@ -699,7 +704,7 @@ static void DoIdle(ddcmp_line_t *ddcmpLine)
 		SendRep(ddcmpLine);
 	}
 
-	if (cb->SACKNAK != SNAK && !cb->SREP && cb->T < (cb->N + (byte)1) && !IsTimerRunning(ddcmpLine))
+	if (cb->SACKNAK != SNAK && !cb->SREP && Mod256Cmp(cb->T, (cb->N + (byte)1)) < 0 && !IsTimerRunning(ddcmpLine))
 	{
 		transmit_queue_entry_t *entry = GetFirstUnacknowledgedTransmitQueueEntry(&cb->transmitQueueCtrl);
 		if (entry != NULL)
@@ -975,7 +980,6 @@ static void ProcessControlMessage(ddcmp_line_t *ddcmpLine)
 
 static void ProcessDataMessage(ddcmp_line_t *ddcmpLine)
 {
-	// TODO: validate data message
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	unsigned int count;
 	int flags;
@@ -1014,7 +1018,7 @@ static void ProcessDataMessage(ddcmp_line_t *ddcmpLine)
 	else
 	{
 		cb->NAKReason = 17;
-		SendNak(ddcmpLine);
+		ProcessEvent(ddcmpLine, ReceiveMessageInError);
 	}
 }
 
