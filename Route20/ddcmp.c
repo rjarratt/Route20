@@ -37,7 +37,12 @@ in this Software without prior written authorization from the author.
 #include "ddcmp.h"
 
 #define MAX_STATE_TABLE_ACTIONS 6
-#define MAX_TRANSMIT_QUEUE_LEN 5
+
+/* The transmit queue length needs to be fairly high because once a circuit signals
+   that it has data, all data from it is read and processed. This can fill the DDCMP
+   transmit queue before all the processing is complete. This leads to slow
+   transfers, and overrun errors in file copies. */
+#define MAX_TRANSMIT_QUEUE_LEN 20
 
 #define ENQ 5u
 #define SOH 129u
