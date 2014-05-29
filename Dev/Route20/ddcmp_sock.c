@@ -63,8 +63,8 @@ int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit)
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)ddcmpCircuit->context;
 	sockaddr_t *destinationAddress;
 
-	sockContext->buffer = NULL;
 	sockContext->bufferLength = 0;
+	sockContext->bufferInUse = 0;
 
 	memset(&sockContext->line, 0, sizeof(sockContext->line));
 	sockContext->line.context = sockContext;
@@ -108,14 +108,14 @@ packet_t *DdcmpSockReadPacket(ddcmp_circuit_t *ddcmpCircuit)
 
 	DdcmpProcessReceivedData(&sockContext->line, buffer, bufferLength);
 
-	if (sockContext->buffer != NULL)
+	if (sockContext->bufferInUse)
 	{
 		sockPacket.rawData = sockContext->buffer;
 		sockPacket.rawLen = sockContext->bufferLength;
 		sockPacket.payload = sockContext->buffer;
 		sockPacket.payloadLen = sockContext->bufferLength;
 		packet = &sockPacket;
-		sockContext->buffer = NULL;
+		sockContext->bufferInUse = 0;
 	}
 
 	return packet;
@@ -212,14 +212,15 @@ static int DdcmpNotifyDataMessage(void *context, byte *data, int length)
 {
 	int ans = 0;
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)context;
-	if (sockContext->buffer != NULL)
+	if (sockContext->bufferInUse)
 	{
 		Log(LogDdcmpSock, LogError, "DDCMP overrun, previous message not read before next one delivered for %s\n", sockContext->ddcmpCircuit->circuit->name);
 	}
 	else
 	{
-		sockContext->buffer = data;
-		sockContext->bufferLength = length;
+		sockContext->bufferLength = (length <= MAX_DDCMP_DATA_LENGTH) ? length : MAX_DDCMP_DATA_LENGTH;
+		memcpy(sockContext->buffer, data, sockContext->bufferLength);
+		sockContext->bufferInUse = 1;
 		ans = 1;
 	}
 
