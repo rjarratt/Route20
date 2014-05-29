@@ -350,7 +350,7 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 			extractResult = ExtractMessage(ddcmpLine, &cb->partialBuffer);
 			if (extractResult == CompleteGood)
 			{
-				switch (CurrentByte(cb->currentMessage))
+                switch (CurrentByte(cb->currentMessage))
 				{
 				case ENQ:
 					{
@@ -1002,7 +1002,7 @@ static void ProcessDataMessage(ddcmp_line_t *ddcmpLine)
 	ddcmpLine->Log(LogDetail, "Received %s message from %s. Len=%d, Flags=%s%s, R=%d, N=%d, Addr=%d\n", msgName, ddcmpLine->name, count, LOGFLAGS(flags), resp, num, addr);
 
 	ValidateMessage(ddcmpLine, &valid, addr == 1, msgName, "Address should be 1");
-	ValidateMessage(ddcmpLine, &valid, count == cb->currentMessage->length - 10, msgName, "Data length does not match count in header");
+	ValidateMessage(ddcmpLine, &valid, count == (unsigned int)cb->currentMessage->length - 10, msgName, "Data length does not match count in header");
 
 	if (valid)
 	{
