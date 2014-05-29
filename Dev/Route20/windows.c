@@ -82,8 +82,8 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 { 
 	int err;
 
-    InitialiseLogging(CONFIG_FILE_NAME);
 	SetupConfigWatcher();
+    InitialiseLogging(CONFIG_FILE_NAME);
     OpenLog();
 	SymSetOptions(SYMOPT_LOAD_LINES);
 
