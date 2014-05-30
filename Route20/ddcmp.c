@@ -27,7 +27,6 @@ in this Software without prior written authorization from the author.
 
 ------------------------------------------------------------------------------*/
 
-// TODO: Make sure buffers cannot overflow if receive malformed message (test with a buffer size that is too small).
 // TODO: Implement SELECT for half-duplex
 // TODO: perhaps remove position stuff from buffer.
 
@@ -102,6 +101,7 @@ typedef enum
 typedef struct
 {
 	byte *data;
+	int maxLength;
 	int length;
 	int position;
 } buffer_t;
@@ -158,7 +158,7 @@ typedef struct
 
 #define LOGFLAGS(flags) flags & 2 ? "S" : "", flags & 1 ? "Q" : ""
 
-static void InitialiseBuffer(buffer_t *buffer, byte *data, int length);
+static void InitialiseBuffer(buffer_t *buffer, byte *data, int length, int maxLength);
 static void ResetBuffer(buffer_t *buffer);
 static int BufferFromSegment(buffer_t *buffer, int length, buffer_t *newBuffer);
 static int ExtendBuffer(buffer_t *originalBuffer, buffer_t *buffer, int length);
@@ -170,7 +170,7 @@ static int BufferStillHasData(buffer_t *buffer);
 static int RemainingBytesInBuffer(buffer_t *buffer);
 static int CurrentBufferPosition(buffer_t *buffer);
 static void SetBufferPosition(buffer_t *buffer, int position);
-static void AppendBuffer(buffer_t *dst, buffer_t *src);
+static int AppendBuffer(buffer_t *dst, buffer_t *src);
 static void TruncateUsedBufferPortion(buffer_t *buffer);
 static void LogBuffer(ddcmp_line_t *line, LogLevel level, buffer_t *buffer);
 static void LogFullBuffer(ddcmp_line_t *line, LogLevel level, buffer_t *buffer);
@@ -311,7 +311,7 @@ void DdcmpStart(ddcmp_line_t *ddcmpLine)
 	InitialiseTransmitQueue(&cb->transmitQueueCtrl);
 	cb->state = DdcmpLineHalted;
 	cb->SACKNAK = NotSet;
-	InitialiseBuffer(&cb->partialBuffer, cb->partialBufferData, 0);
+	InitialiseBuffer(&cb->partialBuffer, cb->partialBufferData, 0, sizeof(cb->partialBufferData));
 	ProcessEvent(ddcmpLine, UserRequestsStartup);
 }
 
@@ -325,9 +325,14 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	buffer_t incomingBuffer;
 	buffer_t extractedBuffer;
+	int droppedData = 0;
 
-	InitialiseBuffer(&incomingBuffer, data, length);
-	AppendBuffer(&cb->partialBuffer, &incomingBuffer);
+	InitialiseBuffer(&incomingBuffer, data, length, length);
+	droppedData = !AppendBuffer(&cb->partialBuffer, &incomingBuffer);
+	if (droppedData)
+	{
+		ddcmpLine->Log(LogWarning, "Partial buffer overflow, data lost\n"); // TODO: Send back a NAK (only for data?)
+	}
 	//ddcmpLine->Log(LogFatal, "Partial(Pos:%d of %d): ", cb->partialBuffer.position, cb->partialBuffer.length);
 	//LogBuffer(ddcmpLine, LogFatal, &cb->partialBuffer);
 	//ddcmpLine->Log(LogFatal, "\n");
@@ -377,14 +382,22 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 					}
 				}
 			}
-			else if (extractResult == CompleteBad && CurrentByte(cb->currentMessage) == SOH)
+			else if (extractResult == CompleteBad)
 			{
-				ProcessEvent(ddcmpLine, ReceiveMessageInError); /* NAK reason has been set up in ExtractMessage */
+				if (CurrentByte(cb->currentMessage) == SOH)
+				{
+				    ProcessEvent(ddcmpLine, ReceiveMessageInError); /* NAK reason has been set up in ExtractMessage */
+				}
+
 				cb->partialBufferIsSynchronized = 0;
 			}
 
 			if (extractResult == Incomplete)
 			{
+				if (droppedData)
+				{
+				    cb->partialBufferIsSynchronized = 0;
+				}
 				break;
 			}
 			else
@@ -421,7 +434,7 @@ int DdcmpSendDataMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
 				AddCrc16ToBuffer(entry->header, 6);
 				memcpy(entry->data, data, length);
 				AddCrc16ToBuffer(entry->data, length);
-				InitialiseBuffer(&entry->buffer, entry->header, 8 + length +2);
+				InitialiseBuffer(&entry->buffer, entry->header, 8 + length + 2, sizeof(entry->header) + sizeof(entry->data));
 				cb->currentMessage = &entry->buffer;
 				ProcessEvent(ddcmpLine, UserRequestsDataSendAndReadyToSend);
 				ans = 1;
@@ -434,9 +447,10 @@ int DdcmpSendDataMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
 	return ans;
 }
 
-static void InitialiseBuffer(buffer_t *buffer, byte *data, int length)
+static void InitialiseBuffer(buffer_t *buffer, byte *data, int length, int maxLength)
 {
 	buffer->data = data;
+	buffer->maxLength = maxLength;
 	buffer->length = length;
 	buffer->position = 0;
 }
@@ -514,12 +528,20 @@ static void SetBufferPosition(buffer_t *buffer, int position)
 	buffer->position = position;
 }
 
-static void AppendBuffer(buffer_t *dst, buffer_t *src)
+static int AppendBuffer(buffer_t *dst, buffer_t *src)
 {
 	int len = RemainingBytesInBuffer(src);
-	memcpy(&dst->data[dst->length], &src->data[src->position], len); // TODO: check for buffer overflow, will need a buffer size field in the buffer type
-	dst->length += len;
-	AdvanceBufferPostion(src, len);
+	int available = dst->maxLength - dst->length;
+	int toCopy = len <= available ? len : available;
+
+	if (toCopy > 0)
+	{
+		memcpy(&dst->data[dst->length], &src->data[src->position], toCopy);
+		dst->length += toCopy;
+		AdvanceBufferPostion(src, toCopy);
+	}
+
+	return len == 0 || len <= available;
 }
 
 static void TruncateUsedBufferPortion(buffer_t *buffer)
@@ -687,7 +709,7 @@ static void AddCrc16ToBuffer(byte *data, int length)
 {
 	buffer_t buf;
 	uint16 crc16;
-	InitialiseBuffer(&buf, data, length);
+	InitialiseBuffer(&buf, data, length, length);
 	crc16 = Crc16(0, &buf);
 	data[length] = crc16 & 0xFF;
 	data[length + 1] = crc16 >> 8;
@@ -729,6 +751,8 @@ static int SynchronizeMessageFrame(ddcmp_line_t *ddcmpLine, buffer_t *buffer)
 {
 	int ans = 0;
 	int skipCount = 0;
+
+	ddcmpLine->Log(LogDetail, "Synchronizing message frame on %s\n", ddcmpLine->name);
 
 	while (BufferStillHasData(buffer))
 	{
@@ -852,7 +876,7 @@ static int SendMessageAddingCrc16(ddcmp_line_t *ddcmpLine, byte *data, int lengt
 	uint16 crc16;
 	buffer_t msgBuf;
 
-	InitialiseBuffer(&msgBuf, data, length);
+	InitialiseBuffer(&msgBuf, data, length, length);
 	crc16 = Crc16 (0, &msgBuf);
 	crc[0] = crc16 & 0xFF;
 	crc[1] = crc16 >> 8;
