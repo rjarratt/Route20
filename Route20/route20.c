@@ -53,18 +53,19 @@ int numCircuits = 0;
 static init_layer_t *ethernetInitLayer;
 static init_layer_t *ddcmpInitLayer;
 static void (*processHigherLevelProtocolPacket)(decnet_address_t *from, byte *data, int dataLength) = NULL;
+static rtimer_t *statsTimer = NULL;
 
 // TODO: Add Phase III support
-static int ReadConfigLoggingOnly(char *fileName);
-static int ReadConfig(char *fileName);
 static char *ReadConfigLine(FILE *f);
-static char *ReadLoggingConfig(FILE *f, int *ans);
-static char *ReadNodeConfig(FILE *f, int *ans);
-static char *ReadSocketConfig(FILE *f, int *ans);
-static char *ReadEthernetConfig(FILE *f, int *ans);
-static char *ReadBridgeConfig(FILE *f, int *ans);
-static char *ReadDdcmpConfig(FILE *f, int *ans);
-static char *ReadDnsConfig(FILE *f, int *ans);
+static char *ReadConfigToNextSection(FILE *f);
+static char *ReadLoggingConfig(FILE *f, ConfigReadMode mode, int *ans);
+static char *ReadNodeConfig(FILE *f, ConfigReadMode mode, int *ans);
+static char *ReadSocketConfig(FILE *f, ConfigReadMode mode, int *ans);
+static char *ReadEthernetConfig(FILE *f, ConfigReadMode mode, int *ans);
+static char *ReadBridgeConfig(FILE *f, ConfigReadMode mode, int *ans);
+static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans);
+static char *ReadDnsConfig(FILE *f, ConfigReadMode mode, int *ans);
+static char *ReadStatsConfig(FILE *f, ConfigReadMode mode, int *ans);
 static int SplitString(char *string, char splitBy, char **left, char **right);
 static void ParseLogLevel(char *string, int *source);
 static void PurgeAdjacenciesCallback(rtimer_t *, char *, void *);
@@ -80,9 +81,8 @@ static void LogLoopbackMessage(circuit_t *circuit, packet_t *packet, char *messa
 
 #pragma warning(disable : 4996)
 
-int InitialiseLogging(char *configFileName)
+void InitialiseLogging()
 {
-    int ans;
 	int i;
 
     for (i = 0; i < LogEndMarker; i++)
@@ -108,10 +108,6 @@ int InitialiseLogging(char *configFileName)
     LogSourceName[LogNsp] = "NSP";
     LogSourceName[LogNspMessages] = "NSM";
     LogSourceName[LogNetMan] = "NMN";
-
-    ans = ReadConfigLoggingOnly(configFileName);
-
-    return ans;
 }
 
 int Initialise(char *configFileName)
@@ -122,7 +118,7 @@ int Initialise(char *configFileName)
 
 	DnsConfig.dnsConfigured = 0;
 
-	ans = ReadConfig(configFileName);
+	ans = ReadConfig(configFileName, ConfigReadModeFull);
 	if (ans)
 	{
         InitialiseSockets();
@@ -146,8 +142,6 @@ int Initialise(char *configFileName)
 		ddcmpInitLayer = CreateDdcmpInitializationSublayer();
 		InitializationSublayerAssociateCircuits(Circuits, numCircuits, DDCMPCircuit, ddcmpInitLayer);
 		ddcmpInitLayer->Start(Circuits, numCircuits);
-
-		//CreateTimer("CircuitStats", now + 3600, 3600, NULL, LogCircuitStats);
 
 		if (DnsConfig.dnsConfigured && dnsNeeded)
 		{
@@ -229,38 +223,7 @@ void MainLoop(void)
 	Log(LogGeneral, LogInfo, "Shutdown complete\n");
 }
 
-static int ReadConfigLoggingOnly(char *fileName)
-{
-	FILE *f;
-	int ans = 1;
-	if ((f = fopen(fileName, "r")) == NULL)
-	{
-		Log(LogGeneral, LogError, "Could not open the configuration file: %s", fileName);
-		ans = 0;
-	}
-
-	if (ans)
-	{
-		char *line = "";
-		while(line != NULL)
-		{
-			if (stricmp(line, "[logging]") == 0)
-			{
-				line = ReadLoggingConfig(f, &ans);
-			}
-			else
-			{
-				line = ReadConfigLine(f);
-			}
-		}
-
-		fclose(f);
-	}
-
-	return ans;
-}
-
-static int ReadConfig(char *fileName)
+int ReadConfig(char *fileName, ConfigReadMode mode)
 {
 	FILE *f;
 	int ans = 1;
@@ -279,33 +242,37 @@ static int ReadConfig(char *fileName)
 		{
 			if (stricmp(line, "[logging]") == 0)
 			{
-				line = ReadLoggingConfig(f, &ans);
+				line = ReadLoggingConfig(f, mode, &ans);
 			}
 			else if (stricmp(line, "[node]") == 0)
 			{
 				nodePresent = 1;
-				line = ReadNodeConfig(f, &ans);
+				line = ReadNodeConfig(f, mode, &ans);
 			}
 			else if (stricmp(line, "[socket]") == 0)
 			{
-				line = ReadSocketConfig(f, &ans);
+				line = ReadSocketConfig(f, mode, &ans);
 			}
 			else if (stricmp(line, "[ethernet]") == 0)
 			{
-				line = ReadEthernetConfig(f, &ans);
+				line = ReadEthernetConfig(f, mode, &ans);
 			}
 			else if (stricmp(line, "[bridge]") == 0)
 			{
-				line = ReadBridgeConfig(f, &ans);
+				line = ReadBridgeConfig(f, mode, &ans);
 			}
 			else if (stricmp(line, "[ddcmp]") == 0)
 			{
-				line = ReadDdcmpConfig(f, &ans);
+				line = ReadDdcmpConfig(f, mode, &ans);
 				ddcmpPresent = 1;
 			}
 			else if (stricmp(line, "[dns]") == 0)
 			{
-				line = ReadDnsConfig(f, &ans);
+				line = ReadDnsConfig(f, mode, &ans);
+			}
+			else if (stricmp(line, "[stats]") == 0)
+			{
+				line = ReadStatsConfig(f, mode, &ans);
 			}
 			else
 			{
@@ -316,26 +283,29 @@ static int ReadConfig(char *fileName)
 		fclose(f);
 	}
 
-	if (!nodePresent)
+	if (mode == ConfigReadModeFull)
 	{
-		Log(LogGeneral, LogError, "Node section missing from configuration file\n");
-		ans = 0;
-	}
-	else if (numCircuits <= 0)
-	{
-		Log(LogGeneral, LogError, "No circuits defined\n");
-		ans = 0;
-	}
-	else if (ddcmpPresent && !SocketConfig.socketConfigured)
-	{
-		Log(LogGeneral, LogError, "Socket section required in configuration file for DDCMP circuits\n");
-		ans = 0;
+		if (!nodePresent)
+		{
+			Log(LogGeneral, LogError, "Node section missing from configuration file\n");
+			ans = 0;
+		}
+		else if (numCircuits <= 0)
+		{
+			Log(LogGeneral, LogError, "No circuits defined\n");
+			ans = 0;
+		}
+		else if (ddcmpPresent && !SocketConfig.socketConfigured)
+		{
+			Log(LogGeneral, LogError, "Socket section required in configuration file for DDCMP circuits\n");
+			ans = 0;
+		}
 	}
 
 	return ans;
 }
 
-static char *ReadLoggingConfig(FILE *f, int *ans)
+static char *ReadLoggingConfig(FILE *f, ConfigReadMode mode, int *ans)
 {
 	char *line;
 	char *name;
@@ -428,7 +398,7 @@ static char *ReadLoggingConfig(FILE *f, int *ans)
 	return line;
 }
 
-static char *ReadNodeConfig(FILE *f, int *ans)
+static char *ReadNodeConfig(FILE *f, ConfigReadMode mode, int *ans)
 {
 	char *line;
 	char *name;
@@ -436,103 +406,117 @@ static char *ReadNodeConfig(FILE *f, int *ans)
 	int addressPresent = 0;
 	int namePresent = 0;
 
-	nodeInfo.priority = 64;
-	nodeInfo.level = 2;
-
-	while (line = ReadConfigLine(f))
+	if (mode == ConfigReadModeFull)
 	{
-		if (*line == '[')
+		nodeInfo.priority = 64;
+		nodeInfo.level = 2;
+
+		while (line = ReadConfigLine(f))
 		{
-			break;
+			if (*line == '[')
+			{
+				break;
+			}
+
+			if (SplitString(line, '=', &name, &value))
+			{
+				if (stricmp(name, "level") == 0)
+				{
+					nodeInfo.level = atoi(value);
+				}
+				else if (stricmp(name, "address") == 0)
+				{
+					char *area;
+					char *node;
+					if (SplitString(value, '.', &area, &node))
+					{
+						nodeInfo.address.area = atoi(area);
+						nodeInfo.address.node = atoi(node);
+						addressPresent = 1;
+					}
+					else
+					{
+						Log(LogGeneral, LogError, "Node address must be in the form <area>.<node>\n");
+					}
+				}
+				else if (stricmp(name, "name") == 0)
+				{
+					strncpy(nodeInfo.name, value, sizeof(nodeInfo.name) - 1);
+					nodeInfo.name[sizeof(nodeInfo.name) - 1] = '\0';
+					namePresent = 1;
+				}
+				else if (stricmp(name, "priority") == 0)
+				{
+					nodeInfo.priority = (byte)atoi(value);
+				}
+			}
 		}
 
-		if (SplitString(line, '=', &name, &value))
+		if (!addressPresent)
 		{
-			if (stricmp(name, "level") == 0)
-			{
-				nodeInfo.level = atoi(value);
-			}
-			else if (stricmp(name, "address") == 0)
-			{
-				char *area;
-				char *node;
-				if (SplitString(value, '.', &area, &node))
-				{
-					nodeInfo.address.area = atoi(area);
-					nodeInfo.address.node = atoi(node);
-					addressPresent = 1;
-				}
-				else
-				{
-					Log(LogGeneral, LogError, "Node address must be in the form <area>.<node>\n");
-				}
-			}
-			else if (stricmp(name, "name") == 0)
-			{
-				strncpy(nodeInfo.name, value, sizeof(nodeInfo.name) - 1);
-				nodeInfo.name[sizeof(nodeInfo.name) - 1] = '\0';
-				namePresent = 1;
-			}
-			else if (stricmp(name, "priority") == 0)
-			{
-				nodeInfo.priority = (byte)atoi(value);
-			}
+			*ans = 0;
+			Log(LogGeneral, LogError, "Node address must be defined in the configuration file\n");
+		}
+		else if (!namePresent)
+		{
+			*ans = 0;
+			Log(LogGeneral, LogError, "Node name must be defined in the configuration file\n");
 		}
 	}
-
-	if (!addressPresent)
+	else
 	{
-		*ans = 0;
-		Log(LogGeneral, LogError, "Node address must be defined in the configuration file\n");
-	}
-	else if (!namePresent)
-	{
-		*ans = 0;
-		Log(LogGeneral, LogError, "Node name must be defined in the configuration file\n");
+		line = ReadConfigToNextSection(f);
 	}
 
 	return line;
 }
 
-static char *ReadSocketConfig(FILE *f, int *ans)
+static char *ReadSocketConfig(FILE *f, ConfigReadMode mode, int *ans)
 {
 	char  *line;
 	char  *name;
 	char  *value;
 	int    TcpListenPortPresent = 0;
 
-	while (line = ReadConfigLine(f))
+	if (mode == ConfigReadModeFull)
 	{
-		if (*line == '[')
+		while (line = ReadConfigLine(f))
 		{
-			break;
-		}
-
-		if (SplitString(line, '=', &name, &value))
-		{
-			if (stricmp(name, "TcpListenPort") == 0)
+			if (*line == '[')
 			{
-				SocketConfig.tcpListenPort = (uint16)atoi(value);
-				TcpListenPortPresent = 1;
+				break;
+			}
+
+			if (SplitString(line, '=', &name, &value))
+			{
+				if (stricmp(name, "TcpListenPort") == 0)
+				{
+					SocketConfig.tcpListenPort = (uint16)atoi(value);
+					TcpListenPortPresent = 1;
+				}
 			}
 		}
-	}
 
-	if (!TcpListenPortPresent)
-	{
-		*ans = 0;
-		Log(LogGeneral, LogError, "TCP listen port not specified\n");
+		if (!TcpListenPortPresent)
+		{
+			*ans = 0;
+			Log(LogGeneral, LogError, "TCP listen port not specified\n");
+		}
+		else
+		{
+			Log(LogGeneral, LogInfo, "TCP listening on port %d\n", SocketConfig.tcpListenPort);
+			SocketConfig.socketConfigured = 1;
+		}
 	}
 	else
 	{
-		Log(LogGeneral, LogInfo, "TCP listening on port %d\n", SocketConfig.tcpListenPort);
-		SocketConfig.socketConfigured = 1;
+		line = ReadConfigToNextSection(f);
 	}
 
 	return line;
 }
 
-static char *ReadEthernetConfig(FILE *f, int *ans)
+static char *ReadEthernetConfig(FILE *f, ConfigReadMode mode, int *ans)
 {
 	char *line;
 	char *name;
@@ -540,48 +524,55 @@ static char *ReadEthernetConfig(FILE *f, int *ans)
 	int cost = 3;
 	char pcapInterface[80] = "";
 
-	while (line = ReadConfigLine(f))
+	if (mode == ConfigReadModeFull)
 	{
-		if (*line == '[')
+		while (line = ReadConfigLine(f))
 		{
-			break;
+			if (*line == '[')
+			{
+				break;
+			}
+
+			if (SplitString(line, '=', &name, &value))
+			{
+				if (stricmp(name, "interface") == 0)
+				{
+					strncpy(pcapInterface, value, sizeof(pcapInterface) -1);
+				}
+				if (stricmp(name, "cost") == 0)
+				{
+					cost = atoi(value);
+				}
+			}
 		}
 
-		if (SplitString(line, '=', &name, &value))
+		if (*pcapInterface == '\0')
 		{
-			if (stricmp(name, "interface") == 0)
-			{
-				strncpy(pcapInterface, value, sizeof(pcapInterface) -1);
-			}
-			if (stricmp(name, "cost") == 0)
-			{
-				cost = atoi(value);
-			}
-		}
-	}
-
-	if (*pcapInterface == '\0')
-	{
-		*ans = 0;
-		Log(LogGeneral, LogError, "Interface not defined for ethernet circuit\n");
-	}
-	else
-	{
-		if (numCircuits >= NC)
-		{
-			Log(LogGeneral, LogError, "Too many circuit definitions, ignoring ethernet interface %s\n", pcapInterface);
+			*ans = 0;
+			Log(LogGeneral, LogError, "Interface not defined for ethernet circuit\n");
 		}
 		else
 		{
-			Log(LogGeneral, LogInfo, "Ethernet interface is: %s\n", pcapInterface);
-			CircuitCreateEthernetPcap(&Circuits[1 + numCircuits++], pcapInterface, cost, ProcessCircuitEvent);
+			if (numCircuits >= NC)
+			{
+				Log(LogGeneral, LogError, "Too many circuit definitions, ignoring ethernet interface %s\n", pcapInterface);
+			}
+			else
+			{
+				Log(LogGeneral, LogInfo, "Ethernet interface is: %s\n", pcapInterface);
+				CircuitCreateEthernetPcap(&Circuits[1 + numCircuits++], pcapInterface, cost, ProcessCircuitEvent);
+			}
 		}
+	}
+	else
+	{
+		line = ReadConfigToNextSection(f);
 	}
 
 	return line;
 }
 
-static char *ReadBridgeConfig(FILE *f, int *ans)
+static char *ReadBridgeConfig(FILE *f, ConfigReadMode mode, int *ans)
 {
 	char  *line;
 	char  *name;
@@ -593,70 +584,77 @@ static char *ReadBridgeConfig(FILE *f, int *ans)
 	uint16 receivePort = 0;
 	int    cost = 5;
 
-	while (line = ReadConfigLine(f))
+	if (mode == ConfigReadModeFull)
 	{
-		if (*line == '[')
+		while (line = ReadConfigLine(f))
 		{
-			break;
+			if (*line == '[')
+			{
+				break;
+			}
+
+			if (SplitString(line, '=', &name, &value))
+			{
+				if (stricmp(name, "address") == 0)
+				{
+					char *hostStr;
+					char *portStr;
+					if (SplitString(value, ':', &hostStr, &portStr))
+					{
+						strncpy(hostName, hostStr, sizeof(hostName) - 1);
+						destPort = (uint16)atoi(portStr);
+						addressPresent = 1;
+					}
+					else
+					{
+						Log(LogGeneral, LogError, "Bridge address must be of the form <host>:<port>\n");
+					}
+				}
+				else if (stricmp(name, "port") == 0)
+				{
+					receivePort = (uint16)atoi(value);
+					receivePortPresent = 1;
+				}
+				if (stricmp(name, "cost") == 0)
+				{
+					cost = atoi(value);
+				}
+			}
 		}
 
-		if (SplitString(line, '=', &name, &value))
+		if (!addressPresent)
 		{
-			if (stricmp(name, "address") == 0)
-			{
-				char *hostStr;
-				char *portStr;
-				if (SplitString(value, ':', &hostStr, &portStr))
-				{
-					strncpy(hostName, hostStr, sizeof(hostName) - 1);
-					destPort = (uint16)atoi(portStr);
-					addressPresent = 1;
-				}
-				else
-				{
-					Log(LogGeneral, LogError, "Bridge address must be of the form <host>:<port>\n");
-				}
-			}
-			else if (stricmp(name, "port") == 0)
-			{
-				receivePort = (uint16)atoi(value);
-				receivePortPresent = 1;
-			}
-			if (stricmp(name, "cost") == 0)
-			{
-				cost = atoi(value);
-			}
+			*ans = 0;
+			Log(LogGeneral, LogError, "Address not defined for bridge circuit\n");
 		}
-	}
-
-	if (!addressPresent)
-	{
-		*ans = 0;
-		Log(LogGeneral, LogError, "Address not defined for bridge circuit\n");
-	}
-	else if (!receivePortPresent)
-	{
-		*ans = 0;
-		Log(LogGeneral, LogError, "Port not defined for bridge circuit\n");
-	}
-	else
-	{
-		if (numCircuits >= NC)
+		else if (!receivePortPresent)
 		{
-			Log(LogGeneral, LogError, "Too many circuit definitions, ignoring bridge interface %s\n", hostName);
+			*ans = 0;
+			Log(LogGeneral, LogError, "Port not defined for bridge circuit\n");
 		}
 		else
 		{
-			Log(LogGeneral, LogInfo, "Bridge interface sends to %s:%d and listens on %d\n", hostName, destPort, receivePort);
-			CircuitCreateEthernetSocket(&Circuits[1 + numCircuits++], hostName, receivePort, destPort, cost, ProcessCircuitEvent);
-			dnsNeeded = 1;
+			if (numCircuits >= NC)
+			{
+				Log(LogGeneral, LogError, "Too many circuit definitions, ignoring bridge interface %s\n", hostName);
+			}
+			else
+			{
+				Log(LogGeneral, LogInfo, "Bridge interface sends to %s:%d and listens on %d\n", hostName, destPort, receivePort);
+				CircuitCreateEthernetSocket(&Circuits[1 + numCircuits++], hostName, receivePort, destPort, cost, ProcessCircuitEvent);
+				dnsNeeded = 1;
+			}
 		}
+	}
+	else
+	{
+		line = ReadConfigToNextSection(f);
 	}
 
 	return line;
 }
 
-static char *ReadDdcmpConfig(FILE *f, int *ans)
+static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans)
 {
 	char  *line;
 	char  *name;
@@ -665,51 +663,58 @@ static char *ReadDdcmpConfig(FILE *f, int *ans)
 	char   hostName[80];
 	int    cost = 5;
 
-	while (line = ReadConfigLine(f))
+	if (mode == ConfigReadModeFull)
 	{
-		if (*line == '[')
+		while (line = ReadConfigLine(f))
 		{
-			break;
-		}
-
-		if (SplitString(line, '=', &name, &value))
-		{
-			if (stricmp(name, "address") == 0)
+			if (*line == '[')
 			{
-				strncpy(hostName, value, sizeof(hostName) - 1);
-				addressPresent = 1;
+				break;
 			}
 
-			if (stricmp(name, "cost") == 0)
+			if (SplitString(line, '=', &name, &value))
 			{
-				cost = atoi(value);
+				if (stricmp(name, "address") == 0)
+				{
+					strncpy(hostName, value, sizeof(hostName) - 1);
+					addressPresent = 1;
+				}
+
+				if (stricmp(name, "cost") == 0)
+				{
+					cost = atoi(value);
+				}
 			}
 		}
-	}
 
-	if (!addressPresent)
-	{
-		*ans = 0;
-		Log(LogGeneral, LogError, "Address not defined for DDCMP circuit\n");
-	}
-	else
-	{
-		if (numCircuits >= NC)
+		if (!addressPresent)
 		{
-			Log(LogGeneral, LogError, "Too many circuit definitions, ignoring DDCMP interface %s\n", hostName);
+			*ans = 0;
+			Log(LogGeneral, LogError, "Address not defined for DDCMP circuit\n");
 		}
 		else
 		{
-			Log(LogGeneral, LogInfo, "DDCMP interface expecting connections from %s\n", hostName);
-			CircuitCreateDdcmpSocket(&Circuits[1 + numCircuits++], hostName, cost, ProcessCircuitEvent);
-			dnsNeeded = 1;
+			if (numCircuits >= NC)
+			{
+				Log(LogGeneral, LogError, "Too many circuit definitions, ignoring DDCMP interface %s\n", hostName);
+			}
+			else
+			{
+				Log(LogGeneral, LogInfo, "DDCMP interface expecting connections from %s\n", hostName);
+				CircuitCreateDdcmpSocket(&Circuits[1 + numCircuits++], hostName, cost, ProcessCircuitEvent);
+				dnsNeeded = 1;
+			}
 		}
+	}
+	else
+	{
+		line = ReadConfigToNextSection(f);
 	}
 
 	return line;
 }
 
-static char *ReadDnsConfig(FILE *f, int *ans)
+static char *ReadDnsConfig(FILE *f, ConfigReadMode mode, int *ans)
 {
 	char *line;
 	char *name;
@@ -717,41 +722,95 @@ static char *ReadDnsConfig(FILE *f, int *ans)
 	char  addressPresent = 0;
 	int   pollPresent = 0;
 
-	while (line = ReadConfigLine(f))
+	if (mode == ConfigReadModeFull)
 	{
-		if (*line == '[')
+		while (line = ReadConfigLine(f))
 		{
-			break;
+			if (*line == '[')
+			{
+				break;
+			}
+
+			if (SplitString(line, '=', &name, &value))
+			{
+				if (stricmp(name, "address") == 0)
+				{
+					strncpy(DnsConfig.serverName, value, sizeof(DnsConfig.serverName) - 1);
+					addressPresent = 1;
+				}
+				else if (stricmp(name, "poll") == 0)
+				{
+					DnsConfig.pollPeriod = atoi(value);
+					pollPresent = 1;
+				}
+			}
 		}
 
-		if (SplitString(line, '=', &name, &value))
+		if (!addressPresent)
 		{
-			if (stricmp(name, "address") == 0)
-			{
-				strncpy(DnsConfig.serverName, value, sizeof(DnsConfig.serverName) - 1);
-				addressPresent = 1;
-			}
-			else if (stricmp(name, "poll") == 0)
-			{
-				DnsConfig.pollPeriod = atoi(value);
-				pollPresent = 1;
-			}
+			*ans = 0;
+			Log(LogGeneral, LogError, "Address not defined for DNS\n");
 		}
-	}
-
-	if (!addressPresent)
-	{
-		*ans = 0;
-		Log(LogGeneral, LogError, "Address not defined for DNS\n");
-	}
-	else if (!pollPresent)
-	{
-		*ans = 0;
-		Log(LogGeneral, LogError, "Poll period not defined for DNS\n");
+		else if (!pollPresent)
+		{
+			*ans = 0;
+			Log(LogGeneral, LogError, "Poll period not defined for DNS\n");
+		}
+		else
+		{
+			DnsConfig.dnsConfigured = 1;
+		}
 	}
 	else
 	{
-		DnsConfig.dnsConfigured = 1;
+		line = ReadConfigToNextSection(f);
+	}
+
+	return line;
+}
+
+static char *ReadStatsConfig(FILE *f, ConfigReadMode mode, int *ans)
+{
+	char *line;
+	char *name;
+	char *value;
+	int period = -1;
+
+	if (mode == ConfigReadModeFull || mode == ConfigReadModeUpdate)
+	{
+		while (line = ReadConfigLine(f))
+		{
+			if (*line == '[')
+			{
+				break;
+			}
+
+			if (SplitString(line, '=', &name, &value))
+			{
+				if (stricmp(name, "logginginterval") == 0)
+				{
+					period = atoi(value);
+				}
+			}
+		}
+
+		if (statsTimer != NULL)
+		{
+			StopTimer(statsTimer);
+			statsTimer = NULL;
+		}
+
+		if (period != -1)
+		{
+			time_t now;
+
+			time(&now);
+			statsTimer = CreateTimer("CircuitStats", now + period, period, NULL, LogCircuitStats);
+		}
+	}
+	else
+	{
+		line = ReadConfigToNextSection(f);
 	}
 
 	return line;
@@ -773,6 +832,20 @@ static char *ReadConfigLine(FILE *f)
 	}
 
 	return ans;
+}
+
+static char *ReadConfigToNextSection(FILE *f)
+{
+	char *line;
+	while (line = ReadConfigLine(f))
+	{
+		if (*line == '[')
+		{
+			break;
+		}
+	}
+
+	return line;
 }
 
 static int SplitString(char *string, char splitBy, char **left, char **right)

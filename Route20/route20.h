@@ -26,6 +26,14 @@
 
   ------------------------------------------------------------------------------*/
 
+typedef enum
+{
+	ConfigReadModeInitial,
+	ConfigReadModeFull,
+	ConfigReadModeUpdate
+}
+ConfigReadMode;
+
 typedef struct
 {
 	unsigned int waitHandle;
@@ -40,7 +48,8 @@ event_handler_t eventHandlers[MAX_EVENT_HANDLERS];
 int numEventHandlers;
 int eventHandlersChanged;
 
-int InitialiseLogging(char *configFileName);
+void InitialiseLogging();
+int ReadConfig(char *fileName, ConfigReadMode mode);
 int Initialise(char *configFileName);
 void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, int dataLength));
 void RegisterEventHandler(unsigned int waitHandle, char *name, void *context, void (*eventHandler)(void *context));

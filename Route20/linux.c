@@ -70,7 +70,8 @@ int main(int argc, char *argv[])
 		strcat(configFileName, CONFIG_FILE_NAME);
 	}
 
-    InitialiseLogging(configFileName);
+    InitialiseLogging();
+    ReadConfig(configFileName, ConfigReadModeInitial);
 
     /* Fork off the parent process */
     pid = fork();
