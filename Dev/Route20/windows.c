@@ -83,7 +83,8 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 	int err;
 
 	SetupConfigWatcher();
-    InitialiseLogging(CONFIG_FILE_NAME);
+    InitialiseLogging();
+    ReadConfig(CONFIG_FILE_NAME, ConfigReadModeInitial);
     OpenLog();
 	SymSetOptions(SYMOPT_LOAD_LINES);
 
@@ -332,7 +333,7 @@ static void ConfigWatchHandler(void *context)
 {
 	FindNextChangeNotification((HANDLE)context);
 	/* ought to check if the actual config file has changed, the notify just means any file in the current directory has changed */
-    InitialiseLogging(CONFIG_FILE_NAME);
+    ReadConfig(CONFIG_FILE_NAME, ConfigReadModeUpdate);
 }
 
 static VOID SvcInstall()
