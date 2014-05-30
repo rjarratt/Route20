@@ -403,8 +403,11 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 			{
 				if (droppedData)
 				{
-					cb->NAKReason = NAKMessageTooLong;
-					ProcessEvent(ddcmpLine, ReceiveMessageInError); /* NAK reason has been set up in ExtractMessage */
+					if (CurrentByte(cb->currentMessage) == SOH)
+					{
+						cb->NAKReason = NAKMessageTooLong;
+						ProcessEvent(ddcmpLine, ReceiveMessageInError); /* NAK reason has been set up in ExtractMessage */
+					}
 
 				    cb->partialBufferIsSynchronized = 0;
 				}
@@ -839,6 +842,7 @@ static ExtractBufferResult ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buf
 						}
 						else
 						{
+							ResetBuffer(cb->currentMessage);
 							ans = CompleteBad;
 							cb->NAKReason = NAKDataFieldBlockCheckError;
 							ddcmpLine->Log(LogWarning, "CRC error on received data block: ");
