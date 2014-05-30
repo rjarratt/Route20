@@ -336,9 +336,6 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
     else if (VersionSupported(msg->tiver))
     {
         Log(LogDdcmpInit, LogVerbose, "Initialization received\n");
-
-        // TODO: Check possible DDCMP seq no wrap error causing circuit to drop
-
         valid = 1;
     }
 
