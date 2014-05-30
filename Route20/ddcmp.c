@@ -53,6 +53,13 @@ in this Software without prior written authorization from the author.
 #define CONTROL_STRT  0x06
 #define CONTROL_STACK 0x07
 
+#define NAKHeaderBlockCheckError         1
+#define NAKDataFieldBlockCheckError      2
+#define NAKRepResponse                   3
+#define NAKBufferTemporarilyUnavailable  8
+#define NAKMessageTooLong               16
+#define NAKMessageHeaderFormatError     17
+
 typedef enum
 {
 	Undefined,
@@ -331,7 +338,7 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 	droppedData = !AppendBuffer(&cb->partialBuffer, &incomingBuffer);
 	if (droppedData)
 	{
-		ddcmpLine->Log(LogWarning, "Partial buffer overflow, data lost\n"); // TODO: Send back a NAK (only for data?)
+		ddcmpLine->Log(LogWarning, "Partial buffer overflow, data lost\n");
 	}
 	//ddcmpLine->Log(LogFatal, "Partial(Pos:%d of %d): ", cb->partialBuffer.position, cb->partialBuffer.length);
 	//LogBuffer(ddcmpLine, LogFatal, &cb->partialBuffer);
@@ -396,6 +403,9 @@ void DdcmpProcessReceivedData(ddcmp_line_t *ddcmpLine, byte *data, int length)
 			{
 				if (droppedData)
 				{
+					cb->NAKReason = NAKMessageTooLong;
+					ProcessEvent(ddcmpLine, ReceiveMessageInError); /* NAK reason has been set up in ExtractMessage */
+
 				    cb->partialBufferIsSynchronized = 0;
 				}
 				break;
@@ -830,7 +840,7 @@ static ExtractBufferResult ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buf
 						else
 						{
 							ans = CompleteBad;
-							cb->NAKReason = 2;
+							cb->NAKReason = NAKDataFieldBlockCheckError;
 							ddcmpLine->Log(LogWarning, "CRC error on received data block: ");
 					        LogFullBuffer(ddcmpLine, LogWarning, cb->currentMessage);
 						}
@@ -843,7 +853,7 @@ static ExtractBufferResult ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buf
 				else
 				{
 					ans = CompleteBad;
-					cb->NAKReason = 1;
+					cb->NAKReason = NAKHeaderBlockCheckError;
 					ddcmpLine->Log(LogWarning, "CRC error on received message header: ");
 					LogFullBuffer(ddcmpLine, LogWarning, cb->currentMessage);
 				}
@@ -1046,7 +1056,7 @@ static void ProcessDataMessage(ddcmp_line_t *ddcmpLine)
 	}
 	else
 	{
-		cb->NAKReason = 17;
+		cb->NAKReason = NAKMessageHeaderFormatError;
 		ProcessEvent(ddcmpLine, ReceiveMessageInError);
 	}
 }
@@ -1399,7 +1409,7 @@ static int SetNakReason3Action(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Set NAK reason 3 action for %s\n", ddcmpLine->name);
-	cb->NAKReason = 3;
+	cb->NAKReason = NAKRepResponse;
 	return 1;
 }
 
@@ -1418,7 +1428,7 @@ static int GiveMessageToUserAction(ddcmp_line_t *ddcmpLine)
 	ddcmpLine->Log(LogVerbose, "Give message to user action for %s\n", ddcmpLine->name);
 	if (!ddcmpLine->NotifyDataMessage(ddcmpLine->context, &cb->currentMessage->data[8], GetDataMessageCount(cb->currentMessage)))
 	{
-		cb->NAKReason = 8;
+		cb->NAKReason = NAKBufferTemporarilyUnavailable;
 		cb->SACKNAK = SNAK;
 		ans = 0;
 	}
