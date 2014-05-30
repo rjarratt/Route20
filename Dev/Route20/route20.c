@@ -311,6 +311,9 @@ static char *ReadLoggingConfig(FILE *f, ConfigReadMode mode, int *ans)
 	char *name;
 	char *value;
 
+	/* if this is an update where a setting has been commented out it should return to the default setting */
+	InitialiseLogging();
+
 	while (line = ReadConfigLine(f))
 	{
 		if (*line == '[')
