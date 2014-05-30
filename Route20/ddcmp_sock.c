@@ -114,6 +114,7 @@ packet_t *DdcmpSockReadPacket(ddcmp_circuit_t *ddcmpCircuit)
 		sockPacket.rawLen = sockContext->bufferLength;
 		sockPacket.payload = sockContext->buffer;
 		sockPacket.payloadLen = sockContext->bufferLength;
+		sockPacket.IsDecnet = DdcmpSockIsDecnet;
 		packet = &sockPacket;
 		sockContext->bufferInUse = 0;
 	}

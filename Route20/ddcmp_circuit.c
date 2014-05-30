@@ -92,23 +92,15 @@ packet_t *DdcmpCircuitReadPacket(circuit_t *circuit)
 	if (ans != NULL)
 	{
 		circuit->stats.validRawPacketsReceived++;
-		// TODO: Decide if the following commented code is needed.
-		//if (!ans->IsDecnet(ans))
-		//{
-		//	ans = NULL;
-		//}
-		//else
-		//{
-		//	circuit->stats.decnetPacketsReceived++;
-		//	if (!IsAddressedToThisNode(ans))
-		//	{
-		//		ans = NULL;
-		//	}
-		//	else
-		//	{
-		//		circuit->stats.decnetToThisNodePacketsReceived++;
-		//	}
-		//}
+		if (!ans->IsDecnet(ans))
+		{
+			ans = NULL;
+		}
+		else
+		{
+			circuit->stats.decnetPacketsReceived++;
+			circuit->stats.decnetToThisNodePacketsReceived++;
+		}
 	}
 
 	return ans;

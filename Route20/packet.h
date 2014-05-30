@@ -51,6 +51,7 @@ uint16 BigEndianToUint16(uint16);
 int EthValidPacket(packet_t *packet);
 int EthPcapIsDecnet(packet_t *packet);
 int EthSockIsDecnet(packet_t *packet);
+int DdcmpSockIsDecnet(packet_t *packet);
 void EthSetPayload(packet_t *packet);
 void DumpPacket(LogSource source, LogLevel level, char *msg, packet_t *packet);
 
