@@ -803,7 +803,7 @@ static char *ReadStatsConfig(FILE *f, ConfigReadMode mode, int *ans)
 			statsTimer = NULL;
 		}
 
-		if (period != -1)
+		if (period > 0)
 		{
 			time_t now;
 
