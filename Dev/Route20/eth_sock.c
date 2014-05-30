@@ -81,6 +81,8 @@ packet_t *EthSockReadPacket(eth_circuit_t *ethCircuit)
 	packet_t *packet = NULL;
 	static packet_t sockPacket;
 	sockaddr_t receivedFrom;
+	
+	sockPacket.IsDecnet = EthSockIsDecnet;
 
 	if (ReadFromDatagramSocket(&sockContext->socket, &sockPacket, &receivedFrom))
 	{
@@ -90,7 +92,6 @@ packet_t *EthSockReadPacket(eth_circuit_t *ethCircuit)
 			{
 				GetDecnetAddress((decnet_eth_address_t *)&sockPacket.rawData[0], &sockPacket.to);
 				GetDecnetAddress((decnet_eth_address_t *)&sockPacket.rawData[6], &sockPacket.from);
-				sockPacket.IsDecnet = EthSockIsDecnet;
 				if (CompareDecnetAddress(&nodeInfo.address, &sockPacket.from))
 				{
 					/*Log(LogVerbose, "Discarding loopback from %s\n", ethCircuit->circuit->name);*/

@@ -97,7 +97,7 @@ int EthValidPacket(packet_t *packet)
 		{
 			DumpPacket(LogMessages, LogError, "Malformed ethernet packet ignored.", packet);
 		}
-		else if (EthSockIsDecnet(packet))
+		else if (packet->IsDecnet(packet))
 		{
 			uint16 statedLen = EthPayloadLen(packet);
 			ans = statedLen <= packet->rawLen - 16;
@@ -112,7 +112,7 @@ int EthValidPacket(packet_t *packet)
 	return ans;
 }
 
-int EthPcapIsDecnet(packet_t *packet) // TODO: not sure need this as use EthSockIsDecnet in EthValidPacket which is used in both sock and pcap cases.
+int EthPcapIsDecnet(packet_t *packet)
 {
 	return is_ethertype(packet, 0x0360); /* johnny billquist code */
 }
@@ -120,6 +120,11 @@ int EthPcapIsDecnet(packet_t *packet) // TODO: not sure need this as use EthSock
 int EthSockIsDecnet(packet_t *packet)
 {
 	return is_ethertype(packet, 0x0360); /* johnny billquist code */
+}
+
+int DdcmpSockIsDecnet(packet_t *packet)
+{
+	return 1;
 }
 
 void EthSetPayload(packet_t *packet)
