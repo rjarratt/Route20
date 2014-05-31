@@ -209,6 +209,7 @@ static void ProcessStackMessage(ddcmp_line_t *ddcmpLine);
 static void ProcessAckMessage(ddcmp_line_t *ddcmpLine);
 static void ProcessNakMessage(ddcmp_line_t *ddcmpLine);
 static void ProcessRepMessage(ddcmp_line_t *ddcmpLine);
+static void CheckAndProcessAckData(ddcmp_line_t *ddcmpLine);
 static void ValidateMessage(ddcmp_line_t *ddcmpLine, int *valid, int validTerm, char *messageName, char *errorMessage);
 static unsigned int GetDataMessageCount(buffer_t *message);
 static byte GetSubtype(buffer_t *message);
@@ -232,7 +233,7 @@ static int SetSackAction(ddcmp_line_t *ddcmpLine);
 static int SetSnakAction(ddcmp_line_t *ddcmpLine);
 static int ClearSackSnakAction(ddcmp_line_t *ddcmpLine);
 static int SetNakReason3Action(ddcmp_line_t *ddcmpLine);
-static int SetReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine);
+static int IncrementReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine);
 static int GiveMessageToUserAction(ddcmp_line_t *ddcmpLine);
 static int SendMessageAction(ddcmp_line_t *ddcmpLine);
 static int IncrementNAction(ddcmp_line_t *ddcmpLine);
@@ -280,12 +281,12 @@ static state_table_entry_t stateTable[] =
 	{ ReceiveRepNumEqualsR,               DdcmpLineRunning,  DdcmpLineRunning,  { SetSackAction } },
 	{ ReceiveRepNumNotEqualsR,            DdcmpLineRunning,  DdcmpLineRunning,  { SetNakReason3Action, SetSnakAction } },
 	{ UserRequestsHalt,                   DdcmpLineRunning,  DdcmpLineHalted,   { StopTimerAction} },
-	{ ReceiveDataMsgInSequence,           DdcmpLineRunning,  DdcmpLineRunning,  { GiveMessageToUserAction, SetReceivedSequenceNumberAction, SetSackAction } },
+	{ ReceiveDataMsgInSequence,           DdcmpLineRunning,  DdcmpLineRunning,  { GiveMessageToUserAction, IncrementReceivedSequenceNumberAction, SetSackAction } },
 	{ ReceiveDataMsgOutOfSequence,        DdcmpLineRunning,  DdcmpLineRunning,  { NULL } },
-	{ ReceiveMessageInError,              DdcmpLineRunning,  DdcmpLineRunning,  { SetReceivedSequenceNumberAction, SetSnakAction } }, /* NAKReason must be set before invoking this event */
+	{ ReceiveMessageInError,              DdcmpLineRunning,  DdcmpLineRunning,  { SetSnakAction } }, /* NAKReason must be set before invoking this event */
 	{ ReceiveAckResp0,                    DdcmpLineRunning,  DdcmpLineRunning,  { CompleteMessageAction, SetAVarAction, SetTVarFromAckAction, CheckAckWaitTimerAction } },
 	{ ReceiveAckForOutstandingMsg,        DdcmpLineRunning,  DdcmpLineRunning,  { CompleteMessageAction, SetAVarAction, SetTVarFromAckAction, CheckAckWaitTimerAction } },
-	{ ReceiveNakForOutstandingMsg,        DdcmpLineRunning,  DdcmpLineRunning,  { SetAVarAction, SetTVarFromNakAction, StopTimerAction } },
+	{ ReceiveNakForOutstandingMsg,        DdcmpLineRunning,  DdcmpLineRunning,  { CompleteMessageAction, SetAVarAction, SetTVarFromNakAction, StopTimerAction } },
 
 	{ ReadyToRetransmitMsg,               DdcmpLineRunning,  DdcmpLineRunning,  { SendMessageAction, IncrementTAction, ClearSackSnakAction, SetXVarFromMsgNumAction, CheckAckWaitTimerAction } },
 	{ UserRequestsDataSendAndReadyToSend, DdcmpLineRunning,  DdcmpLineRunning,  { SendMessageAction, IncrementNAction, IncrementTAction, ClearSackSnakAction, SetXVarFromMsgNumAction, CheckAckWaitTimerAction } },
@@ -1044,10 +1045,7 @@ static void ProcessDataMessage(ddcmp_line_t *ddcmpLine)
 
 	if (valid)
 	{
-		if (Mod256Cmp(cb->A, resp) < 0 && Mod256Cmp(resp, cb->N) <= 0)
-		{
-			ProcessEvent(ddcmpLine, ReceiveAckForOutstandingMsg);
-		}
+		CheckAndProcessAckData(ddcmpLine);
 
 		if (num == ((cb->R + 1) & 0xFF))
 		{
@@ -1147,9 +1145,9 @@ static void ProcessAckMessage(ddcmp_line_t *ddcmpLine)
 		{
 			ProcessEvent(ddcmpLine, ReceiveAckResp0);
 		}
-		else if (Mod256Cmp(cb->A, resp) < 0 && Mod256Cmp(resp, cb->N) <= 0)
+		else
 		{
-			ProcessEvent(ddcmpLine, ReceiveAckForOutstandingMsg);
+			CheckAndProcessAckData(ddcmpLine);
 		}
 	}
 	else
@@ -1157,6 +1155,19 @@ static void ProcessAckMessage(ddcmp_line_t *ddcmpLine)
 		ddcmpLine->Log(LogWarning, "Invalid %s message from %s ignored: ", msgName, ddcmpLine->name);
 		LogFullBuffer(ddcmpLine, LogWarning, cb->currentMessage);
 	}
+}
+
+static void CheckAndProcessAckData(ddcmp_line_t *ddcmpLine)
+{
+    ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+    byte resp;
+
+    resp = GetMessageResp(cb->currentMessage);
+
+    if (Mod256Cmp(cb->A, resp) < 0 && Mod256Cmp(resp, cb->N) <= 0)
+    {
+        ProcessEvent(ddcmpLine, ReceiveAckForOutstandingMsg);
+    }
 }
 
 static void ProcessNakMessage(ddcmp_line_t *ddcmpLine)
@@ -1417,10 +1428,10 @@ static int SetNakReason3Action(ddcmp_line_t *ddcmpLine)
 	return 1;
 }
 
-static int SetReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine)
+static int IncrementReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
-	ddcmpLine->Log(LogVerbose, "Set received sequence number action for %s\n", ddcmpLine->name);
+	ddcmpLine->Log(LogVerbose, "Increment received sequence number action for %s\n", ddcmpLine->name);
 	cb->R = cb->R + (byte)1;
 	return 1;
 }
