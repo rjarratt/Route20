@@ -43,6 +43,7 @@ typedef struct
     ddcmp_circuit_t *ddcmpCircuit;
 	socket_t socket;
 	char *destinationHostName;
+	int destinationPort;
 	sockaddr_t destinationAddress;
 	ddcmp_line_t line;
 	byte buffer[MAX_DDCMP_DATA_LENGTH];

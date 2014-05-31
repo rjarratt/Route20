@@ -90,7 +90,7 @@ void CircuitDownComplete(circuit_t *circuit);
 void CircuitReject(circuit_t *circuit);
 void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost, void (*waitEventHandler)(void *context));
 void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receivePort, uint16 destinationPort, int cost, void (*waitEventHandler)(void *context));
-void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, int cost, void (*waitEventHandler)(void *context));
+void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, int port, int cost, void (*waitEventHandler)(void *context));
 int  IsBroadcastCircuit(circuit_ptr circuit);
 
 #define CIRCUIT_H

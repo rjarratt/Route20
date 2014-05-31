@@ -664,6 +664,7 @@ static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans)
 	char  *value;
 	char   addressPresent = 0;
 	char   hostName[80];
+	int    port;
 	int    cost = 5;
 
 	if (mode == ConfigReadModeFull)
@@ -679,7 +680,20 @@ static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans)
 			{
 				if (stricmp(name, "address") == 0)
 				{
-					strncpy(hostName, value, sizeof(hostName) - 1);
+					char *hostStr;
+					char *portStr;
+
+					if (SplitString(value, ':', &hostStr, &portStr))
+					{
+						strncpy(hostName, hostStr, sizeof(hostName) - 1);
+						port = (uint16)atoi(portStr);
+					}
+					else
+					{
+						strncpy(hostName, value, sizeof(hostName) - 1);
+						port = 0;
+					}
+
 					addressPresent = 1;
 				}
 
@@ -703,8 +717,16 @@ static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans)
 			}
 			else
 			{
-				Log(LogGeneral, LogInfo, "DDCMP interface expecting connections from %s\n", hostName);
-				CircuitCreateDdcmpSocket(&Circuits[1 + numCircuits++], hostName, cost, ProcessCircuitEvent);
+				if (port == 0)
+				{
+				    Log(LogGeneral, LogInfo, "DDCMP interface expecting connections from %s\n", hostName);
+				}
+				else
+				{
+				    Log(LogGeneral, LogInfo, "DDCMP interface connecting to %s:%d\n", hostName, port);
+				}
+
+				CircuitCreateDdcmpSocket(&Circuits[1 + numCircuits++], hostName, port, cost, ProcessCircuitEvent);
 				dnsNeeded = 1;
 			}
 		}

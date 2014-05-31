@@ -60,7 +60,7 @@ typedef struct ddcmp_circuit
 	void (*Close)(ddcmp_circuit_ptr circuit);
 } ddcmp_circuit_t;
 
-ddcmp_circuit_ptr DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName);
+ddcmp_circuit_ptr DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName, int destinationPort);
 
 int DdcmpCircuitOpen(circuit_ptr circuit);
 int DdcmpCircuitUp(circuit_ptr circuit);

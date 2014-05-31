@@ -142,9 +142,9 @@ void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receive
 	circuit->WaitEventHandler = waitEventHandler;
 }
 
-void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, int cost, void (*waitEventHandler)(void *context))
+void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, int port, int cost, void (*waitEventHandler)(void *context))
 {
-	ddcmp_circuit_t *context = DdcmpCircuitCreateSocket(circuit, name);
+	ddcmp_circuit_t *context = DdcmpCircuitCreateSocket(circuit, name, port);
 
 	circuit->name = (char *)malloc(strlen(name)+1);
 	strcpy(circuit->name, name);
