@@ -237,6 +237,7 @@ static int IncrementReceivedSequenceNumberAction(ddcmp_line_t *ddcmpLine);
 static int GiveMessageToUserAction(ddcmp_line_t *ddcmpLine);
 static int SendMessageAction(ddcmp_line_t *ddcmpLine);
 static int IncrementNAction(ddcmp_line_t *ddcmpLine);
+static int SetTVarFromNVarAction(ddcmp_line_t *ddcmpLine);
 static int IncrementTAction(ddcmp_line_t *ddcmpLine);
 static int SetAVarAction(ddcmp_line_t *ddcmpLine);
 static int SetTVarFromAckAction(ddcmp_line_t *ddcmpLine);
@@ -289,7 +290,7 @@ static state_table_entry_t stateTable[] =
 	{ ReceiveNakForOutstandingMsg,        DdcmpLineRunning,  DdcmpLineRunning,  { CompleteMessageAction, SetAVarAction, SetTVarFromNakAction, StopTimerAction } },
 
 	{ ReadyToRetransmitMsg,               DdcmpLineRunning,  DdcmpLineRunning,  { SendMessageAction, IncrementTAction, ClearSackSnakAction, SetXVarFromMsgNumAction, CheckAckWaitTimerAction } },
-	{ UserRequestsDataSendAndReadyToSend, DdcmpLineRunning,  DdcmpLineRunning,  { SendMessageAction, IncrementNAction, IncrementTAction, ClearSackSnakAction, SetXVarFromMsgNumAction, CheckAckWaitTimerAction } },
+	{ UserRequestsDataSendAndReadyToSend, DdcmpLineRunning,  DdcmpLineRunning,  { SendMessageAction, IncrementNAction, SetTVarFromNVarAction, ClearSackSnakAction, SetXVarFromMsgNumAction, CheckAckWaitTimerAction } },
 	{ TimerExpires,                       DdcmpLineRunning,  DdcmpLineRunning,  { SetSrepAction } },
 
 	{ ReceiveMaintenanceMessage,          DdcmpLineAny,      DdcmpLineHalted,   { NotifyHaltAction } },
@@ -1477,11 +1478,19 @@ static int IncrementNAction(ddcmp_line_t *ddcmpLine)
 	return 1;
 }
 
-static int IncrementTAction(ddcmp_line_t *ddcmpLine)
+static int SetTVarFromNVarAction(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
 	ddcmpLine->Log(LogVerbose, "Increment T action for %s\n", ddcmpLine->name);
 	cb->T = cb->N + (byte)1;
+	return 1;
+}
+
+static int IncrementTAction(ddcmp_line_t *ddcmpLine)
+{
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	ddcmpLine->Log(LogVerbose, "Increment T action for %s\n", ddcmpLine->name);
+	cb->T = cb->T + (byte)1;
 	return 1;
 }
 
