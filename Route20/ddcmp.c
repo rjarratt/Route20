@@ -130,7 +130,6 @@ typedef struct
 {
 	transmit_queue_entry_t transmitQueue[MAX_TRANSMIT_QUEUE_LEN];
 	transmit_queue_entry_t *firstUnacknowledgedTransmitQueueEntry; /* transmit queue entry for the first transmit unacknowledged queue entry that needs to be transmitted */
-	transmit_queue_entry_t *currentTransmitQueueEntry; /* transmit queue entry for the current transmit queue entry that needs to be transmitted */
 	transmit_queue_entry_t *lastAllocatedTransmitQueueEntry; /* last transmit queue entry that was allocated */
 } transmit_queue_ctrl_t;
 
@@ -184,8 +183,8 @@ static void LogFullBuffer(ddcmp_line_t *line, LogLevel level, buffer_t *buffer);
 
 static void InitialiseTransmitQueue(transmit_queue_ctrl_t *transmitQueueCtrl);
 static transmit_queue_entry_t *AllocateNextTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl);
+static transmit_queue_entry_t *GetTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl, int n);
 static transmit_queue_entry_t *GetFirstUnacknowledgedTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl);
-static transmit_queue_entry_t *GetCurrentTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl);
 static void FreeTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl);
 
 static ddcmp_line_control_block_t *GetControlBlock(ddcmp_line_t *ddcmpLine);
@@ -620,7 +619,6 @@ static void InitialiseTransmitQueue(transmit_queue_ctrl_t *transmitQueueCtrl)
 	int i;
 	transmitQueueCtrl->lastAllocatedTransmitQueueEntry = NULL;
 	transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry = &transmitQueueCtrl->transmitQueue[0];
-	transmitQueueCtrl->currentTransmitQueueEntry = &transmitQueueCtrl->transmitQueue[0];
 	for (i = 0; i < MAX_TRANSMIT_QUEUE_LEN; i++)
 	{
 		transmitQueueCtrl->transmitQueue[i].slotNumber = i;
@@ -669,25 +667,35 @@ static transmit_queue_entry_t *AllocateNextTransmitQueueEntry(transmit_queue_ctr
 
 	return ans;
 }
-
 static transmit_queue_entry_t *GetFirstUnacknowledgedTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl)
 {
 	transmit_queue_entry_t *ans = NULL;
 	if (transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry->slotInUse)
 	{
 		ans = transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry;
-		transmitQueueCtrl->currentTransmitQueueEntry = ans;
 	}
 
 	return ans;
 }
 
-static transmit_queue_entry_t *GetCurrentTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl)
+static transmit_queue_entry_t *GetTransmitQueueEntry(transmit_queue_ctrl_t *transmitQueueCtrl, int n)
 {
 	transmit_queue_entry_t *ans = NULL;
-	if (transmitQueueCtrl->currentTransmitQueueEntry->slotInUse)
+	transmit_queue_entry_t *temp = transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry;
+
+	while (temp->slotInUse)
 	{
-		ans = transmitQueueCtrl->currentTransmitQueueEntry;
+		if (n == GetMessageNum(&temp->buffer))
+		{
+			ans = temp;
+			break;
+		}
+		else if (temp->next == transmitQueueCtrl->firstUnacknowledgedTransmitQueueEntry)
+		{
+			break;
+		}
+
+		temp = temp->next;
 	}
 
 	return ans;
@@ -786,10 +794,11 @@ static void DoIdle(ddcmp_line_t *ddcmpLine)
 static void DoIdleRetransmit(ddcmp_line_t *ddcmpLine)
 {
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+    transmit_queue_entry_t *entry = NULL;
 
-	while (cb->SACKNAK != SNAK && !cb->SREP && Mod256Cmp(cb->T, (cb->N + (byte)1)) < 0 && !IsTimerRunning(ddcmpLine))
+	while (cb->SACKNAK != SNAK && !cb->SREP && Mod256Cmp(cb->T, (cb->N + (byte)1)) < 0 /* && !IsTimerRunning(ddcmpLine)*/)
 	{
-        transmit_queue_entry_t *entry = GetFirstUnacknowledgedTransmitQueueEntry(&cb->transmitQueueCtrl);
+    	entry = GetTransmitQueueEntry(&cb->transmitQueueCtrl, cb->T);
 		if (entry != NULL)
 		{
 			cb->currentMessage = &entry->buffer;
