@@ -193,6 +193,7 @@ static int Mod256Cmp(byte a, byte b);
 static uint16 Crc16(uint16 crc, buffer_t *buffer);
 static void AddCrc16ToBuffer(byte *data, int length);
 static void DoIdle(ddcmp_line_t *ddcmpLine);
+static void DoIdleRetransmit(ddcmp_line_t *ddcmpLine);
 static int SynchronizeMessageFrame(ddcmp_line_t *ddcmpLine, buffer_t *buffer);
 static ExtractBufferResult ExtractMessage(ddcmp_line_t *ddcmpLine, buffer_t *buffer);
 static int SendMessageAddingCrc16(ddcmp_line_t *ddcmpLine, byte *data, int length);
@@ -429,13 +430,16 @@ int DdcmpSendDataMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
 {
 	int ans = 0;
 	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+	ddcmpLine->Log(LogDetail, "Request to send message, requested data length is %d\n", length);
 	if (length > (MAX_DDCMP_BUFFER_LENGTH - 6 - 2 - 2))
 	{
 		ddcmpLine->Log(LogError, "Request to send message longer than maximum permitted buffer length, requested data length is %d\n", length);
 	}
 	else if (cb->state == DdcmpLineRunning)
 	{
-		if (cb->T == ((cb->N + (byte)1) & 0xFF) && cb->SACKNAK != SNAK && !cb->SREP)
+        DoIdleRetransmit(ddcmpLine);
+
+        if (cb->T == ((cb->N + (byte)1) & 0xFF) && cb->SACKNAK != SNAK && !cb->SREP)
 		{
 			transmit_queue_entry_t *entry = AllocateNextTransmitQueueEntry(&cb->transmitQueueCtrl);
 			if (entry != NULL)
@@ -454,10 +458,35 @@ int DdcmpSendDataMessage(ddcmp_line_t *ddcmpLine, byte *data, int length)
 				ProcessEvent(ddcmpLine, UserRequestsDataSendAndReadyToSend);
 				ans = 1;
 			}
+			else
+			{
+				ddcmpLine->Log(LogWarning, "Request to send message rejected because no transmit buffers available\n");
+			}
+		}
+		else
+		{
+			ddcmpLine->Log(LogWarning, "Request to send message rejected because line is not ready");
+			ddcmpLine->Log(LogDetail, ". Reason:");
+			if (cb->T != ((cb->N + (byte)1) & 0xFF))
+			{
+			     ddcmpLine->Log(LogDetail, " T <> N + 1 (T=%d, N = %d)", cb->T, cb->N);
+			}
+			if (cb->SACKNAK == SNAK)
+			{
+			     ddcmpLine->Log(LogDetail, " SACKNAK  is SNAK");
+			}
+			if (cb->SREP)
+			{
+			     ddcmpLine->Log(LogDetail, " SREP is set");
+			}
+
+			ddcmpLine->Log(LogWarning, "\n", length);
 		}
 	}
-
-	DoIdle(ddcmpLine);
+	else
+	{
+		ddcmpLine->Log(LogError, "Request to send message rejected because line is not running\n");
+	}
 
 	return ans;
 }
@@ -746,19 +775,26 @@ static void DoIdle(ddcmp_line_t *ddcmpLine)
 		SendRep(ddcmpLine);
 	}
 
-	if (cb->SACKNAK != SNAK && !cb->SREP && Mod256Cmp(cb->T, (cb->N + (byte)1)) < 0 && !IsTimerRunning(ddcmpLine))
+	DoIdleRetransmit(ddcmpLine);
+
+	if (cb->SACKNAK == SACK)
 	{
-		transmit_queue_entry_t *entry = GetFirstUnacknowledgedTransmitQueueEntry(&cb->transmitQueueCtrl);
+		SendAck(ddcmpLine);
+	}
+}
+
+static void DoIdleRetransmit(ddcmp_line_t *ddcmpLine)
+{
+	ddcmp_line_control_block_t *cb = GetControlBlock(ddcmpLine);
+
+	while (cb->SACKNAK != SNAK && !cb->SREP && Mod256Cmp(cb->T, (cb->N + (byte)1)) < 0 && !IsTimerRunning(ddcmpLine))
+	{
+        transmit_queue_entry_t *entry = GetFirstUnacknowledgedTransmitQueueEntry(&cb->transmitQueueCtrl);
 		if (entry != NULL)
 		{
 			cb->currentMessage = &entry->buffer;
 			ProcessEvent(ddcmpLine, ReadyToRetransmitMsg);
 		}
-	}
-
-	if (cb->SACKNAK == SACK)
-	{
-		SendAck(ddcmpLine);
 	}
 }
 
