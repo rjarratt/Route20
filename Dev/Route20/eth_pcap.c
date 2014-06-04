@@ -169,8 +169,9 @@ packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
                 }
                 else
                 {
-                    Log(LogEthPcap, LogVerbose, " Not loopback on %s \n", ethCircuit->circuit->name);
                     EthSetPayload(&packet);
+                    Log(LogEthPcap, LogVerbose, " Not loopback on %s, payload length=%d \n", ethCircuit->circuit->name, packet.payloadLen);
+					LogBytes(LogEthPcap, LogVerbose, packet.payload, packet.payloadLen);
                 }
             }
             else
@@ -182,6 +183,7 @@ packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
         }
         else if (pcapRes == 0) /* timeout */
         {
+            Log(LogEthPcap, LogVerbose, "No data from %s\n", ethCircuit->circuit->name);
             ans = NULL;
         }
         else
