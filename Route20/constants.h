@@ -49,7 +49,7 @@
 #define T2         1
 #define T3        15
 
-#define LEVEL1_BATCH_SIZE 32 /* must be integral factor of NN + 1 */
+#define LEVEL1_BATCH_SIZE 64 /* must be integral factor of NN + 1 */
 
 #define MAX_DATA_MESSAGE_BODY_SIZE 8192
 #define MAX_LOG_LINE_LEN 800
