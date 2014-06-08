@@ -251,11 +251,16 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
 		if (onNewLine)
 		{
 			time(&now);
-			strftime(buf, 80, "%Y-%m-%d %H:%M:%S ", localtime(&now));
+			strftime(buf, 80, "%Y-%m-%d %H:%M:%S", localtime(&now));
 			fprintf(logFile, buf);
-            if (!runningAsService) printf(buf);
+            fprintf(logFile, "\t");
+            if (!runningAsService)
+            {
+                printf(buf);
+                printf(" ");
+            }
 
-            fprintf(logFile, "%s ", LogSourceName[source]);
+            fprintf(logFile, "%s\t", LogSourceName[source]);
             if (!runningAsService) printf("%s ", LogSourceName[source]);
 		}
 
