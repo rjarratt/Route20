@@ -139,42 +139,45 @@ int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
 	int bytesRead;
 
 	ans = 0;
-	bytesRead = recv(sock->socket, (char *)buffer, bufferLength, 0);
-	if (bytesRead > 0)
-	{
-	    Log(LogSock, LogVerbose, "Read %d bytes on port %d\n", bytesRead, sock->receivePort);
-		LogBytes(LogSock, LogVerbose, buffer, bytesRead);
-	    ans = bytesRead;
-	}
-	else
+    if (sock->socket != INVALID_SOCKET)
     {
-        int closed = 0;
-        int sockErr = 0;
-        if (bytesRead == 0)
+        bytesRead = recv(sock->socket, (char *)buffer, bufferLength, 0);
+        if (bytesRead > 0)
         {
-            closed = 1;
+            Log(LogSock, LogVerbose, "Read %d bytes on port %d\n", bytesRead, sock->receivePort);
+            LogBytes(LogSock, LogVerbose, buffer, bytesRead);
+            ans = bytesRead;
         }
         else
         {
-            sockErr = GetSockError();
-            if (IsSockErrorConnReset(sockErr) || IsSockErrorConnAborted(sockErr))
+            int closed = 0;
+            int sockErr = 0;
+            if (bytesRead == 0)
             {
                 closed = 1;
             }
-        }
-
-        if (closed)
-        {
-            Log(LogSock, LogWarning, "TCP connection on port %d closed\n", sock->receivePort);
-            CloseSocket(sock);
-            if (tcpDisconnectCallback != NULL)
+            else
             {
-                tcpDisconnectCallback(sock);
+                sockErr = GetSockError();
+                if (IsSockErrorConnReset(sockErr) || IsSockErrorConnAborted(sockErr))
+                {
+                    closed = 1;
+                }
             }
-        }
-        else if (!IsSockErrorWouldBlock(sockErr))
-        {
-            SockErrorAndClear("recv");
+
+            if (closed)
+            {
+                Log(LogSock, LogWarning, "TCP connection on port %d closed\n", sock->receivePort);
+                CloseSocket(sock);
+                if (tcpDisconnectCallback != NULL)
+                {
+                    tcpDisconnectCallback(sock);
+                }
+            }
+            else if (!IsSockErrorWouldBlock(sockErr))
+            {
+                SockErrorAndClear("recv");
+            }
         }
     }
 
