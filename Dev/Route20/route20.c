@@ -71,6 +71,7 @@ static void ParseLogLevel(char *string, int *source);
 static void PurgeAdjacenciesCallback(rtimer_t *, char *, void *);
 static void LogCircuitStats(rtimer_t *, char *, void *);
 static void ProcessCircuitEvent(void *context);
+static int ProcessSingleCircuitPacket(circuit_t *circuit);
 static void ProcessPacket(circuit_t *circuit, packet_t *packet);
 static void ProcessPhaseIIMessage(circuit_t *circuit, packet_t *packet);
 static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet);
@@ -947,19 +948,51 @@ static void LogCircuitStats(rtimer_t *timer, char *name, void *context)
 
 static void ProcessCircuitEvent(void *context)
 {
-	packet_t *packet;
 	circuit_t *circuit;
+	int foundData;
+	int i;
 
-	// TODO: Implement flow control. Look at routing spec, but also avoid pushing all available packets, eg DDCMP may be waiting for acks.
+	// TODO: Implement flow control. Look at routing spec.
 	circuit = (circuit_t *)context;
+
+    // Two processing methods available, not decided which one is best.
+#if 1
+    while (ProcessSingleCircuitPacket(circuit))
+    {
+    }
+#else
+	// Process the packet on the circuit that caused the event, and then round robin all the other circuits until none have any data to process.
+    // TODO: Need to add the concept of a Line, so can poll for input when a line is up rather than when a circuit is up. Because we need data to be exchanged before a circuit can be up, so can't use circuit status to decide whether to read a line or not.
+	ProcessSingleCircuitPacket(circuit);
+
 	do
 	{
-	    packet = (*(circuit->ReadPacket))(circuit);
-		if (packet != NULL)
+		foundData = 0;
+		for (i = 1; i <= numCircuits; i++)
 		{
-			ProcessPacket(circuit, packet);
+			if (ProcessSingleCircuitPacket(&Circuits[i]))
+			{
+				foundData = 1;
+			}
 		}
-	} while (packet != NULL);
+	}
+	while (foundData);
+#endif
+}
+
+static int ProcessSingleCircuitPacket(circuit_t *circuit)
+{
+	packet_t *packet;
+	int ans = 0;
+
+	packet = (*(circuit->ReadPacket))(circuit);
+	if (packet != NULL)
+	{
+		ProcessPacket(circuit, packet);
+		ans = 1;
+	}
+
+	return ans;
 }
 
 static void ProcessPacket(circuit_t *circuit, packet_t *packet)
