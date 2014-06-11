@@ -28,7 +28,6 @@ in this Software without prior written authorization from the author.
 ------------------------------------------------------------------------------*/
 
 // TODO: Implement SELECT for half-duplex
-// TODO: perhaps remove position stuff from buffer.
 
 #include <stdlib.h>
 #include <memory.h>
