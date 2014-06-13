@@ -25,7 +25,6 @@
    in this Software without prior written authorization from the author.
 
   ------------------------------------------------------------------------------*/
-// TODO: DIR MIM:: fails over DDCMP
 
 #include <memory.h>
 #include "packet.h"
