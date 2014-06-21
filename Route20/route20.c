@@ -150,6 +150,15 @@ int Initialise(char *configFileName)
 		}
 	}
 
+    if (ans)
+    {
+        Log(LogGeneral, LogInfo, "Initialisation completed successfully\n");
+    }
+    else
+    {
+        Log(LogGeneral, LogFatal, "Initialisation failed, router will now exit\n");
+    }
+
 	return ans;
 }
 
@@ -302,6 +311,11 @@ int ReadConfig(char *fileName, ConfigReadMode mode)
 			ans = 0;
 		}
 	}
+
+    if (!ans)
+    {
+		Log(LogGeneral, LogError, "Invalid configuration file\n");
+    }
 
 	return ans;
 }

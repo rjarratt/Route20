@@ -499,6 +499,7 @@ static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int t
 #endif
 				if (sock->waitHandle == -1)
 				{
+                    Log(LogSock, LogError, "Closing opened socket because there is no wait handle, event name is %s\n", eventName);
 					CloseSocket(sock);
 				}
 			}

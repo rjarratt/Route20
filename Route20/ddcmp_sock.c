@@ -93,6 +93,11 @@ int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit)
 		CreateTimer("DNS", now + DnsConfig.pollPeriod, DnsConfig.pollPeriod, ddcmpCircuit, ProcessDnsTimer);
 	}
 
+    if (!ans)
+    {
+		Log(LogDdcmpSock, LogError, "Could not open circuit for %s\n", sockContext->destinationHostName);
+    }
+
 	return ans;
 }
 

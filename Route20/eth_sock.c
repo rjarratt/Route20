@@ -71,6 +71,11 @@ int EthSockOpen(eth_circuit_t *ethCircuit)
 		Log(LogEthSock, LogError, "Cannot resolve address for %s, circuit not started.\n", sockContext->destinationHostName);
 	}
 
+    if (!ans)
+    {
+		Log(LogEthSock, LogError, "Could not open circuit for %s\n", sockContext->destinationHostName);
+    }
+
 	return ans;
 }
 
