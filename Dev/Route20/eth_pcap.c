@@ -134,6 +134,12 @@ int EthPcapOpen(eth_circuit_t *ethCircuit)
 		}
 	}
 
+
+    if (!ans)
+    {
+		Log(LogEthPcap, LogError, "Could not open circuit for %s\n", ethCircuit->circuit->name);
+    }
+
 	return ans;
 }
 
