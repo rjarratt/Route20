@@ -28,19 +28,11 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <pcap.h>
-#include <pcap-bpf.h>
 #include "constants.h"
-#include "platform.h"
 #include "node.h"
 #include "circuit.h"
 #include "eth_circuit.h"
 #include "ddcmp_circuit.h"
-
-#if defined(WIN32)
-#include <Windows.h>
-#include <WinSock2.h>
-#endif
 
 static void (*stateChangeCallback)(circuit_t *circuit);
 static int FirstLevel1Node();
