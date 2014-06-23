@@ -26,6 +26,11 @@
 
   ------------------------------------------------------------------------------*/
 
+#include "platform.h"
+#include "logging.h"
+
+#if !defined(ROUTE_H)
+
 typedef enum
 {
 	ConfigReadModeInitial,
@@ -55,3 +60,6 @@ void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, int
 void RegisterEventHandler(unsigned int waitHandle, char *name, void *context, void (*eventHandler)(void *context));
 void DeregisterEventHandler(unsigned int waitHandle);
 void MainLoop(void);
+
+#define ROUTE20_H
+#endif
