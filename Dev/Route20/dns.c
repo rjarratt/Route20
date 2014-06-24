@@ -210,7 +210,7 @@ static void DnsProcessResponse(void *context)
 				ok = ParseResource(&packet, &currentOffset, &type, &data, &dataLength);
 				if (type == 1 && dataLength == 4)
 				{
-					callback_entry_t *callbackEntry = FindCallbackEntry(header->id);
+					callback_entry_t *callbackEntry = FindCallbackEntry(requestId);
 					haveIp = 1;
 					if (callbackEntry != NULL)
 					{
