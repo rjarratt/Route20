@@ -46,7 +46,7 @@ typedef struct
 	int        adjacentRoutersCount;
 } AdjacentNodeCallbackData;
 
-void OpenPort();
+void OpenPort(void);
 void CloseCallback(uint16 locAddr);
 void ConnectCallback(uint16 locAddr);
 void DataCallback(uint16 locAddr, byte *data, int dataLength);
@@ -66,12 +66,12 @@ static void SendAdjacentNodeInfo(uint16 srcPort, circuit_t *circuit, decnet_addr
 static void AddDecnetIdToResponse(byte *data, int *pos, decnet_address_t *address);
 static void AddStringToResponse(byte *data, int *pos, char *s);
 
-void NetManInitialise()
+void NetManInitialise(void)
 {
 	OpenPort();
 }
 
-void OpenPort()
+void OpenPort(void)
 {
     uint16 nspPort;
 	int port = NspOpen(CloseCallback, ConnectCallback, DataCallback);

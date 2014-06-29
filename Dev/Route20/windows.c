@@ -28,14 +28,17 @@ in this Software without prior written authorization from the author.
 
 #if defined(WIN32)
 
+#pragma warning( push, 3 )
 #include <pcap.h>
 #include <windows.h>
 #include <tchar.h>
 #include <strsafe.h>
 #include <DbgHelp.h>
+#pragma warning( pop )
+#pragma warning( disable : 4710 )
 
-#include "constants.h"
 #include "platform.h"
+#include "constants.h"
 #include "timer.h"
 #include "route20.h"
 #include "nsp.h"
@@ -50,13 +53,13 @@ in this Software without prior written authorization from the author.
 static VOID SvcInstall(void);
 static VOID WINAPI SvcCtrlHandler( DWORD ); 
 static VOID WINAPI SvcMain( DWORD, LPTSTR * ); 
-static void OpenLog();
-static void CloseLog();
+static void OpenLog(void);
+static void CloseLog(void);
 static void LogWin32Error(char *format, DWORD err);
 static void ProcessStopEvent(void *context);
 static void ProcessPackets(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *));
 static BOOL WINAPI StopSignalHandler(DWORD controlType);
-static void SetupConfigWatcher();
+static void SetupConfigWatcher(void);
 static void ConfigWatchHandler(void *context);
 
 static LONG WINAPI ExceptionFilter(EXCEPTION_POINTERS* pExp, DWORD dwExpCode);
@@ -325,7 +328,7 @@ static BOOL WINAPI StopSignalHandler(DWORD controlType)
 	return TRUE;
 }
 
-static void SetupConfigWatcher()
+static void SetupConfigWatcher(void)
 {
 	TCHAR path[MAX_PATH + 1];
 	unsigned int watchHandle;
@@ -341,7 +344,7 @@ static void ConfigWatchHandler(void *context)
     ReadConfig(CONFIG_FILE_NAME, ConfigReadModeUpdate);
 }
 
-static VOID SvcInstall()
+static VOID SvcInstall(void)
 {
 	SC_HANDLE schSCManager;
 	SC_HANDLE schService;
@@ -423,12 +426,12 @@ static VOID WINAPI SvcMain( DWORD dwArgc, LPTSTR *lpszArgv )
 	SvcInit( dwArgc, lpszArgv );
 }
 
-static void OpenLog()
+static void OpenLog(void)
 {
 	logFile = fopen("C:\\temp\\Route20.log", "w+");
 }
 
-static void CloseLog()
+static void CloseLog(void)
 {
 	fclose(logFile);
 }

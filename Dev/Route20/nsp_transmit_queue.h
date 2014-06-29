@@ -33,6 +33,7 @@
 
 typedef struct transmit_queue_entry *transmit_queue_entry_ptr;
 
+#pragma warning( disable: 4820 )
 typedef struct transmit_queue_entry
 {
 	uint16  transmitSegmentNumber;

@@ -43,7 +43,7 @@ static int IsSockErrorConnReset(int err);
 static int IsSockErrorConnAborted(int err);
 static int IsSockErrorWouldBlock(int err);
 static void SockErrorAndClear(char *msg);
-static void SockErrorClear();
+static void SockErrorClear(void);
 static void SetNonBlocking(socket_t *socket);
 static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int type, int protocol);
 static int ListenTcpSocket(socket_t *sock);
@@ -55,7 +55,7 @@ static void (*tcpConnectCallback)(socket_t *sock);
 static void (*tcpDisconnectCallback)(socket_t *sock);
 static int lastSocketError = 0;
 
-void InitialiseSockets()
+void InitialiseSockets(void)
 {
 	if (!started)
 	{
@@ -428,7 +428,7 @@ static void SockErrorAndClear(char *msg)
 	SockErrorClear();
 }
 
-static void SockErrorClear()
+static void SockErrorClear(void)
 {
 	lastSocketError = 0;
 }

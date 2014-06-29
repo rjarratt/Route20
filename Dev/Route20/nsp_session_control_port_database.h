@@ -69,10 +69,10 @@ typedef struct
 	void (*dataCallback)(uint16 locAddr, byte *data, int dataLength);
 } session_control_port_t;
 
-void NspInitialiseScpDatabase();
+void NspInitialiseScpDatabase(void);
 session_control_port_t *NspFindScpDatabaseEntry(int (*compare)(session_control_port_t *, void *context), void *context);
-session_control_port_t *NspFindFreeScpDatabaseEntry();
-session_control_port_t *NspFindOpenScpDatabaseEntry();
+session_control_port_t *NspFindFreeScpDatabaseEntry(void);
+session_control_port_t *NspFindOpenScpDatabaseEntry(void);
 session_control_port_t *NspFindScpDatabaseEntryByLocalAddress(uint16 addrLoc);
 
 #define NSP_SCP_DATABASE_H

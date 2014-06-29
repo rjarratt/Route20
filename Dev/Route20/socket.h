@@ -27,8 +27,10 @@
   ------------------------------------------------------------------------------*/
 
 #if defined(WIN32)
+#pragma warning( push, 3 )
 //#include <Windows.h>
 #include <WinSock2.h>
+#pragma warning( pop )
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -65,7 +67,7 @@ typedef struct
 socket_config_t SocketConfig;
 socket_t ListenSocket;
 
-void InitialiseSockets();
+void InitialiseSockets(void);
 int OpenUdpSocket(socket_t *sock, char *eventName, uint16 receivePort);
 int OpenTcpSocket(socket_t *sock, char *eventName, uint16 receivePort);
 void SetTcpAcceptCallback(socket_t *(*callback)(sockaddr_t *receivedFrom));
