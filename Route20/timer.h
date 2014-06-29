@@ -33,6 +33,7 @@
 
 typedef struct rtimer *timer_ptr;
 
+#pragma warning(disable : 4820)
 typedef struct rtimer
 {
     int isFullTimer;

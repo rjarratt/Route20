@@ -27,7 +27,7 @@
   ------------------------------------------------------------------------------*/
 
 #if !defined(NETMAN_H)
-void NetManInitialise();
+void NetManInitialise(void);
 #define NETMAN_H
 #endif
 

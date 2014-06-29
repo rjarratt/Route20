@@ -33,7 +33,7 @@
 #define SERVICES_NONE 1
 #define SERVICES_SEGMENT 5
 
-void NspInitialise();
+void NspInitialise(void);
 int NspOpen(void (*closeCallback)(uint16 locAddr), void (*connectCallback)(uint16 locAddr), void (*dataCallback)(uint16 locAddr, byte *data, int dataLength));
 int NspAccept(uint16 srcAddr, byte services);
 void NspTransmit(uint16 srcAddr, byte *data, int dataLength); // TODO: will need to identify link src, dst (and node?)

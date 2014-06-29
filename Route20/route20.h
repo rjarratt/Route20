@@ -53,7 +53,7 @@ event_handler_t eventHandlers[MAX_EVENT_HANDLERS];
 int numEventHandlers;
 int eventHandlersChanged;
 
-void InitialiseLogging();
+void InitialiseLogging(void);
 int ReadConfig(char *fileName, ConfigReadMode mode);
 int Initialise(char *configFileName);
 void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, int dataLength));

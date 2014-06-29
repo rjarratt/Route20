@@ -134,6 +134,7 @@ typedef struct
 
 #pragma pack(pop)
 
+#pragma warning( disable : 4820 )
 typedef struct
 {
 	DdcmpLineState state;

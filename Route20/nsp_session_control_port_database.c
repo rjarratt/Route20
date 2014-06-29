@@ -38,7 +38,7 @@ static int IsEntryClosed(session_control_port_t *entry, void *context);
 static int IsEntryOpen(session_control_port_t *entry, void *context);
 static int IsEntryLocalAddress(session_control_port_t *entry, void *context);
 
-void NspInitialiseScpDatabase()
+void NspInitialiseScpDatabase(void)
 {
 	int i;
 	for (i = 0; i < NSP_MAX_SESSIONS; i++)
@@ -76,12 +76,12 @@ session_control_port_t *NspFindScpDatabaseEntry(int (*compare)(session_control_p
 	return ans;
 }
 
-session_control_port_t *NspFindFreeScpDatabaseEntry()
+session_control_port_t *NspFindFreeScpDatabaseEntry(void)
 {
 	return NspFindScpDatabaseEntry(IsEntryClosed, NULL);
 }
 
-session_control_port_t *NspFindOpenScpDatabaseEntry()
+session_control_port_t *NspFindOpenScpDatabaseEntry(void)
 {
 	return NspFindScpDatabaseEntry(IsEntryOpen, NULL);
 }

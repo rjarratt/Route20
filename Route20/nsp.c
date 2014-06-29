@@ -69,7 +69,7 @@ static void LogState(LogSource source, LogLevel level, NspPortState state);
 
 static uint16 lastPort;
 
-void NspInitialise()
+void NspInitialise(void)
 {
 	NspInitialiseScpDatabase();
 	RoutingSetCallback(NspProcessPacket);
