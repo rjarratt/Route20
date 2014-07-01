@@ -38,9 +38,7 @@ typedef struct eth_circuit
 	circuit_t *circuit;
 	int        isDesignatedRouter;
 
-	int (*EthCircuitStart)(line_t *line);
-	packet_t *(*EthCircuitReadPacket)(line_t *line);
-	int (*EthCircuitWritePacket)(line_t *line, packet_t *);
+	int (*EthCircuitStart)(line_t *line); // TODO: redundant?
 	void (*EthCircuitStop)(line_t *line);
 } eth_circuit_t;
 

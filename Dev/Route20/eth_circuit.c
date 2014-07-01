@@ -54,8 +54,6 @@ eth_circuit_t *EthCircuitCreatePcap(circuit_t *circuit)
 	circuit->line = line;
 
 	ans->EthCircuitStart = EthPcapLineStart;
-	ans->EthCircuitReadPacket = EthPcapLineReadPacket; // TODO: There are two references to this function
-	ans->EthCircuitWritePacket = EthPcapLineWritePacket;
 	ans->EthCircuitStop = EthPcapLineStop;
 
 	return ans;
@@ -71,8 +69,6 @@ eth_circuit_t *EthCircuitCreateSocket(circuit_t *circuit, uint16 receivePort, ch
 	circuit->line = line;
 
 	ans->EthCircuitStart = EthSockLineStart;
-	ans->EthCircuitReadPacket = EthSockLineReadPacket; // TODO: There are two references to this function
-	ans->EthCircuitWritePacket = EthSockLineWritePacket;
 	ans->EthCircuitStop = EthSockLineStop;
 
 	return ans;

@@ -52,7 +52,7 @@ ddcmp_circuit_t *DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationH
 
 	ans->circuit = circuit;
 	circuit->line = line;
-    ans->state = DdcmpInitHAState; // TODO: should this be here? Not in other circuit types?
+    ans->state = DdcmpInitHAState;
 
 	ans->Start = DdcmpSockLineStart;
 	ans->ReadPacket = DdcmpSockLineReadPacket;
