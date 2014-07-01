@@ -29,6 +29,7 @@
 #include "packet.h"
 #include "decnet.h"
 #include "timer.h"
+#include "line.h"
 
 #if !defined(CIRCUIT_H)
 
@@ -54,7 +55,7 @@ typedef struct circuit_stats
 	long          decnetToThisNodePacketsReceived;
 	long          packetsSent;
 	long          loopbackPacketsReceived;
-	long          invalidPacketsReceived;
+	long          nonDecnetPacketsReceived;
 } circuit_stats_t;
 
 typedef struct circuit
@@ -62,7 +63,7 @@ typedef struct circuit
 	int                slot;
 	char              *name;
 	void              *context;
-	int                waitHandle;
+    line_t            *line;
 	CircuitType        circuitType;
 	CircuitState       state;
 	struct init_layer *initLayer;
@@ -72,12 +73,12 @@ typedef struct circuit
 	int                nextLevel1Node;
 	circuit_stats_t    stats;
 
-	int (*Open)(circuit_ptr circuit);
-	int (*Up)(circuit_ptr circuit);
+	int (*Start)(circuit_ptr circuit);
+	void (*Up)(circuit_ptr circuit);
 	void (*Down)(circuit_ptr circuit);
 	packet_t *(*ReadPacket)(circuit_ptr circuit);
 	int (*WritePacket)(circuit_ptr circuit, decnet_address_t *from, decnet_address_t *to, packet_t *, int isHello);
-	void (*Close)(circuit_ptr circuit);
+	void (*Stop)(circuit_ptr circuit);
 	void (*Reject)(circuit_ptr circuit);
 	void (*WaitEventHandler)(void *context);
 } circuit_t;
@@ -90,7 +91,8 @@ void CircuitDownComplete(circuit_t *circuit);
 void CircuitReject(circuit_t *circuit);
 void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost, void (*waitEventHandler)(void *context));
 void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receivePort, uint16 destinationPort, int cost, void (*waitEventHandler)(void *context));
-void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, int port, int cost, void (*waitEventHandler)(void *context));
+void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, uint16 port, int cost, void (*waitEventHandler)(void *context));
+line_t *GetLineFromCircuit(circuit_t *circuit);
 int  IsBroadcastCircuit(circuit_ptr circuit);
 
 #define CIRCUIT_H

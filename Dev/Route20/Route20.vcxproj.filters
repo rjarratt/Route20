@@ -27,12 +27,6 @@
     <ClCompile Include="packet.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="eth_pcap.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="eth_sock.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="timer.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -111,9 +105,6 @@
     <ClCompile Include="ddcmp_circuit.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ddcmp_sock.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="ddcmp_init_layer.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -121,6 +112,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="logging.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="line.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="eth_pcap_line.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="eth_sock_line.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ddcmp_sock_line.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -143,12 +146,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="init_layer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="eth_pcap.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="eth_sock.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="timer.h">
@@ -229,9 +226,6 @@
     <ClInclude Include="ddcmp_circuit.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ddcmp_sock.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="ddcmp_init_layer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -239,6 +233,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ddcmp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="line.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="eth_line.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="eth_pcap_line.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="eth_sock_line.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ddcmp_sock_line.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

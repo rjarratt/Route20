@@ -27,39 +27,32 @@
   ------------------------------------------------------------------------------*/
 
 #include "packet.h"
+#include "line.h"
 
 #if !defined(ETH_CIRCUIT_H)
-
-#define ETHERTYPE_DECnet 0x6003
-#define ETHERTYPE_LAT 0x6004
-#define ETHERTYPE_MOPDL 0x6001
-#define ETHERTYPE_MOPRC 0x6002
-#define ETHERTYPE_LOOPBACK 0x9000
 
 typedef struct eth_circuit *eth_circuit_ptr;
 
 typedef struct eth_circuit
 {
 	circuit_t *circuit;
-	void      *context;
 	int        isDesignatedRouter;
 
-	int (*Open)(eth_circuit_ptr circuit);
-	int (*Start)(eth_circuit_ptr circuit);
-	packet_t *(*ReadPacket)(eth_circuit_ptr circuit);
-	int (*WritePacket)(eth_circuit_ptr circuit, packet_t *);
-	void (*Close)(eth_circuit_ptr circuit);
+	int (*EthCircuitStart)(line_t *line);
+	packet_t *(*EthCircuitReadPacket)(line_t *line);
+	int (*EthCircuitWritePacket)(line_t *line, packet_t *);
+	void (*EthCircuitStop)(line_t *line);
 } eth_circuit_t;
 
 eth_circuit_ptr EthCircuitCreatePcap(circuit_t *circuit);
 eth_circuit_ptr EthCircuitCreateSocket(circuit_t *circuit, uint16 receivePort, char *destinationHostName, uint16 destinationPort);
 
-int EthCircuitOpen(circuit_ptr circuit);
-int EthCircuitUp(circuit_ptr circuit);
+int EthCircuitStart(circuit_ptr circuit);
+void EthCircuitUp(circuit_ptr circuit);
 void EthCircuitDown(circuit_ptr circuit);
 packet_t *EthCircuitReadPacket(circuit_ptr circuit);
 int EthCircuitWritePacket(circuit_ptr circuit, decnet_address_t *from, decnet_address_t *to, packet_t *, int isHello);
-void EthCircuitClose(circuit_ptr circuit);
+void EthCircuitStop(circuit_ptr circuit);
 
 #define ETH_CIRCUIT_H
 #endif

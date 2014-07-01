@@ -26,14 +26,18 @@ in this Software without prior written authorization from the author.
 
 ------------------------------------------------------------------------------*/
 
+#pragma warning( push, 3 )
 #include <stdio.h>
 #include <stdlib.h>
 #include <pcap.h>
 #include <time.h>
 #include <string.h>
+#pragma warning( pop )
+
 #include "platform.h"
 #include "route20.h"
 #include "circuit.h"
+#include "line.h"
 #include "messages.h"
 #include "decnet.h"
 #include "adjacency.h"
@@ -69,7 +73,9 @@ static char *ReadStatsConfig(FILE *f, ConfigReadMode mode, int *ans);
 static int SplitString(char *string, char splitBy, char **left, char **right);
 static void ParseLogLevel(char *string, int *source);
 static void PurgeAdjacenciesCallback(rtimer_t *, char *, void *);
-static void LogCircuitStats(rtimer_t *, char *, void *);
+static void LogAllStats(rtimer_t *, char *, void *);
+static void LogCircuitStats(circuit_t *);
+static void LogLineStats(line_t *);
 static void ProcessCircuitEvent(void *context);
 static int ProcessSingleCircuitPacket(circuit_t *circuit);
 static void ProcessPacket(circuit_t *circuit, packet_t *packet);
@@ -82,7 +88,7 @@ static void LogLoopbackMessage(circuit_t *circuit, packet_t *packet, char *messa
 
 #pragma warning(disable : 4996)
 
-void InitialiseLogging()
+void InitialiseLogging(void)
 {
 	int i;
 
@@ -100,8 +106,9 @@ void InitialiseLogging()
     LogSourceName[LogMessages] = "MSG";
     LogSourceName[LogDns] = "DNS";
     LogSourceName[LogEthInit] = "ETI";
-    LogSourceName[LogEthPcap] = "EPC";
-    LogSourceName[LogEthSock] = "ESK";
+    LogSourceName[LogEthCircuit] = "ECR";
+    LogSourceName[LogEthPcapLine] = "EPL";
+    LogSourceName[LogEthSockLine] = "ESL";
     LogSourceName[LogDdcmpSock] = "DSK";
     LogSourceName[LogDdcmp] = "DDC";
     LogSourceName[LogDdcmpInit] = "DDI";
@@ -131,7 +138,7 @@ int Initialise(char *configFileName)
 		nodeInfo.state = Running;
 		for (i = 1; i <= numCircuits; i++)
 		{
-			ans &= (*(Circuits[i].Open))(&Circuits[i]);
+			ans &= (*(Circuits[i].Start))(&Circuits[i]); // TODO: should start lines, when lines open then should open circuit.
 		}
 		time(&now);
 		CreateTimer("PurgeAdjacencies", now + 1, 1, NULL, PurgeAdjacenciesCallback);
@@ -374,13 +381,17 @@ static char *ReadLoggingConfig(FILE *f, ConfigReadMode mode, int *ans)
 			{
 				ParseLogLevel(value, &LoggingLevels[LogEthInit]);
 			}
-			else if (stricmp(name, "ethpcap") == 0)
+			else if (stricmp(name, "ethcircuit") == 0)
 			{
-				ParseLogLevel(value, &LoggingLevels[LogEthPcap]);
+				ParseLogLevel(value, &LoggingLevels[LogEthCircuit]);
 			}
-			else if (stricmp(name, "ethsock") == 0)
+			else if (stricmp(name, "ethpcapline") == 0)
 			{
-				ParseLogLevel(value, &LoggingLevels[LogEthSock]);
+				ParseLogLevel(value, &LoggingLevels[LogEthPcapLine]);
+			}
+			else if (stricmp(name, "ethsockline") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogEthSockLine]);
 			}
 			else if (stricmp(name, "ddcmpsock") == 0)
 			{
@@ -679,7 +690,7 @@ static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans)
 	char  *value;
 	char   addressPresent = 0;
 	char   hostName[80];
-	int    port;
+	uint16 port;
 	int    cost = 5;
 
 	if (mode == ConfigReadModeFull)
@@ -845,7 +856,7 @@ static char *ReadStatsConfig(FILE *f, ConfigReadMode mode, int *ans)
 			time_t now;
 
 			time(&now);
-			statsTimer = CreateTimer("CircuitStats", now + period, period, NULL, LogCircuitStats);
+			statsTimer = CreateTimer("CircuitStats", now + period, period, NULL, LogAllStats);
 		}
 	}
 	else
@@ -942,29 +953,53 @@ static void PurgeAdjacenciesCallback(rtimer_t *timer, char *name, void *context)
 	PurgeAdjacencies();
 }
 
-static void LogCircuitStats(rtimer_t *timer, char *name, void *context)
+static void LogAllStats(rtimer_t *timer, char *name, void *context)
 {
 	int i;
     Log(LogGeneral, LogFatal, "Statistics ****************\n");
+    Log(LogGeneral, LogFatal, "\n");
+    Log(LogGeneral, LogFatal, "Circuits ****************\n");
+    Log(LogGeneral, LogFatal, "\n");
 	for (i = 1; i <= numCircuits; i++)
 	{
 		circuit_t *circuit = &Circuits[i];
-		Log(LogGeneral, LogFatal, "%s\n", circuit->name);
-		Log(LogGeneral, LogFatal, "  DECnet packets received:              %d\n", circuit->stats.decnetPacketsReceived);
-		Log(LogGeneral, LogFatal, "  DECnet packets to this node received: %d\n", circuit->stats.decnetToThisNodePacketsReceived);
-		Log(LogGeneral, LogFatal, "  Invalid packets received:             %d\n", circuit->stats.invalidPacketsReceived);
-		Log(LogGeneral, LogFatal, "  Loopback packets received:            %d\n", circuit->stats.loopbackPacketsReceived);
-		Log(LogGeneral, LogFatal, "  Valid raw packets received:           %d\n", circuit->stats.validRawPacketsReceived);
-		Log(LogGeneral, LogFatal, "  Packets sent:                         %d\n", circuit->stats.packetsSent);
+        LogCircuitStats(circuit);
 	}
+    Log(LogGeneral, LogFatal, "\n");
+    Log(LogGeneral, LogFatal, "Lines ****************\n");
+    Log(LogGeneral, LogFatal, "\n");
+	for (i = 1; i <= numCircuits; i++)
+	{
+		circuit_t *circuit = &Circuits[i];
+        LogLineStats(circuit->line);
+	}
+    Log(LogGeneral, LogFatal, "\n");
 	Log(LogGeneral, LogFatal, "End Statistics ************\n");
+}
+
+static void LogCircuitStats(circuit_t *circuit)
+{
+    Log(LogGeneral, LogFatal, "Circuit %s\n", circuit->name);
+    Log(LogGeneral, LogFatal, "  DECnet packets received:              %d\n", circuit->stats.decnetPacketsReceived);
+    Log(LogGeneral, LogFatal, "  DECnet packets to this node received: %d\n", circuit->stats.decnetToThisNodePacketsReceived);
+    Log(LogGeneral, LogFatal, "  Non-DECnet packets received:          %d\n", circuit->stats.nonDecnetPacketsReceived);
+    Log(LogGeneral, LogFatal, "  Loopback packets received:            %d\n", circuit->stats.loopbackPacketsReceived);
+    Log(LogGeneral, LogFatal, "  Valid raw packets received:           %d\n", circuit->stats.validRawPacketsReceived);
+    Log(LogGeneral, LogFatal, "  Packets sent:                         %d\n", circuit->stats.packetsSent);
+}
+
+static void LogLineStats(line_t *line)
+{
+    Log(LogGeneral, LogFatal, "Line %s\n", line->name);
+    Log(LogGeneral, LogFatal, "  Valid packets received:              %d\n", line->stats.validPacketsReceived);
+    Log(LogGeneral, LogFatal, "  Invalid packets received:            %d\n", line->stats.invalidPacketsReceived);
 }
 
 static void ProcessCircuitEvent(void *context)
 {
 	circuit_t *circuit;
-	int foundData;
-	int i;
+	//int foundData;
+	//int i;
 
 	// TODO: Implement flow control. Look at routing spec.
 	circuit = (circuit_t *)context;

@@ -83,7 +83,7 @@ void EthInitLayerStop(void)
 		packet = CreateEthernetHello(nodeInfo.address);
 		circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet, 1);
 		CircuitDown(circuit);
-		circuit->Close(circuit);
+		circuit->Stop(circuit);
 	}
 }
 

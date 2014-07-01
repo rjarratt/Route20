@@ -1,7 +1,7 @@
-/* logging.h: logging enumerations
+/* eth_line.h: Ethernet circuit
   ------------------------------------------------------------------------------
 
-   Copyright (c) 2013, Robert M. A. Jarratt
+   Copyright (c) 2014, Robert M. A. Jarratt
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -26,36 +26,13 @@
 
   ------------------------------------------------------------------------------*/
 
-#if !defined(LOGGING_H)
+#if !defined(ETH_LINE_H)
 
-typedef enum
-{
-	LogGeneral,
-	LogCircuit,
-	LogAdjacency,
-	LogUpdate,
-	LogDecision,
-	LogForwarding,
-	LogMessages,
-	LogDns,
-	LogEthInit,
-    LogEthCircuit,
-	LogEthPcapLine,
-	LogEthSockLine,
-	LogDdcmpSock,
-	LogDdcmp,
-	LogDdcmpInit,
-	LogSock,
-	LogNsp,
-	LogNspMessages,
-	LogNetMan,
-	LogEndMarker
-} LogSource;
+#define ETHERTYPE_DECnet 0x6003
+#define ETHERTYPE_LAT 0x6004
+#define ETHERTYPE_MOPDL 0x6001
+#define ETHERTYPE_MOPRC 0x6002
+#define ETHERTYPE_LOOPBACK 0x9000
 
-char *LogSourceName[LogEndMarker + 1];
-
-void Log(LogSource source, LogLevel level, char *format, ...);
-void LogBytes(LogSource source, LogLevel level, byte *buffer, int length);
-
-#define LOGGING_H
+#define ETH_LINE_H
 #endif

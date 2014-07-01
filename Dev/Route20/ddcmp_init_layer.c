@@ -38,7 +38,7 @@ in this Software without prior written authorization from the author.
 #include "circuit.h"
 #include "ddcmp_init_layer.h"
 #include "ddcmp_circuit.h"
-#include "ddcmp_sock.h"
+#include "ddcmp_sock_line.h"
 #include "messages.h"
 #include "timer.h"
 
@@ -76,8 +76,8 @@ typedef struct
 static circuit_t * ddcmpCircuits[NC];
 static int ddcmpCircuitCount;
 
-static void DdcmpInitCircuitUp(ddcmp_circuit_t *ddcmpCircuit);
-static void DdcmpInitCircuitDown(ddcmp_circuit_t *ddcmpCircuit);
+static void DdcmpInitLineUp(ddcmp_circuit_t *ddcmpCircuit);
+static void DdcmpInitLineDown(ddcmp_circuit_t *ddcmpCircuit);
 static void DdcmpInitNotifyRunning(void *context);
 static void DdcmpInitNotifyHalt(void *context);
 
@@ -85,6 +85,8 @@ static socket_t * TcpAcceptCallback(sockaddr_t *receivedFrom);
 static void TcpConnectCallback(socket_t *sock);
 static void TcpDisconnectCallback(socket_t *sock);
 static ddcmp_circuit_t *FindCircuit(socket_t *sock);
+static ddcmp_circuit_t *GetDdcmpCircuitFromCircuit(circuit_t *circuit);
+static ddcmp_sock_t *GetDdcmpSockFromDdcmpCircuit(ddcmp_circuit_t *ddcmpCircuit);
 
 static void QueueEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt);
 static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt);
@@ -233,7 +235,7 @@ static state_table_entry_t stateTable[] =
     { DdcmpInitCUCEvent,   DdcmpInitOFState, DdcmpInitOFState, NULL },
     { DdcmpInitCUCEvent,   DdcmpInitHAState, DdcmpInitHAState, NULL },
 
-    { DdcmpInitUndefinedEvent, 0, 0, NULL }
+    { DdcmpInitUndefinedEvent, (DdcmpInitState)0, (DdcmpInitState)0, NULL }
 };
 
 void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount)
@@ -244,9 +246,9 @@ void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount)
 	{
 		if (circuits[i].circuitType == DDCMPCircuit)
 		{
-            ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuits[i].context;
-           	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)ddcmpCircuit->context;
-            sockContext->line.NotifyRunning = DdcmpInitNotifyRunning;
+            line_t *line = GetLineFromCircuit(&circuits[i]);
+           	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
+            sockContext->line.NotifyRunning = DdcmpInitNotifyRunning; // TODO: this looks like it needs to be rationalised, ie line within a line.
             sockContext->line.NotifyHalt = DdcmpInitNotifyHalt;
 		    ddcmpCircuits[ddcmpCircuitCount++] = &circuits[i];
 		}
@@ -266,9 +268,8 @@ void DdcmpInitLayerStop(void)
 	for(i = 0; i < ddcmpCircuitCount; i++)
 	{
 		circuit_t *circuit = ddcmpCircuits[i];
-		ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
-//		ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
-		circuit->Close(circuit);
+		ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
+		circuit->Stop(circuit);
         ProcessEvent(ddcmpCircuit, DdcmpInitOPFEvent);
 		//DdcmpHalt(&ddcmpSock->line);
 	}
@@ -276,14 +277,14 @@ void DdcmpInitLayerStop(void)
 
 void DdcmpInitLayerCircuitUpComplete(circuit_ptr circuit)
 {
-	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+	ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
     CircuitUpComplete(circuit);
     ProcessEvent(ddcmpCircuit, DdcmpInitCUCEvent);
 }
 
 void DdcmpInitLayerCircuitDownComplete(circuit_ptr circuit)
 {
-	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+	ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
     CircuitDownComplete(circuit);
     ProcessEvent(ddcmpCircuit, DdcmpInitCDCEvent);
 }
@@ -304,7 +305,7 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
 {
     AdjacencyType at;
     decnet_address_t from;
-	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+	ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
     int valid = 0;
 
     GetDecnetAddressFromId((byte *)&msg->srcnode, &from);
@@ -364,7 +365,7 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
 void DdcmpInitProcessVerificationMessage(circuit_t *circuit, verification_msg_t *msg)
 {
     decnet_address_t from;
-	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+	ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
 	//int i;
 
 	//Log(LogMessages, LogVerbose, "Verification function value:");
@@ -380,8 +381,8 @@ void DdcmpInitProcessVerificationMessage(circuit_t *circuit, verification_msg_t 
 
 void DdcmpInitProcessPhaseIINodeInitializationMessage(circuit_t *circuit, node_init_phaseii_t *msg)
 {
-	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
-	ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
+	ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
+	ddcmp_sock_t *ddcmpSock = GetDdcmpSockFromDdcmpCircuit(ddcmpCircuit);
 	packet_t *pkt;
 	if (msg->requests & 0x01)
 	{
@@ -397,38 +398,40 @@ void DdcmpInitProcessPhaseIINodeInitializationMessage(circuit_t *circuit, node_i
 
 void DdcmpInitProcessInvalidMessage(circuit_t *circuit)
 {
-	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+	ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
     ProcessEvent(ddcmpCircuit, DdcmpInitIMEvent);
 }
 
 void DdcmpInitProcessCircuitRejectComplete(circuit_t *circuit)
 {
-	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+	ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
 	ProcessEvent(ddcmpCircuit, DdcmpInitRCEvent);
 }
 
-static void DdcmpInitCircuitUp(ddcmp_circuit_t *ddcmpCircuit)
+static void DdcmpInitLineUp(ddcmp_circuit_t *ddcmpCircuit)
 {
 	QueueImmediate(ddcmpCircuit->circuit, CircuitUp);
 }
 
-static void DdcmpInitCircuitDown(ddcmp_circuit_t *ddcmpCircuit)
+static void DdcmpInitLineDown(ddcmp_circuit_t *ddcmpCircuit)
 {
 	QueueImmediate(ddcmpCircuit->circuit, CircuitDown);
 }
 
 static void DdcmpInitNotifyRunning(void *context)
 {
-	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)context;
-	Log(LogDdcmpInit, LogDetail, "DDCMP line %s running\n", sockContext->ddcmpCircuit->circuit->name);
-    ProcessEvent(sockContext->ddcmpCircuit, DdcmpInitSCEvent);
+    line_t *line = (line_t *)context;
+	Log(LogDdcmpInit, LogDetail, "DDCMP line %s running\n", line->name);
+
+    ProcessEvent(GetDdcmpCircuitForLine(line), DdcmpInitSCEvent);
 }
 
 static void DdcmpInitNotifyHalt(void *context)
 {
-	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)context;
-	Log(LogDdcmpInit, LogDetail, "DDCMP line %s halted\n", sockContext->ddcmpCircuit->circuit->name);
-    ProcessEvent(sockContext->ddcmpCircuit, DdcmpInitOPFEvent); // TODO: Not sure this is the right event for this situation
+    line_t *line = (line_t *)context;
+    ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitForLine(line);
+	Log(LogDdcmpInit, LogDetail, "DDCMP line %s halted\n", ddcmpCircuit->circuit->name);
+    ProcessEvent(ddcmpCircuit, DdcmpInitOPFEvent); // TODO: Not sure this is the right event for this situation
 	//DdcmpStart(&sockContext->line); // TODO: Not sure if should restart
 }
 
@@ -440,8 +443,8 @@ static socket_t * TcpAcceptCallback(sockaddr_t *receivedFrom)
 
 	for(i = 0; i < ddcmpCircuitCount; i++)
 	{
-		ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)ddcmpCircuits[i]->context;
-		ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
+		ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(ddcmpCircuits[i]);
+		ddcmp_sock_t *ddcmpSock = GetDdcmpSockFromDdcmpCircuit(ddcmpCircuit);
 
 		sockaddr_in_t *destinationAddressIn = (sockaddr_in_t *)&ddcmpSock->destinationAddress;
 
@@ -467,11 +470,16 @@ static void TcpConnectCallback(socket_t *sock)
 	ddcmp_circuit_t *ddcmpCircuit = FindCircuit(sock);
     if (ddcmpCircuit != NULL)
     {
-        ddcmpCircuit->circuit->waitHandle = sock->waitHandle;
+        line_t *line = ddcmpCircuit->circuit->line; // TODO: too many derefs for wait handle
+        line->waitHandle = sock->waitHandle;
         Log(LogDdcmpInit, LogInfo, "DDCMP line %s has been opened\n", ddcmpCircuit->circuit->name);
-        RegisterEventHandler(ddcmpCircuit->circuit->waitHandle, "DDCMP Circuit", ddcmpCircuit->circuit, ddcmpCircuit->circuit->WaitEventHandler);
+        RegisterEventHandler(line->waitHandle, "DDCMP Circuit", line, line->LineWaitEventHandler);
         ProcessEvent(ddcmpCircuit, DdcmpInitOPOEvent);
 	}
+    else
+    {
+        Log(LogDdcmpInit, LogInfo, "Cannot find DDCMP circuit for connected socket\n");
+    }
 }
 
 static void TcpDisconnectCallback(socket_t *sock)
@@ -481,7 +489,7 @@ static void TcpDisconnectCallback(socket_t *sock)
     {
         Log(LogDdcmpInit, LogInfo, "DDCMP line %s has been closed\n", ddcmpCircuit->circuit->name);
 		ProcessEvent(ddcmpCircuit, DdcmpInitOPFEvent);
-        DeregisterEventHandler(ddcmpCircuit->circuit->waitHandle);
+        DeregisterEventHandler(ddcmpCircuit->circuit->line->waitHandle); // TODO: too many derefs for wait handle
     }
 }
 
@@ -492,8 +500,8 @@ static ddcmp_circuit_t *FindCircuit(socket_t *sock)
 
 	for(i = 0; i < ddcmpCircuitCount; i++)
 	{
-		ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)ddcmpCircuits[i]->context;
-		ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
+		ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(ddcmpCircuits[i]);
+		ddcmp_sock_t *ddcmpSock = GetDdcmpSockFromDdcmpCircuit(ddcmpCircuit);
 
 		if (sock == &ddcmpSock->socket)
 		{
@@ -503,6 +511,16 @@ static ddcmp_circuit_t *FindCircuit(socket_t *sock)
 	}
 
     return ans;
+}
+
+static ddcmp_circuit_t *GetDdcmpCircuitFromCircuit(circuit_t *circuit)
+{
+    return (ddcmp_circuit_t *)circuit->context;
+}
+
+static ddcmp_sock_t *GetDdcmpSockFromDdcmpCircuit(ddcmp_circuit_t *ddcmpCircuit)
+{
+    return (ddcmp_sock_t *)ddcmpCircuit->circuit->line->lineContext;
 }
 
 static void QueueEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
@@ -547,11 +565,11 @@ static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
 		{
             if (entry->newState == DdcmpInitRCState)
             {
-	            DdcmpInitCircuitUp(ddcmpCircuit);
+	            DdcmpInitLineUp(ddcmpCircuit);
             }
             else if (entry->newState == DdcmpInitCRState || entry->newState == DdcmpInitOFState)
             {
-	            DdcmpInitCircuitDown(ddcmpCircuit);
+	            DdcmpInitLineDown(ddcmpCircuit);
             }
 		}
 	}
@@ -577,8 +595,8 @@ static void HandleRecallTimer(rtimer_t *timer, char *name, void *context)
 static int IssueReinitializeCommandAndStartRecallTimerAction(circuit_t *circuit)
 {
 	time_t now;
-    ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
-    ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
+    ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
+    ddcmp_sock_t *ddcmpSock = GetDdcmpSockFromDdcmpCircuit(ddcmpCircuit);
 
 	if (ddcmpCircuit->recallTimer == NULL)
 	{
@@ -597,8 +615,8 @@ static int IssueReinitializeCommandAndStartRecallTimerAction(circuit_t *circuit)
 
 static int IssueStopAction(circuit_t *circuit)
 {
-    ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
-    ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)ddcmpCircuit->context;
+    ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
+    ddcmp_sock_t *ddcmpSock = GetDdcmpSockFromDdcmpCircuit(ddcmpCircuit);
     Log(LogDdcmpInit, LogDetail, "Stopping DDCMP line %s\n", ddcmpCircuit->circuit->name);
     DdcmpHalt(&ddcmpSock->line);
     return 1;

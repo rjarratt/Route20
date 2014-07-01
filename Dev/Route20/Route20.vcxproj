@@ -53,7 +53,7 @@
     <ClCompile>
       <PrecompiledHeader>
       </PrecompiledHeader>
-      <WarningLevel>Level4</WarningLevel>
+      <WarningLevel>EnableAllWarnings</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_USING_V110_SDK71_;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>C:\Users\Rob\Documents\DEC\DECEmulation\WinPCap Developer Pack WpdPack_4_1_2\WpdPack\Include</AdditionalIncludeDirectories>
@@ -103,18 +103,19 @@
     <ClCompile Include="ddcmp.c" />
     <ClCompile Include="ddcmp_circuit.c" />
     <ClCompile Include="ddcmp_init_layer.c" />
-    <ClCompile Include="ddcmp_sock.c" />
+    <ClCompile Include="ddcmp_sock_line.c" />
     <ClCompile Include="decision.c" />
     <ClCompile Include="decnet.c" />
     <ClCompile Include="dns.c" />
     <ClCompile Include="eth_decnet.c" />
     <ClCompile Include="eth_init_layer.c" />
     <ClCompile Include="eth_circuit.c" />
-    <ClCompile Include="eth_pcap.c" />
-    <ClCompile Include="eth_sock.c" />
+    <ClCompile Include="eth_pcap_line.c" />
+    <ClCompile Include="eth_sock_line.c" />
     <ClCompile Include="forwarding.c" />
     <ClCompile Include="forwarding_database.c" />
     <ClCompile Include="init_layer.c" />
+    <ClCompile Include="line.c" />
     <ClCompile Include="linux.c" />
     <ClCompile Include="circuit.c" />
     <ClCompile Include="logging.c" />
@@ -148,19 +149,21 @@
     <ClInclude Include="ddcmp.h" />
     <ClInclude Include="ddcmp_circuit.h" />
     <ClInclude Include="ddcmp_init_layer.h" />
-    <ClInclude Include="ddcmp_sock.h" />
+    <ClInclude Include="ddcmp_sock_line.h" />
     <ClInclude Include="decision.h" />
     <ClInclude Include="decnet.h" />
     <ClInclude Include="dns.h" />
     <ClInclude Include="eth_decnet.h" />
     <ClInclude Include="eth_init_layer.h" />
     <ClInclude Include="eth_circuit.h" />
-    <ClInclude Include="eth_pcap.h" />
-    <ClInclude Include="eth_sock.h" />
+    <ClInclude Include="eth_line.h" />
+    <ClInclude Include="eth_pcap_line.h" />
+    <ClInclude Include="eth_sock_line.h" />
     <ClInclude Include="forwarding.h" />
     <ClInclude Include="forwarding_database.h" />
     <ClInclude Include="init_layer.h" />
     <ClInclude Include="circuit.h" />
+    <ClInclude Include="line.h" />
     <ClInclude Include="logging.h" />
     <ClInclude Include="messages.h" />
     <ClInclude Include="netman.h" />

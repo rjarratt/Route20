@@ -1,7 +1,7 @@
-/* eth_sock.c: Ethernet sockets interface
+/* eth_sock_line.c: Ethernet sockets line
 ------------------------------------------------------------------------------
 
-Copyright (c) 2012, Robert M. A. Jarratt
+Copyright (c) 2014, Robert M. A. Jarratt
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
@@ -31,7 +31,7 @@ in this Software without prior written authorization from the author.
 #include "route20.h"
 #include "socket.h"
 #include "eth_decnet.h"
-#include "eth_sock.h"
+#include "eth_sock_line.h"
 #include "dns.h"
 #include "timer.h"
 
@@ -39,17 +39,17 @@ static void ProcessDnsTimer(rtimer_t *timer, char *name, void *context);
 static void ProcessDnsResponse(byte *address, void *context);
 static int  CheckSourceAddress(sockaddr_t *receivedFrom, eth_sock_t *context);
 
-int EthSockOpen(eth_circuit_t *ethCircuit)
+int EthSockLineStart(line_t *line)
 {
 	int ans = 0;
-	eth_sock_t *sockContext = (eth_sock_t *)ethCircuit->context;
+	eth_sock_t *sockContext = (eth_sock_t *)line->lineContext;
 	sockaddr_t *destinationAddress;
 
 	destinationAddress = GetSocketAddressFromName(sockContext->destinationHostName, sockContext->destinationPort);
 
 	if (destinationAddress != NULL)
 	{
-		ans = OpenUdpSocket(&sockContext->socket, ethCircuit->circuit->name, sockContext->receivePort);
+		ans = OpenUdpSocket(&sockContext->socket, line->name, sockContext->receivePort);
 		if (ans)
 		{
 			if (DnsConfig.dnsConfigured)
@@ -57,33 +57,39 @@ int EthSockOpen(eth_circuit_t *ethCircuit)
 				time_t now;
 
 				time(&now);
-				CreateTimer("DNS", now + DnsConfig.pollPeriod, DnsConfig.pollPeriod, ethCircuit, ProcessDnsTimer);
+				CreateTimer("DNS", now + DnsConfig.pollPeriod, DnsConfig.pollPeriod, line, ProcessDnsTimer);
 			}
 
-			ethCircuit->circuit->waitHandle = sockContext->socket.waitHandle;
-			RegisterEventHandler(ethCircuit->circuit->waitHandle, "EthSock Circuit", ethCircuit->circuit, ethCircuit->circuit->WaitEventHandler);
+			line->waitHandle = sockContext->socket.waitHandle;
+			RegisterEventHandler(line->waitHandle, "EthSock Line", line, line->LineWaitEventHandler);
 			memcpy(&sockContext->destinationAddress, destinationAddress, sizeof(sockContext->destinationAddress));
-			QueueImmediate(ethCircuit->circuit, CircuitUp);
+			QueueImmediate(line, line->LineUp);
 		}
 	}
 	else
 	{
-		Log(LogEthSock, LogError, "Cannot resolve address for %s, circuit not started.\n", sockContext->destinationHostName);
+		Log(LogEthSockLine, LogError, "Cannot resolve address for %s, line not started.\n", sockContext->destinationHostName);
 	}
 
     if (!ans)
     {
-		Log(LogEthSock, LogError, "Could not open circuit for %s\n", sockContext->destinationHostName);
+		Log(LogEthSockLine, LogError, "Could not open line for %s\n", sockContext->destinationHostName);
     }
 
 	return ans;
 }
 
-packet_t *EthSockReadPacket(eth_circuit_t *ethCircuit)
+void EthSockLineStop(line_t *line)
 {
-	eth_sock_t *sockContext = (eth_sock_t *)ethCircuit->context;
+	eth_sock_t *sockContext = (eth_sock_t *)line->lineContext;
+	CloseSocket(&sockContext->socket);
+}
 
+packet_t *EthSockLineReadPacket(line_t *line)
+{
 	packet_t *packet = NULL;
+
+    eth_sock_t *sockContext = (eth_sock_t *)line->lineContext;
 	static packet_t sockPacket;
 	sockaddr_t receivedFrom;
 	
@@ -95,24 +101,24 @@ packet_t *EthSockReadPacket(eth_circuit_t *ethCircuit)
 		{
 			if (EthValidPacket(&sockPacket))
 			{
-				GetDecnetAddress((decnet_eth_address_t *)&sockPacket.rawData[0], &sockPacket.to);
-				GetDecnetAddress((decnet_eth_address_t *)&sockPacket.rawData[6], &sockPacket.from);
-				if (CompareDecnetAddress(&nodeInfo.address, &sockPacket.from))
-				{
-					/*Log(LogVerbose, "Discarding loopback from %s\n", ethCircuit->circuit->name);*/
-					ethCircuit->circuit->stats.loopbackPacketsReceived++;
-					packet = NULL;
-				}
-				else
-				{
-					/*Log(LogInfo, "Not sock loopback on %s\n", ethCircuit->circuit->name);*/
-					EthSetPayload(&sockPacket);
-					packet = &sockPacket;
-				}
+                if (sockPacket.IsDecnet(&sockPacket))
+                {
+                    GetDecnetAddress((decnet_eth_address_t *)&sockPacket.rawData[0], &sockPacket.to);
+                    GetDecnetAddress((decnet_eth_address_t *)&sockPacket.rawData[6], &sockPacket.from);
+                    Log(LogEthSockLine, LogVerbose, "Packet from : ");LogDecnetAddress(LogEthSockLine, LogVerbose, &sockPacket.from);Log(LogEthSockLine, LogVerbose, " received on line %s\n", line->name);
+                    line->stats.validPacketsReceived++;
+                    EthSetPayload(&sockPacket);
+                    packet = &sockPacket;
+                }
+                else
+                {
+                    Log(LogEthSockLine, LogVerbose, "Discarding valid non-DECnet packet from %s\n", line->name);
+                }
 			}
 			else
 			{
-    			ethCircuit->circuit->stats.invalidPacketsReceived++;
+                Log(LogEthPcapLine, LogWarning, "Discarding invalid packet from %s\n", line->name);
+                line->stats.invalidPacketsReceived++;
 				packet = NULL;
 			}
 		}
@@ -121,38 +127,33 @@ packet_t *EthSockReadPacket(eth_circuit_t *ethCircuit)
 	return packet;
 }
 
-int EthSockWritePacket(eth_circuit_t *ethCircuit, packet_t *packet)
+int EthSockLineWritePacket(line_t *line, packet_t *packet)
 {
-	int ans;
-	eth_sock_t *sockContext = (eth_sock_t *)ethCircuit->context;
+	int ans = 0;
+	eth_sock_t *sockContext = (eth_sock_t *)line->lineContext;
 
 	ans = SendToSocket(&sockContext->socket, &sockContext->destinationAddress, packet);
 
 	return ans;
 }
 
-void EthSockClose(eth_circuit_t *ethCircuit)
-{
-	eth_sock_t *sockContext = (eth_sock_t *)ethCircuit->context;
-	CloseSocket(&sockContext->socket);
-}
-
 static void ProcessDnsTimer(rtimer_t *timer, char *name, void *context)
 {
-	eth_circuit_t *ethCircuit = (eth_circuit_t *)context;
-	eth_sock_t *sockContext = (eth_sock_t *)ethCircuit->context;
-	DnsSendQuery(sockContext->destinationHostName, (uint16)ethCircuit->circuit->slot, ProcessDnsResponse, context);
+	line_t *line = (line_t *)context;
+    circuit_t *circuit = (circuit_t *)line->notifyContext;
+	eth_sock_t *sockContext = (eth_sock_t *)line->lineContext;
+	DnsSendQuery(sockContext->destinationHostName, (uint16)circuit->slot, ProcessDnsResponse, context);
 }
 
 static void ProcessDnsResponse(byte *address, void *context)
 {
-	eth_circuit_t *ethCircuit = (eth_circuit_t *)context;
-	eth_sock_t *sockContext = (eth_sock_t *)ethCircuit->context;
+	line_t *line = (line_t *)context;
+	eth_sock_t *sockContext = (eth_sock_t *)line->lineContext;
 	sockaddr_t *newAddress = GetSocketAddressFromIpAddress(address, sockContext->destinationPort);
 
 	if (memcmp(&sockContext->destinationAddress, newAddress, sizeof(sockaddr_t)) != 0)
 	{
-	    Log(LogEthSock, LogInfo, "Changed IP address for %s\n", ethCircuit->circuit->name);
+	    Log(LogEthSockLine, LogInfo, "Changed IP address for %s\n", line->name);
 	    memcpy(&sockContext->destinationAddress, newAddress, sizeof(sockContext->destinationAddress));
 	}
 }
