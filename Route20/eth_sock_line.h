@@ -1,7 +1,7 @@
-/* eth_pcap.h: Ethernet PCAP interface
+/* eth_sock_line.h: Ethernet sockets line
   ------------------------------------------------------------------------------
 
-   Copyright (c) 2012, Robert M. A. Jarratt
+   Copyright (c) 2014, Robert M. A. Jarratt
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -27,23 +27,24 @@
   ------------------------------------------------------------------------------*/
 
 #include "packet.h"
-#include "eth_decnet.h"
+#include "socket.h"
 #include "eth_circuit.h"
 
-#if !defined(ETH_PCAP_H)
-
-typedef struct pcap pcap_t;
+#if !defined(ETH_SOCK_LINE_H)
 
 typedef struct
 {
-	pcap_t *pcap;
-//	decnet_eth_address_t thisNode;
-} eth_pcap_t;
+	socket_t socket;
+	uint16 receivePort;
+	uint16 destinationPort;
+	char *destinationHostName;
+	sockaddr_t destinationAddress;
+} eth_sock_t;
 
-int EthPcapOpen(eth_circuit_t *ethCircuit);
-packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit);
-int EthPcapWritePacket(eth_circuit_t *, packet_t *);
-void EthPcapClose(eth_circuit_t *ethCircuit);
+int EthSockLineStart(line_t *line);
+void EthSockLineStop(line_t *line);
+packet_t *EthSockLineReadPacket(line_t *line);
+int EthSockLineWritePacket(line_t *line, packet_t *packet);
 
-#define ETH_PCAP_H
+#define ETH_SOCK_LINE_H
 #endif

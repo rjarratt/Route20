@@ -28,6 +28,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include "platform.h"
 #include "constants.h"
 #include "node.h"
 #include "circuit.h"
@@ -35,7 +36,7 @@
 #include "ddcmp_circuit.h"
 
 static void (*stateChangeCallback)(circuit_t *circuit);
-static int FirstLevel1Node();
+static int FirstLevel1Node(void);
 
 void SetCircuitStateChangeCallback(void (*callback)(circuit_t *circuit))
 {
@@ -92,68 +93,67 @@ void CircuitReject(circuit_t *circuit)
 
 void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost, void (*waitEventHandler)(void *context))
 {
-	eth_circuit_t *context = EthCircuitCreatePcap(circuit);
-
-	circuit->name = (char *)malloc(strlen(name)+1);
+    circuit->name = (char *)malloc(strlen(name)+1);
 	strcpy(circuit->name, name);
-	circuit->context = (void *)context;
+	circuit->context = (void *)EthCircuitCreatePcap(circuit);
 	circuit->circuitType = EthernetCircuit;
 	circuit->state = CircuitStateOff;
 	circuit->cost = cost;
 	circuit->nextLevel1Node = FirstLevel1Node();
 
-	circuit->Open = EthCircuitOpen;
+	circuit->Start = EthCircuitStart;
 	circuit->Up = EthCircuitUp;
 	circuit->Down = EthCircuitDown;
 	circuit->ReadPacket = EthCircuitReadPacket;
 	circuit->WritePacket = EthCircuitWritePacket;
-	circuit->Close = EthCircuitClose;
+	circuit->Stop = EthCircuitStop;
 	circuit->Reject = NULL;
 	circuit->WaitEventHandler = waitEventHandler;
 }
 
 void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receivePort, uint16 destinationPort, int cost, void (*waitEventHandler)(void *context))
 {
-	eth_circuit_t *context = EthCircuitCreateSocket(circuit, receivePort, name, destinationPort);
-
 	circuit->name = (char *)malloc(strlen(name)+1);
 	strcpy(circuit->name, name);
-	circuit->context = (void *)context;
+	circuit->context = (void *)EthCircuitCreateSocket(circuit, receivePort, name, destinationPort);
 	circuit->circuitType = EthernetCircuit;
 	circuit->state = CircuitStateOff;
 	circuit->cost = cost;
 	circuit->nextLevel1Node = FirstLevel1Node();
 
-    circuit->Open = EthCircuitOpen;
+    circuit->Start = EthCircuitStart;
 	circuit->Up = EthCircuitUp;
 	circuit->Down = EthCircuitDown;
 	circuit->ReadPacket = EthCircuitReadPacket;
 	circuit->WritePacket = EthCircuitWritePacket;
-	circuit->Close = EthCircuitClose;
+	circuit->Stop = EthCircuitStop;
 	circuit->Reject = NULL;
 	circuit->WaitEventHandler = waitEventHandler;
 }
 
-void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, int port, int cost, void (*waitEventHandler)(void *context))
+void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, uint16 port, int cost, void (*waitEventHandler)(void *context))
 {
-	ddcmp_circuit_t *context = DdcmpCircuitCreateSocket(circuit, name, port);
-
 	circuit->name = (char *)malloc(strlen(name)+1);
 	strcpy(circuit->name, name);
-	circuit->context = (void *)context;
+	circuit->context = (void *)DdcmpCircuitCreateSocket(circuit, name, port);
 	circuit->circuitType = DDCMPCircuit;
 	circuit->state = CircuitStateOff;
 	circuit->cost = cost;
 	circuit->nextLevel1Node = FirstLevel1Node();
 
-    circuit->Open = DdcmpCircuitOpen;
+    circuit->Start = DdcmpCircuitStart;
 	circuit->Up = DdcmpCircuitUp;
 	circuit->Down = DdcmpCircuitDown;
 	circuit->ReadPacket = DdcmpCircuitReadPacket;
 	circuit->WritePacket = DdcmpCircuitWritePacket;
-	circuit->Close = DdcmpCircuitClose;
+	circuit->Stop = DdcmpCircuitStop;
 	circuit->Reject = DdcmpCircuitReject;
 	circuit->WaitEventHandler = waitEventHandler;
+}
+
+line_t *GetLineFromCircuit(circuit_t *circuit)
+{
+    return circuit->line;
 }
 
 int  IsBroadcastCircuit(circuit_ptr circuit)
@@ -161,7 +161,7 @@ int  IsBroadcastCircuit(circuit_ptr circuit)
 	return circuit->circuitType == EthernetCircuit;
 }
 
-static int FirstLevel1Node()
+static int FirstLevel1Node(void)
 {
 	int ans = 0;
 	/* make sure this node is the first level 1 node reported so other nodes see it as reachable quickly. If we start at 0 and

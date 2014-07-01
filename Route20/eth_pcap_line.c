@@ -1,7 +1,7 @@
-/* eth_pcap.c: Ethernet PCAP interface
+/* eth_pcap_line.c: Ethernet PCAP line
 ------------------------------------------------------------------------------
 
-Copyright (c) 2012, Robert M. A. Jarratt
+Copyright (c) 2014, Robert M. A. Jarratt
 Portions Johnny Billquist
 
 Permission is hereby granted, free of charge, to any person obtaining a
@@ -27,6 +27,7 @@ in this Software without prior written authorization from the author.
 
 ------------------------------------------------------------------------------*/
 
+#pragma warning( push, 3 )
 #include <string.h>
 #include <pcap.h>
 #if defined(WIN32)
@@ -35,12 +36,14 @@ in this Software without prior written authorization from the author.
 #include <pcap/bpf.h>
 //#include <sys/ioctl.h>
 #endif
+#pragma warning( pop )
+
 #include "platform.h"
 #include "route20.h"
+#include "timer.h"
 #include "eth_decnet.h"
-#include "eth_pcap.h"
-#include "decnet.h"
-#include "packet.h"
+#include "eth_line.h"
+#include "eth_pcap_line.h"
 
 #define ETH_MAX_DEVICE        10                        /* maximum ethernet devices */
 #define ETH_DEV_NAME_MAX     256                        /* maximum device name size */
@@ -49,13 +52,13 @@ in this Software without prior written authorization from the author.
 #define PCAP_ERRBUF_SIZE     256
 #define MIN_PACKET_SIZE      128
 
-struct eth_list {
+static struct eth_list {
 	int     num;
 	char    name[ETH_DEV_NAME_MAX];
 	char    desc[ETH_DEV_DESC_MAX];
 };
 
-struct bpf_insn filterInstructions[] = {
+static struct bpf_insn filterInstructions[] = {
 	BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 12),
 	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_LOOPBACK, 5, 0),
 	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_MOPRC, 4, 0),
@@ -68,48 +71,47 @@ struct bpf_insn filterInstructions[] = {
 
 static char *eth_translate(char *name, char *translated_name);
 
-int EthPcapOpen(eth_circuit_t *ethCircuit)
+int EthPcapLineStart(line_t *line)
 {
 	int ans = 0;
-	eth_pcap_t *pcapContext = (eth_pcap_t *)ethCircuit->context;
+	eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
 	char devname[1024];
 	char ebuf[PCAP_ERRBUF_SIZE];
 
 	pcapContext->pcap = NULL;
 
-	if (eth_translate(ethCircuit->circuit->name, devname) != NULL)
+	if (eth_translate(line->name, devname) != NULL)
 	{
-		Log(LogEthPcap, LogInfo, "Opening %s for packet capture\n", devname);
+		Log(LogEthPcapLine, LogInfo, "Opening %s for packet capture\n", devname);
 		if ((pcapContext->pcap = pcap_open_live(devname, 1518, ETH_PROMISC, 1, ebuf)) == 0)
 		{
-			Log(LogEthPcap, LogError, "Error opening device %s\n", ebuf);
+			Log(LogEthPcapLine, LogError, "Error opening device %s\n", ebuf);
 		}
 		else
 		{
 #if defined(WIN32)
-			ethCircuit->circuit->waitHandle = (int)pcap_getevent(pcapContext->pcap);
+			line->waitHandle = (int)pcap_getevent(pcapContext->pcap);
 			if (pcap_setmintocopy(pcapContext->pcap, 0) != 0)
 			{
-				Log(LogEthPcap, LogError, "Error setting min to copy\n");
+				Log(LogEthPcapLine, LogError, "Error setting min to copy\n");
 			}
 #else
 			int one = 1;
-			ethCircuit->circuit->waitHandle = pcap_fileno(pcapContext->pcap);
-			//      if (ioctl(ethCircuit->circuit->waitHandle,BIOCIMMEDIATE,&one) == -1)
+			line->waitHandle = pcap_fileno(pcapContext->pcap);
+			//      if (ioctl(line->waitHandle,BIOCIMMEDIATE,&one) == -1)
 			//{
 			//	Log(LogError, "ioctl BIOCIMMEDIATE failed\n");
 			//      }
 
-			//if (ioctl(ethCircuit->circuit->waitHandle,BIOCSHDRCMPLT,&i))
+			//if (ioctl(line->waitHandle,BIOCSHDRCMPLT,&i))
 			//{
 			//	Log(LogError, "ioctl BIOCSHDRCMPLT failed\n");
 			//}
 #endif
-			RegisterEventHandler(ethCircuit->circuit->waitHandle, "EthPcap Circuit", ethCircuit->circuit, ethCircuit->circuit->WaitEventHandler);
-			/*Log(LogInfo, "Wait handle that was obtained for %s (slot %d) was %u\n", ethCircuit->circuit->name, ethCircuit->circuit->slot, ethCircuit->circuit->waitHandle);*/
+			RegisterEventHandler(line->waitHandle, "EthPcap Line", line, line->LineWaitEventHandler);
 			if (pcap_setnonblock(pcapContext->pcap, 1, ebuf) != 0)
 			{
-				Log(LogEthPcap, LogError, "Error setting nonblock mode.\n%s\n", ebuf);
+				Log(LogEthPcapLine, LogError, "Error setting nonblock mode.\n%s\n", ebuf);
 			}
 			else
 			{
@@ -118,18 +120,18 @@ int EthPcapOpen(eth_circuit_t *ethCircuit)
 				pgm.bf_insns = filterInstructions;
 				if (pcap_setfilter(pcapContext->pcap, &pgm) == -1) // TODO: change filter not to pass LAT.
 				{
-					Log(LogEthPcap, LogError, "loading filter program");
+					Log(LogEthPcapLine, LogError, "loading filter program");
 				}
 				else
 				{
-					QueueImmediate(ethCircuit->circuit, CircuitUp);
+					QueueImmediate(line, line->LineUp);
 					ans = 1;
 				}
 			}
 
 			if (!ans)
 			{
-				EthPcapClose(ethCircuit);
+				EthPcapLineStop(line);
 			}
 		}
 	}
@@ -137,15 +139,22 @@ int EthPcapOpen(eth_circuit_t *ethCircuit)
 
     if (!ans)
     {
-		Log(LogEthPcap, LogError, "Could not open circuit for %s\n", ethCircuit->circuit->name);
+		Log(LogEthPcapLine, LogError, "Could not open circuit for %s\n", line->name);
     }
 
 	return ans;
 }
 
-packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
+void EthPcapLineStop(line_t *line)
 {
-	eth_pcap_t *pcapContext = (eth_pcap_t *)ethCircuit->context;
+	eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
+
+	pcap_close(pcapContext->pcap);
+}
+
+packet_t *EthPcapLineReadPacket(line_t *line)
+{
+	eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
 
 	static packet_t packet;
 	packet_t * ans;
@@ -157,44 +166,39 @@ packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
         ans = &packet;
         ans->IsDecnet = EthPcapIsDecnet;
         pcapRes = pcap_next_ex(pcapContext->pcap, &h, (const u_char **)&packet.rawData); 
-        //packet.rawData = (byte *)pcap_next(pcapContext->pcap, &h);
         if (pcapRes == 1) /* success */
         {
             packet.rawLen = h->caplen;
             if (EthValidPacket(&packet))
             {
-                int disableLoopbackCheck = 0;
-                GetDecnetAddress((decnet_eth_address_t *)&packet.rawData[0], &packet.to);
-                GetDecnetAddress((decnet_eth_address_t *)&packet.rawData[6], &packet.from);
-                Log(LogEthPcap, LogVerbose, "From : ");LogDecnetAddress(LogEthPcap, LogVerbose, &packet.from);
-                if (!disableLoopbackCheck && CompareDecnetAddress(&nodeInfo.address, &packet.from))
+                if (packet.IsDecnet(&packet))
                 {
-                    Log(LogEthPcap, LogVerbose, " Discarding loopback from %s\n", ethCircuit->circuit->name);
-                    ethCircuit->circuit->stats.loopbackPacketsReceived++;
-                    ans = NULL;
+                    GetDecnetAddress((decnet_eth_address_t *)&packet.rawData[0], &packet.to);
+                    GetDecnetAddress((decnet_eth_address_t *)&packet.rawData[6], &packet.from);
+                    Log(LogEthPcapLine, LogVerbose, "Packet from : ");LogDecnetAddress(LogEthPcapLine, LogVerbose, &packet.from);Log(LogEthPcapLine, LogVerbose, " received on line %s\n", line->name);
+                    line->stats.validPacketsReceived++;
+                    EthSetPayload(&packet);
                 }
                 else
                 {
-                    EthSetPayload(&packet);
-                    Log(LogEthPcap, LogVerbose, " Not loopback on %s, payload length=%d \n", ethCircuit->circuit->name, packet.payloadLen);
-					LogBytes(LogEthPcap, LogVerbose, packet.payload, packet.payloadLen);
+                    Log(LogEthPcapLine, LogVerbose, "Discarding valid non-DECnet Ethernet packet from %s\n", line->name);
                 }
             }
             else
             {
-                Log(LogEthPcap, LogWarning, "Discarding invalid from %s\n", ethCircuit->circuit->name);
-                ethCircuit->circuit->stats.invalidPacketsReceived++;
+                Log(LogEthPcapLine, LogWarning, "Discarding invalid Ethernet packet from %s\n", line->name);
+                line->stats.invalidPacketsReceived++;
                 ans = NULL;
             }
         }
         else if (pcapRes == 0) /* timeout */
         {
-            Log(LogEthPcap, LogVerbose, "No data from %s\n", ethCircuit->circuit->name);
+            Log(LogEthPcapLine, LogVerbose, "No data from %s\n", line->name);
             ans = NULL;
         }
         else
         {
-            Log(LogEthPcap, LogError, "Error reading from pcap: %s\n", pcap_geterr(pcapContext->pcap));
+            Log(LogEthPcapLine, LogError, "Error reading from pcap: %s\n", pcap_geterr(pcapContext->pcap));
             ans = NULL;
         }
     }
@@ -203,9 +207,9 @@ packet_t *EthPcapReadPacket(eth_circuit_t *ethCircuit)
 	return ans;
 }
 
-int EthPcapWritePacket(eth_circuit_t *ethCircuit, packet_t *packet)
+int EthPcapLineWritePacket(line_t *line, packet_t *packet)
 {
-	eth_pcap_t *pcapContext = (eth_pcap_t *)ethCircuit->context;
+	eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
 	u_char smallBuf[MIN_PACKET_SIZE];
 	u_char *data = packet->rawData;
 	int len = packet->rawLen;
@@ -226,12 +230,6 @@ int EthPcapWritePacket(eth_circuit_t *ethCircuit, packet_t *packet)
 	return 1;
 }
 
-void EthPcapClose(eth_circuit_t *ethCircuit)
-{
-	eth_pcap_t *pcapContext = (eth_pcap_t *)ethCircuit->context;
-
-	pcap_close(pcapContext->pcap);
-}
 
 /*
 The libpcap provided API pcap_findalldevs() on most platforms, will 
@@ -327,7 +325,7 @@ static int eth_devices(int max, struct eth_list* list)
 	if (pcap_findalldevs(&alldevs, errbuf) == -1)
 	{
 		char* msg = "Eth: error in pcap_findalldevs: %s\r\n";
-		Log(LogEthPcap, LogError, msg, errbuf);
+		Log(LogEthPcapLine, LogError, msg, errbuf);
 	}
 	else
 	{
@@ -335,7 +333,7 @@ static int eth_devices(int max, struct eth_list* list)
 		for (i=0, dev=alldevs; dev; dev=dev->next)
 		{
 			//struct pcap_addr *addr = dev->addresses;
-			Log(LogEthPcap, LogInfo, "Device list entry %d. Name %s. Description %s.\n", i, dev->name, dev->description);
+			Log(LogEthPcapLine, LogInfo, "Device list entry %d. Name %s. Description %s.\n", i, dev->name, dev->description);
 			//while (addr != NULL)
 			//{
 			//	Log(LogInfo, "Address family %d: %d %d %d %d %d %d\n", addr->addr->sa_family, addr->addr->sa_data[0] & 0xFF, addr->addr->sa_data[1] & 0xFF, addr->addr->sa_data[2] & 0xFF, addr->addr->sa_data[3] & 0xFF, addr->addr->sa_data[4] & 0xFF, addr->addr->sa_data[5] & 0xFF);

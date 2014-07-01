@@ -1,7 +1,7 @@
-/* ddcmp_sock.h: Ddcmp sockets interface
+/* eth_pcap_line.h: Ethernet PCAP line
   ------------------------------------------------------------------------------
 
-   Copyright (c) 2013, Robert M. A. Jarratt
+   Copyright (c) 2014, Robert M. A. Jarratt
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -26,36 +26,22 @@
 
   ------------------------------------------------------------------------------*/
 
-#if defined(WIN32)
-//#include <Windows.h>
-#include <WinSock2.h>
-#endif
-
 #include "packet.h"
-#include "socket.h"
-#include "ddcmp.h"
-#include "ddcmp_circuit.h"
+#include "line.h"
 
-#if !defined(DDCMP_SOCK_H)
+#if !defined(ETH_PCAP_LINE_H)
+
+typedef struct pcap pcap_t;
 
 typedef struct
 {
-    ddcmp_circuit_t *ddcmpCircuit;
-	socket_t socket;
-	char *destinationHostName;
-	int destinationPort;
-	sockaddr_t destinationAddress;
-	ddcmp_line_t line;
-	byte buffer[MAX_DDCMP_DATA_LENGTH];
-	int bufferLength;
-	int bufferInUse;
-} ddcmp_sock_t;
+	pcap_t *pcap;
+} eth_pcap_t;
 
-int DdcmpSockOpen(ddcmp_circuit_t *ddcmpCircuit);
-packet_t *DdcmpSockReadPacket(ddcmp_circuit_t *ddcmpCircuit);
-int DdcmpSockWritePacket(ddcmp_circuit_t *ddcmp, packet_t *packet);
-void DdcmpSockClose(ddcmp_circuit_t *ddcmpCircuit);
-int DdcmpSockWaitHandle(ddcmp_circuit_t *ddcmpCircuit);
+int EthPcapLineStart(line_t *line);
+void EthPcapLineStop(line_t *line);
+packet_t *EthPcapLineReadPacket(line_t *line);
+int EthPcapLineWritePacket(line_t *line, packet_t *packet);
 
-#define DDCMP_SOCK_H
+#define ETH_PCAP_LINE_H
 #endif

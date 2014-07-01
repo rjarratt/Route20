@@ -1,7 +1,7 @@
-/* eth_sock.h: Ethernet sockets interface
+/* ddcmp_sock.h: Ddcmp sockets interface
   ------------------------------------------------------------------------------
 
-   Copyright (c) 2012, Robert M. A. Jarratt
+   Copyright (c) 2013, Robert M. A. Jarratt
 
    Permission is hereby granted, free of charge, to any person obtaining a
    copy of this software and associated documentation files (the "Software"),
@@ -26,31 +26,29 @@
 
   ------------------------------------------------------------------------------*/
 
-#if defined(WIN32)
-//#include <Windows.h>
-#include <WinSock2.h>
-#endif
-
 #include "packet.h"
 #include "socket.h"
-#include "eth_circuit.h"
+#include "ddcmp.h"
+#include "ddcmp_circuit.h"
 
-#if !defined(ETH_SOCK_H)
+#if !defined(DDCMP_SOCK_LINE_H)
 
 typedef struct
 {
 	socket_t socket;
-	uint16 receivePort;
-	uint16 destinationPort;
 	char *destinationHostName;
+	int destinationPort;
 	sockaddr_t destinationAddress;
-} eth_sock_t;
+	ddcmp_line_t line;
+	byte buffer[MAX_DDCMP_DATA_LENGTH];
+	int bufferLength;
+	int bufferInUse;
+} ddcmp_sock_t;
 
-int EthSockOpen(eth_circuit_t *ethCircuit);
-packet_t *EthSockReadPacket(eth_circuit_t *ethCircuit);
-int EthSockWritePacket(eth_circuit_t *ethCircuit, packet_t *packet);
-void EthSockClose(eth_circuit_t *ethCircuit);
-int EthSockWaitHandle(eth_circuit_t *ethCircuit);
+int DdcmpSockLineStart(line_t *line);
+void DdcmpSockLineStop(line_t *line);
+packet_t *DdcmpSockLineReadPacket(line_t *line);
+int DdcmpSockLineWritePacket(line_t *line, packet_t *packet);
 
-#define ETH_SOCK_H
+#define DDCMP_SOCK_LINE_H
 #endif

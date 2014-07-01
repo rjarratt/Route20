@@ -53,22 +53,22 @@ typedef struct ddcmp_circuit
 	rtimer_t       *recallTimer;
     DdcmpInitState  state;
 
-	int (*Open)(ddcmp_circuit_ptr circuit);
-	int (*Start)(ddcmp_circuit_ptr circuit);
-	packet_t *(*ReadPacket)(ddcmp_circuit_ptr circuit);
-	int (*WritePacket)(ddcmp_circuit_ptr circuit, packet_t *);
-	void (*Close)(ddcmp_circuit_ptr circuit);
+	int (*Start)(line_t *line);
+	packet_t *(*ReadPacket)(line_t *line);
+	int (*WritePacket)(line_t *line, packet_t *);
+	void (*Stop)(line_t *line);
 } ddcmp_circuit_t;
 
-ddcmp_circuit_ptr DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName, int destinationPort);
+ddcmp_circuit_ptr DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName, uint16 destinationPort);
 
-int DdcmpCircuitOpen(circuit_ptr circuit);
-int DdcmpCircuitUp(circuit_ptr circuit);
+int DdcmpCircuitStart(circuit_ptr circuit);
+void DdcmpCircuitUp(circuit_ptr circuit);
 void DdcmpCircuitDown(circuit_ptr circuit);
 packet_t *DdcmpCircuitReadPacket(circuit_ptr circuit);
 int DdcmpCircuitWritePacket(circuit_ptr circuit, decnet_address_t *from, decnet_address_t *to, packet_t *, int isHello);
-void DdcmpCircuitClose(circuit_ptr circuit);
+void DdcmpCircuitStop(circuit_ptr circuit);
 void DdcmpCircuitReject(circuit_ptr circuit);
+ddcmp_circuit_t *GetDdcmpCircuitForLine(line_t *line);
 
 #define DDCMP_CIRCUIT_H
 #endif

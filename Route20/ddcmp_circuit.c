@@ -33,49 +33,45 @@
 #include "circuit.h"
 #include "ddcmp_circuit.h"
 #include "ddcmp_init_layer.h"
-#include "ddcmp_sock.h"
+#include "ddcmp_sock_line.h"
 #include "timer.h"
 #include "messages.h"
 
+static void HandleLineNotifyStateChange(line_t *line, void *context);
+static void HandleLineNotifyData(line_t *line, void *context);
 static void DdcmpCircuitRejectionCompleteCallback(void *context);
 static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context);
 static void StopTimerIfRunning(ddcmp_circuit_t *ddcmpCircuit);
 static void StartTimer(ddcmp_circuit_t *ddcmpCircuit);
 
-ddcmp_circuit_t *DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName, int destinationPort)
+ddcmp_circuit_t *DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName, uint16 destinationPort)
 {
 	ddcmp_circuit_t *ans = (ddcmp_circuit_t *)calloc(1, sizeof(ddcmp_circuit_t));
-	ddcmp_sock_t *context = (ddcmp_sock_t *)calloc(1, sizeof(ddcmp_sock_t));
-	context->socket.socket = INVALID_SOCKET;
-	
-    context->ddcmpCircuit = ans;
-	context->destinationHostName = (char *)calloc(1, strlen(destinationHostName) + 1);
-	context->destinationPort = destinationPort;
-	strcpy(context->destinationHostName, destinationHostName);
+	line_t *line = (line_t *)malloc(sizeof(line_t));
+    LineCreateDdcmpSocket(line, circuit->name, destinationHostName, destinationPort, circuit, HandleLineNotifyStateChange, HandleLineNotifyData);
 
 	ans->circuit = circuit;
-	ans->context = context;
-    ans->state = DdcmpInitHAState;
+	circuit->line = line;
+    ans->state = DdcmpInitHAState; // TODO: should this be here? Not in other circuit types?
 
-	ans->Open = DdcmpSockOpen;
-	ans->ReadPacket = DdcmpSockReadPacket;
-	ans->WritePacket = DdcmpSockWritePacket;
-	ans->Close = DdcmpSockClose;
+	ans->Start = DdcmpSockLineStart;
+	ans->ReadPacket = DdcmpSockLineReadPacket;
+	ans->WritePacket = DdcmpSockLineWritePacket;
+	ans->Stop = DdcmpSockLineStop;
 
 	return ans;
 }
 
-int DdcmpCircuitOpen(circuit_t *circuit)
+int DdcmpCircuitStart(circuit_t *circuit)
 {
-	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
-	return ddcmpCircuit->Open(ddcmpCircuit);
+    line_t *line = GetLineFromCircuit(circuit);
+	return line->LineStart(line);
 }
 
-int DdcmpCircuitUp(circuit_t *circuit)
+void DdcmpCircuitUp(circuit_t *circuit)
 {
 	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
 	StartTimer(ddcmpCircuit);
-	return 1;
 }
 
 void DdcmpCircuitDown(circuit_ptr circuit)
@@ -86,10 +82,10 @@ void DdcmpCircuitDown(circuit_ptr circuit)
 
 packet_t *DdcmpCircuitReadPacket(circuit_t *circuit)
 {
-	ddcmp_circuit_t *context = (ddcmp_circuit_t *)circuit->context;
+    line_t *line = GetLineFromCircuit(circuit);
 	packet_t *ans;
 
-	ans = context->ReadPacket(context);
+	ans = line->LineReadPacket(line);
 	if (ans != NULL)
 	{
 		circuit->stats.validRawPacketsReceived++;
@@ -110,8 +106,8 @@ packet_t *DdcmpCircuitReadPacket(circuit_t *circuit)
 int DdcmpCircuitWritePacket(circuit_t *circuit, decnet_address_t *from, decnet_address_t *to, packet_t *packet, int isHello)
 {
 	int ans = 0;
-	ddcmp_circuit_t *context = (ddcmp_circuit_t *)circuit->context;
-    ans = context->WritePacket(context, packet);
+    line_t *line = GetLineFromCircuit(circuit);
+    ans = line->LineWritePacket(line, packet);
 	circuit->stats.packetsSent++;
 	if (circuit->state == CircuitStateUp && !isHello)
 	{
@@ -121,15 +117,44 @@ int DdcmpCircuitWritePacket(circuit_t *circuit, decnet_address_t *from, decnet_a
 	return ans;
 }
 
-void DdcmpCircuitClose(circuit_t *circuit)
+void DdcmpCircuitStop(circuit_t *circuit)
 {
-	ddcmp_circuit_t *context = (ddcmp_circuit_t *)circuit->context;
-	context->Close(context);
+    // TODO: Lot of duplication now in these functions
+    line_t *line = GetLineFromCircuit(circuit);
+	line->LineStop(line);
 }
 
 void DdcmpCircuitReject(circuit_ptr circuit)
 {
     QueueImmediate(circuit, DdcmpCircuitRejectionCompleteCallback);
+}
+
+ddcmp_circuit_t *GetDdcmpCircuitForLine(line_t *line)
+{
+    circuit_t *circuit = (circuit_t *)line->notifyContext;
+    ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
+    return ddcmpCircuit;
+}
+
+// TODO: redundancy in context as it is also the notifyContext field
+static void HandleLineNotifyStateChange(line_t *line, void *context)
+{
+    circuit_t *circuit = (circuit_t *)context;
+    if (line->lineState == LineStateUp)
+    {
+        QueueImmediate(circuit, CircuitUp);
+    }
+    else
+    {
+        QueueImmediate(circuit, CircuitDown);
+    }
+}
+
+// TODO: redundancy in context as it is also the notifyContext field
+static void HandleLineNotifyData(line_t *line, void *context)
+{
+    circuit_t *circuit = (circuit_t *)context;
+    circuit->WaitEventHandler(circuit);
 }
 
 static void DdcmpCircuitRejectionCompleteCallback(void *context)

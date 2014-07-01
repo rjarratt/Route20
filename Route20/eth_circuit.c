@@ -32,65 +32,63 @@
 #include "platform.h"
 #include "circuit.h"
 #include "eth_circuit.h"
-#include "eth_pcap.h"
-#include "eth_sock.h"
+#include "eth_pcap_line.h"
+#include "eth_sock_line.h"
 #include "timer.h"
 #include "messages.h"
 #include "decnet.h"
 #include "node.h"
 
+static void HandleLineNotifyStateChange(line_t *line, void *context);
+static void HandleLineNotifyData(line_t *line, void *context);
 static void HandleHelloTimer(rtimer_t *timer, char *name, void *context);
 static int IsAddressedToThisNode(packet_t * packet);
 
 eth_circuit_t *EthCircuitCreatePcap(circuit_t *circuit)
 {
-	eth_circuit_t *ans = (eth_circuit_t *)malloc(sizeof(eth_circuit_t));
-	eth_pcap_t *context = (eth_pcap_t *)malloc(sizeof(eth_pcap_t));
+	eth_circuit_t *ans = (eth_circuit_t *)calloc(1, sizeof(eth_circuit_t));
+	line_t *line = (line_t *)calloc(1, sizeof(line_t));
+    LineCreateEthernetPcap(line, circuit->name, circuit, HandleLineNotifyStateChange, HandleLineNotifyData);
 
 	ans->circuit = circuit;
-	ans->context = context;
+	circuit->line = line;
 
-	ans->Open = EthPcapOpen;
-	ans->ReadPacket = EthPcapReadPacket;
-	ans->WritePacket = EthPcapWritePacket;
-	ans->Close = EthPcapClose;
+	ans->EthCircuitStart = EthPcapLineStart;
+	ans->EthCircuitReadPacket = EthPcapLineReadPacket; // TODO: There are two references to this function
+	ans->EthCircuitWritePacket = EthPcapLineWritePacket;
+	ans->EthCircuitStop = EthPcapLineStop;
 
 	return ans;
 }
 
 eth_circuit_t *EthCircuitCreateSocket(circuit_t *circuit, uint16 receivePort, char *destinationHostName, uint16 destinationPort)
 {
-	eth_circuit_t *ans = (eth_circuit_t *)malloc(sizeof(eth_circuit_t));
-	eth_sock_t *context = (eth_sock_t *)malloc(sizeof(eth_sock_t));
-	
-	context->receivePort = receivePort;
-	context->destinationPort = destinationPort;
-	context->destinationHostName = (char *)malloc(strlen(destinationHostName) + 1);
-	strcpy(context->destinationHostName, destinationHostName);
+	eth_circuit_t *ans = (eth_circuit_t *)calloc(1, sizeof(eth_circuit_t));
+	line_t *line = (line_t *)calloc(1, sizeof(line_t));
+    LineCreateEthernetSocket(line, circuit->name, receivePort, destinationHostName, destinationPort, circuit, HandleLineNotifyStateChange, HandleLineNotifyData);
 
 	ans->circuit = circuit;
-	ans->context = context;
+	circuit->line = line;
 
-	ans->Open = EthSockOpen;
-	ans->ReadPacket = EthSockReadPacket;
-	ans->WritePacket = EthSockWritePacket;
-	ans->Close = EthSockClose;
+	ans->EthCircuitStart = EthSockLineStart;
+	ans->EthCircuitReadPacket = EthSockLineReadPacket; // TODO: There are two references to this function
+	ans->EthCircuitWritePacket = EthSockLineWritePacket;
+	ans->EthCircuitStop = EthSockLineStop;
 
 	return ans;
 }
 
-int EthCircuitOpen(circuit_t *circuit)
+int EthCircuitStart(circuit_t *circuit)
 {
-	eth_circuit_t *context = (eth_circuit_t *)circuit->context;
-	return context->Open(context);
+    line_t *line = GetLineFromCircuit(circuit);
+	return line->LineStart(line);
 }
 
-int EthCircuitUp(circuit_t *circuit)
+void EthCircuitUp(circuit_t *circuit)
 {
 	time_t now;
 	time(&now);
 	circuit->helloTimer = CreateTimer("AllRoutersHello", now, T3, circuit, HandleHelloTimer);
-	return 0;
 }
 
 void EthCircuitDown(circuit_ptr circuit)
@@ -100,30 +98,43 @@ void EthCircuitDown(circuit_ptr circuit)
 
 packet_t *EthCircuitReadPacket(circuit_t *circuit)
 {
-	eth_circuit_t *context = (eth_circuit_t *)circuit->context;
+    line_t *line = GetLineFromCircuit(circuit);
 	packet_t *ans;
 
-	ans = context->ReadPacket(context);
+	ans = line->LineReadPacket(line);
 	if (ans != NULL)
 	{
-		circuit->stats.validRawPacketsReceived++;
-		if (!ans->IsDecnet(ans))
-		{
-			ans = NULL;
-		}
-		else
-		{
-			circuit->stats.decnetPacketsReceived++;
-			if (!IsAddressedToThisNode(ans))
-			{
-				ans = NULL;
-			}
-			else
-			{
-				circuit->stats.decnetToThisNodePacketsReceived++;
-			}
-		}
-	}
+        int disableLoopbackCheck = 0;
+        if (!disableLoopbackCheck && CompareDecnetAddress(&nodeInfo.address, &ans->from))
+        {
+            Log(LogEthCircuit, LogVerbose, "Discarding loopback packet on circuit %s\n", circuit->name);
+            circuit->stats.loopbackPacketsReceived++;
+            ans = NULL;
+        }
+        else
+        {
+            Log(LogEthCircuit, LogVerbose, "Circuit %s received a valid raw packet, payload length=%d \n", line->name, ans->payloadLen);
+            LogBytes(LogEthCircuit, LogVerbose, ans->payload, ans->payloadLen);
+            circuit->stats.validRawPacketsReceived++;
+            if (!ans->IsDecnet(ans))
+            {
+                ans = NULL;
+                circuit->stats.nonDecnetPacketsReceived++;
+            }
+            else
+            {
+                circuit->stats.decnetPacketsReceived++;
+                if (!IsAddressedToThisNode(ans))
+                {
+                    ans = NULL;
+                }
+                else
+                {
+                    circuit->stats.decnetToThisNodePacketsReceived++;
+                }
+            }
+        }
+    }
 
 	return ans;
 }
@@ -132,7 +143,7 @@ int EthCircuitWritePacket(circuit_t *circuit, decnet_address_t *from, decnet_add
 {
 	int ans;
 	int len;
-	eth_circuit_t *context = (eth_circuit_t *)circuit->context;
+    line_t *line = GetLineFromCircuit(circuit);
 	packet_t toSend;
 
 	toSend.rawLen = packet->payloadLen + 16;
@@ -147,16 +158,37 @@ int EthCircuitWritePacket(circuit_t *circuit, decnet_address_t *from, decnet_add
 	len = Uint16ToLittleEndian((uint16)packet->payloadLen);
 	memcpy(&toSend.rawData[14], &len, 2);
 	memcpy(toSend.payload, packet->payload, packet->payloadLen);
-	ans = context->WritePacket(context, &toSend);
+	ans = line->LineWritePacket(line, &toSend);
 	free(toSend.rawData);
 	circuit->stats.packetsSent++;
 	return ans;
 }
 
-void EthCircuitClose(circuit_t *circuit)
+void EthCircuitStop(circuit_t *circuit)
 {
-	eth_circuit_t *context = (eth_circuit_t *)circuit->context;
-	context->Close(context);
+    line_t *line = GetLineFromCircuit(circuit);
+	line->LineStop(line);
+}
+
+// TODO: redundancy in context as it is also the notifyContext field
+static void HandleLineNotifyStateChange(line_t *line, void *context)
+{
+    circuit_t *circuit = (circuit_t *)context;
+    if (line->lineState == LineStateUp)
+    {
+        QueueImmediate(circuit, CircuitUp);
+    }
+    else
+    {
+        QueueImmediate(circuit, CircuitDown);
+    }
+}
+
+// TODO: redundancy in context as it is also the notifyContext field
+static void HandleLineNotifyData(line_t *line, void *context)
+{
+    circuit_t *circuit = (circuit_t *)context;
+    circuit->WaitEventHandler(circuit);
 }
 
 static void HandleHelloTimer(rtimer_t *timer, char *name, void *context)
@@ -164,7 +196,7 @@ static void HandleHelloTimer(rtimer_t *timer, char *name, void *context)
 	packet_t *packet;
 
 	circuit_t *circuit = (circuit_t *)context;
-	Log(LogEthInit, LogVerbose, "Sending Ethernet Hello to All Routers %s\n", circuit->name);
+	Log(LogEthCircuit, LogVerbose, "Sending Ethernet Hello to All Routers %s\n", circuit->name);
 	packet = CreateEthernetHello(nodeInfo.address);
 	circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet, 1);
 }
