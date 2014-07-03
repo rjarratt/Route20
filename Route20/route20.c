@@ -99,6 +99,7 @@ void InitialiseLogging(void)
 
     LogSourceName[LogGeneral] = "GEN";
     LogSourceName[LogCircuit] = "CRC";
+    LogSourceName[LogLine] = "LIN";
     LogSourceName[LogAdjacency] = "ADJ";
     LogSourceName[LogUpdate] = "UPD";
     LogSourceName[LogDecision] = "DEC";
@@ -352,6 +353,10 @@ static char *ReadLoggingConfig(FILE *f, ConfigReadMode mode, int *ans)
 			else if (stricmp(name, "circuit") == 0)
 			{
 				ParseLogLevel(value, &LoggingLevels[LogCircuit]);
+			}
+			else if (stricmp(name, "line") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogLine]);
 			}
 			else if (stricmp(name, "adjacency") == 0)
 			{
