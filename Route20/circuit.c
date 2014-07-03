@@ -38,6 +38,8 @@
 static void (*stateChangeCallback)(circuit_t *circuit);
 static int FirstLevel1Node(void);
 
+// TODO: abstract properly by putting common functions for read/write etc which do logging, stats etc, then delegate to actual circuit/line implementations.
+
 void SetCircuitStateChangeCallback(void (*callback)(circuit_t *circuit))
 {
 	stateChangeCallback = callback;
