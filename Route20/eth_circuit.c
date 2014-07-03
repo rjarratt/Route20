@@ -53,9 +53,6 @@ eth_circuit_t *EthCircuitCreatePcap(circuit_t *circuit)
 	ans->circuit = circuit;
 	circuit->line = line;
 
-	ans->EthCircuitStart = EthPcapLineStart;
-	ans->EthCircuitStop = EthPcapLineStop;
-
 	return ans;
 }
 
@@ -68,15 +65,12 @@ eth_circuit_t *EthCircuitCreateSocket(circuit_t *circuit, uint16 receivePort, ch
 	ans->circuit = circuit;
 	circuit->line = line;
 
-	ans->EthCircuitStart = EthSockLineStart;
-	ans->EthCircuitStop = EthSockLineStop;
-
 	return ans;
 }
 
 int EthCircuitStart(circuit_t *circuit)
 {
-    line_t *line = GetLineFromCircuit(circuit);
+    line_t *line = GetLineFromCircuit(circuit); // TODO: is this now common to all circuit types? Need a bit of special stuff for init layer perhaps.
 	return line->LineStart(line);
 }
 
