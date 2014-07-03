@@ -38,6 +38,8 @@ static void LineUp(line_ptr line);
 static void LineDown(line_ptr line);
 static void LineWaitEventHandler(void *context);
 
+// TODO: abstract properly by putting common functions for read/write etc which do logging, stats etc, then delegate to actual line implementations.
+
 void LineCreateEthernetPcap(line_ptr line, char *name, void *notifyContext, void (*lineNotifyStateChange)(line_ptr line, void *context), void (*lineNotifyData)(line_ptr line, void *context))
 {
 	eth_pcap_t *context = (eth_pcap_t *)malloc(sizeof(eth_pcap_t));
