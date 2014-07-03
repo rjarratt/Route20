@@ -86,7 +86,9 @@ static void TcpConnectCallback(socket_t *sock);
 static void TcpDisconnectCallback(socket_t *sock);
 static ddcmp_circuit_t *FindCircuit(socket_t *sock);
 static ddcmp_circuit_t *GetDdcmpCircuitFromCircuit(circuit_t *circuit);
+static line_t *GetLineFromDdcmpCircuit(ddcmp_circuit_t *ddcmpCircuit);
 static ddcmp_sock_t *GetDdcmpSockFromDdcmpCircuit(ddcmp_circuit_t *ddcmpCircuit);
+static int GetWaitHandleFromDdcmpCircuit(ddcmp_circuit_t *ddcmpCircuit);
 
 static void QueueEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt);
 static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt);
@@ -470,7 +472,7 @@ static void TcpConnectCallback(socket_t *sock)
 	ddcmp_circuit_t *ddcmpCircuit = FindCircuit(sock);
     if (ddcmpCircuit != NULL)
     {
-        line_t *line = ddcmpCircuit->circuit->line; // TODO: too many derefs for wait handle
+        line_t *line = GetLineFromDdcmpCircuit(ddcmpCircuit);
         line->waitHandle = sock->waitHandle;
         Log(LogDdcmpInit, LogInfo, "DDCMP line %s has been opened\n", ddcmpCircuit->circuit->name);
         RegisterEventHandler(line->waitHandle, "DDCMP Circuit", line, line->LineWaitEventHandler);
@@ -489,7 +491,7 @@ static void TcpDisconnectCallback(socket_t *sock)
     {
         Log(LogDdcmpInit, LogInfo, "DDCMP line %s has been closed\n", ddcmpCircuit->circuit->name);
 		ProcessEvent(ddcmpCircuit, DdcmpInitOPFEvent);
-        DeregisterEventHandler(ddcmpCircuit->circuit->line->waitHandle); // TODO: too many derefs for wait handle
+        DeregisterEventHandler(GetWaitHandleFromDdcmpCircuit(ddcmpCircuit));
     }
 }
 
@@ -518,9 +520,19 @@ static ddcmp_circuit_t *GetDdcmpCircuitFromCircuit(circuit_t *circuit)
     return (ddcmp_circuit_t *)circuit->context;
 }
 
+static line_t *GetLineFromDdcmpCircuit(ddcmp_circuit_t *ddcmpCircuit)
+{
+    return ddcmpCircuit->circuit->line;
+}
+
 static ddcmp_sock_t *GetDdcmpSockFromDdcmpCircuit(ddcmp_circuit_t *ddcmpCircuit)
 {
-    return (ddcmp_sock_t *)ddcmpCircuit->circuit->line->lineContext;
+    return (ddcmp_sock_t *)GetLineFromDdcmpCircuit(ddcmpCircuit)->lineContext;
+}
+
+static int GetWaitHandleFromDdcmpCircuit(ddcmp_circuit_t *ddcmpCircuit)
+{
+    return GetLineFromDdcmpCircuit(ddcmpCircuit)->waitHandle;
 }
 
 static void QueueEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
