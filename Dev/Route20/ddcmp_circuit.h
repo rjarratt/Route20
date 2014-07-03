@@ -52,11 +52,6 @@ typedef struct ddcmp_circuit
 	void           *context;
 	rtimer_t       *recallTimer;
     DdcmpInitState  state;
-
-	int (*Start)(line_t *line);
-	packet_t *(*ReadPacket)(line_t *line);
-	int (*WritePacket)(line_t *line, packet_t *);
-	void (*Stop)(line_t *line);
 } ddcmp_circuit_t;
 
 ddcmp_circuit_ptr DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName, uint16 destinationPort);
