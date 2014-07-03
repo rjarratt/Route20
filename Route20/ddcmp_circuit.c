@@ -54,11 +54,6 @@ ddcmp_circuit_t *DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationH
 	circuit->line = line;
     ans->state = DdcmpInitHAState;
 
-	ans->Start = DdcmpSockLineStart;
-	ans->ReadPacket = DdcmpSockLineReadPacket;
-	ans->WritePacket = DdcmpSockLineWritePacket;
-	ans->Stop = DdcmpSockLineStop;
-
 	return ans;
 }
 
