@@ -116,14 +116,14 @@ void LineCreateDdcmpSocket(line_ptr line, char *name, char *destinationHostName,
 
 static void LineUp(line_ptr line)
 {
-    Log(LogGeneral, LogInfo, "Line %s is up\n", line->name); // TODO: logging category
+    Log(LogLine, LogInfo, "Line %s is up\n", line->name);
     line->lineState = LineStateUp;
     line->LineNotifyStateChange(line, line->notifyContext);
 }
 
 static void LineDown(line_ptr line)
 {
-    Log(LogGeneral, LogInfo, "Line %s is down\n", line->name); // TODO: logging category
+    Log(LogLine, LogInfo, "Line %s is down\n", line->name);
     line->lineState = LineStateOff;
     line->LineNotifyStateChange(line, line->notifyContext);
 }
