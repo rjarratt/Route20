@@ -80,7 +80,7 @@ static void DdcmpInitLineUp(ddcmp_circuit_t *ddcmpCircuit);
 static void DdcmpInitLineDown(ddcmp_circuit_t *ddcmpCircuit);
 static void DdcmpInitNotifyRunning(void *context);
 static void DdcmpInitNotifyHalt(void *context);
-static void HandleLineNotifyStateChange(line_t *line, void *context);
+static void HandleLineNotifyStateChange(line_t *line);
 
 static socket_t * TcpAcceptCallback(sockaddr_t *receivedFrom);
 static void TcpConnectCallback(socket_t *sock);
@@ -445,8 +445,7 @@ static void DdcmpInitNotifyHalt(void *context)
 	QueueImmediate(line, line->LineDown);
 }
 
-// TODO: redundancy in context as it is also the notifyContext field
-static void HandleLineNotifyStateChange(line_t *line, void *context)
+static void HandleLineNotifyStateChange(line_t *line)
 {
     ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitForLine(line);
     if (line->lineState == LineStateUp)
