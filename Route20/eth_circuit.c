@@ -39,7 +39,6 @@
 #include "decnet.h"
 #include "node.h"
 
-static void HandleLineNotifyStateChange(line_t *line, void *context);
 static void HandleLineNotifyData(line_t *line, void *context);
 static void HandleHelloTimer(rtimer_t *timer, char *name, void *context);
 static int IsAddressedToThisNode(packet_t * packet);
@@ -48,7 +47,7 @@ eth_circuit_t *EthCircuitCreatePcap(circuit_t *circuit)
 {
 	eth_circuit_t *ans = (eth_circuit_t *)calloc(1, sizeof(eth_circuit_t));
 	line_t *line = (line_t *)calloc(1, sizeof(line_t));
-    LineCreateEthernetPcap(line, circuit->name, circuit, HandleLineNotifyStateChange, HandleLineNotifyData);
+    LineCreateEthernetPcap(line, circuit->name, circuit, HandleLineNotifyData);
 
 	ans->circuit = circuit;
 	circuit->line = line;
@@ -60,7 +59,7 @@ eth_circuit_t *EthCircuitCreateSocket(circuit_t *circuit, uint16 receivePort, ch
 {
 	eth_circuit_t *ans = (eth_circuit_t *)calloc(1, sizeof(eth_circuit_t));
 	line_t *line = (line_t *)calloc(1, sizeof(line_t));
-    LineCreateEthernetSocket(line, circuit->name, receivePort, destinationHostName, destinationPort, circuit, HandleLineNotifyStateChange, HandleLineNotifyData);
+    LineCreateEthernetSocket(line, circuit->name, receivePort, destinationHostName, destinationPort, circuit, HandleLineNotifyData);
 
 	ans->circuit = circuit;
 	circuit->line = line;
@@ -158,20 +157,6 @@ void EthCircuitStop(circuit_t *circuit)
 {
     line_t *line = GetLineFromCircuit(circuit);
 	line->LineStop(line);
-}
-
-// TODO: redundancy in context as it is also the notifyContext field
-static void HandleLineNotifyStateChange(line_t *line, void *context)
-{
-    circuit_t *circuit = (circuit_t *)context;
-    if (line->lineState == LineStateUp)
-    {
-        QueueImmediate(circuit, CircuitUp);
-    }
-    else
-    {
-        QueueImmediate(circuit, CircuitDown);
-    }
 }
 
 // TODO: redundancy in context as it is also the notifyContext field
