@@ -240,16 +240,21 @@ static state_table_entry_t stateTable[] =
     { DdcmpInitUndefinedEvent, (DdcmpInitState)0, (DdcmpInitState)0, NULL }
 };
 
-void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount)
+int DdcmpInitLayerStart(circuit_t circuits[], int circuitCount)
 {
+    int ans = 1;
 	int i;
 
 	for(i = 1; i <= circuitCount; i++)
 	{
 		if (circuits[i].circuitType == DDCMPCircuit)
 		{
-            line_t *line = GetLineFromCircuit(&circuits[i]);
-           	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext; // TODO: Why does the init layer know about ddcmp_sock at all? This is badly layered.
+            line_t *line;
+            ddcmp_sock_t *sockContext;
+
+            ans &= circuits[i].Start(&circuits[i]); // TODO: should start lines, when lines open then should open circuit.
+            line = GetLineFromCircuit(&circuits[i]);
+           	sockContext = (ddcmp_sock_t *)line->lineContext; // TODO: Why does the init layer know about ddcmp_sock at all? This is badly layered.
             sockContext->line.NotifyRunning = DdcmpInitNotifyRunning; // TODO: this looks like it needs to be rationalised, ie line within a line.
             sockContext->line.NotifyHalt = DdcmpInitNotifyHalt;
 		    ddcmpCircuits[ddcmpCircuitCount++] = &circuits[i];
@@ -259,6 +264,8 @@ void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount)
 	SetTcpAcceptCallback(TcpAcceptCallback);
 	SetTcpConnectCallback(TcpConnectCallback);
 	SetTcpDisconnectCallback(TcpDisconnectCallback);
+
+    return ans;
 }
 
 void DdcmpInitLayerStop(void)

@@ -31,7 +31,7 @@
 
 #if !defined(ETH_INIT_LAYER_H)
 
-void EthInitLayerStart(circuit_t circuits[], int circuitCount);
+int EthInitLayerStart(circuit_t circuits[], int circuitCount);
 void EthInitLayerStop(void);
 void EthInitLayerCircuitUpComplete(circuit_ptr circuit);
 void EthInitLayerCircuitDownComplete(circuit_ptr circuit);
