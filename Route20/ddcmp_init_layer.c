@@ -249,7 +249,7 @@ void DdcmpInitLayerStart(circuit_t circuits[], int circuitCount)
 		if (circuits[i].circuitType == DDCMPCircuit)
 		{
             line_t *line = GetLineFromCircuit(&circuits[i]);
-           	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
+           	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext; // TODO: Why does the init layer know about ddcmp_sock at all? This is badly layered.
             sockContext->line.NotifyRunning = DdcmpInitNotifyRunning; // TODO: this looks like it needs to be rationalised, ie line within a line.
             sockContext->line.NotifyHalt = DdcmpInitNotifyHalt;
 		    ddcmpCircuits[ddcmpCircuitCount++] = &circuits[i];
@@ -424,6 +424,7 @@ static void DdcmpInitNotifyRunning(void *context)
 {
     line_t *line = (line_t *)context;
 	Log(LogDdcmpInit, LogDetail, "DDCMP line %s running\n", line->name);
+	QueueImmediate(line, line->LineUp);
 
     ProcessEvent(GetDdcmpCircuitForLine(line), DdcmpInitSCEvent);
 }
@@ -433,6 +434,7 @@ static void DdcmpInitNotifyHalt(void *context)
     line_t *line = (line_t *)context;
     ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitForLine(line);
 	Log(LogDdcmpInit, LogDetail, "DDCMP line %s halted\n", ddcmpCircuit->circuit->name);
+	QueueImmediate(line, line->LineDown);
     ProcessEvent(ddcmpCircuit, DdcmpInitOPFEvent); // TODO: Not sure this is the right event for this situation
 	//DdcmpStart(&sockContext->line); // TODO: Not sure if should restart
 }
@@ -527,7 +529,7 @@ static line_t *GetLineFromDdcmpCircuit(ddcmp_circuit_t *ddcmpCircuit)
 
 static ddcmp_sock_t *GetDdcmpSockFromDdcmpCircuit(ddcmp_circuit_t *ddcmpCircuit)
 {
-    return (ddcmp_sock_t *)GetLineFromDdcmpCircuit(ddcmpCircuit)->lineContext;
+    return (ddcmp_sock_t *)GetLineFromDdcmpCircuit(ddcmpCircuit)->lineContext; // TODO: this layer should not know about ddcmp_sock_t
 }
 
 static int GetWaitHandleFromDdcmpCircuit(ddcmp_circuit_t *ddcmpCircuit)
