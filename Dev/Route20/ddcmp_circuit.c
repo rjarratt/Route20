@@ -37,7 +37,6 @@
 #include "timer.h"
 #include "messages.h"
 
-static void HandleLineNotifyStateChange(line_t *line, void *context);
 static void HandleLineNotifyData(line_t *line, void *context);
 static void DdcmpCircuitRejectionCompleteCallback(void *context);
 static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context);
@@ -48,7 +47,7 @@ ddcmp_circuit_t *DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationH
 {
 	ddcmp_circuit_t *ans = (ddcmp_circuit_t *)calloc(1, sizeof(ddcmp_circuit_t));
 	line_t *line = (line_t *)malloc(sizeof(line_t));
-    LineCreateDdcmpSocket(line, circuit->name, destinationHostName, destinationPort, circuit, HandleLineNotifyStateChange, HandleLineNotifyData);
+    LineCreateDdcmpSocket(line, circuit->name, destinationHostName, destinationPort, circuit, HandleLineNotifyData);
 
 	ans->circuit = circuit;
 	circuit->line = line;
@@ -129,20 +128,6 @@ ddcmp_circuit_t *GetDdcmpCircuitForLine(line_t *line)
     circuit_t *circuit = (circuit_t *)line->notifyContext;
     ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
     return ddcmpCircuit;
-}
-
-// TODO: redundancy in context as it is also the notifyContext field
-static void HandleLineNotifyStateChange(line_t *line, void *context)
-{
-    circuit_t *circuit = (circuit_t *)context;
-    if (line->lineState == LineStateUp)
-    {
-        QueueImmediate(circuit, CircuitUp);
-    }
-    else
-    {
-        QueueImmediate(circuit, CircuitDown);
-    }
 }
 
 // TODO: redundancy in context as it is also the notifyContext field

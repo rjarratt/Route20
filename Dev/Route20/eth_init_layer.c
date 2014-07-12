@@ -51,6 +51,7 @@ static time_t startTime;
 static void HandleDesignatedRouterTimer(rtimer_t *timer, char *name, void *context);
 static void HandleDesignatedRouterHelloTimer(rtimer_t *timer, char *name, void *context);
 static int CheckDesignatedRouterCallback(adjacency_t *adjacency, void *context);
+static void HandleLineNotifyStateChange(line_t *line, void *context);
 
 int EthInitLayerStart(circuit_t circuits[], int circuitCount)
 {
@@ -61,8 +62,13 @@ int EthInitLayerStart(circuit_t circuits[], int circuitCount)
 	{
 		if (circuits[i].circuitType == EthernetCircuit)
 		{
-            ans &= circuits[i].Start(&circuits[i]); // TODO: should start lines, when lines open then should open circuit.
-		    ethCircuits[ethCircuitCount++] = &circuits[i];
+            circuit_t *circuit = &circuits[i];
+            line_t *line = GetLineFromCircuit(circuit);
+
+            line->LineNotifyStateChange = HandleLineNotifyStateChange;
+
+            ans &= circuit->Start(circuit); // TODO: should start lines, when lines open then should open circuit.
+		    ethCircuits[ethCircuitCount++] = circuit;
 		}
 	}
 
@@ -206,6 +212,20 @@ static int CheckDesignatedRouterCallback(adjacency_t *adjacency, void *context)
 	}
 
 	return 1;
+}
+
+// TODO: redundancy in context as it is also the notifyContext field
+static void HandleLineNotifyStateChange(line_t *line, void *context)
+{
+    circuit_t *circuit = (circuit_t *)context;
+    if (line->lineState == LineStateUp)
+    {
+        QueueImmediate(circuit, CircuitUp);
+    }
+    else
+    {
+        QueueImmediate(circuit, CircuitDown);
+    }
 }
 
 

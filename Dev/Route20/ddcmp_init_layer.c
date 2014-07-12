@@ -80,6 +80,7 @@ static void DdcmpInitLineUp(ddcmp_circuit_t *ddcmpCircuit);
 static void DdcmpInitLineDown(ddcmp_circuit_t *ddcmpCircuit);
 static void DdcmpInitNotifyRunning(void *context);
 static void DdcmpInitNotifyHalt(void *context);
+static void HandleLineNotifyStateChange(line_t *line, void *context);
 
 static socket_t * TcpAcceptCallback(sockaddr_t *receivedFrom);
 static void TcpConnectCallback(socket_t *sock);
@@ -249,11 +250,13 @@ int DdcmpInitLayerStart(circuit_t circuits[], int circuitCount)
 	{
 		if (circuits[i].circuitType == DDCMPCircuit)
 		{
-            line_t *line;
+            circuit_t *circuit = &circuits[i];
+            line_t *line = GetLineFromCircuit(circuit);
             ddcmp_sock_t *sockContext;
 
-            ans &= circuits[i].Start(&circuits[i]); // TODO: should start lines, when lines open then should open circuit.
-            line = GetLineFromCircuit(&circuits[i]);
+            line->LineNotifyStateChange = HandleLineNotifyStateChange;
+
+            ans &= circuit->Start(circuit); // TODO: should start lines, when lines open then should open circuit.
            	sockContext = (ddcmp_sock_t *)line->lineContext; // TODO: Why does the init layer know about ddcmp_sock at all? This is badly layered.
             sockContext->line.NotifyRunning = DdcmpInitNotifyRunning; // TODO: this looks like it needs to be rationalised, ie line within a line.
             sockContext->line.NotifyHalt = DdcmpInitNotifyHalt;
@@ -432,8 +435,6 @@ static void DdcmpInitNotifyRunning(void *context)
     line_t *line = (line_t *)context;
 	Log(LogDdcmpInit, LogDetail, "DDCMP line %s running\n", line->name);
 	QueueImmediate(line, line->LineUp);
-
-    ProcessEvent(GetDdcmpCircuitForLine(line), DdcmpInitSCEvent);
 }
 
 static void DdcmpInitNotifyHalt(void *context)
@@ -442,8 +443,21 @@ static void DdcmpInitNotifyHalt(void *context)
     ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitForLine(line);
 	Log(LogDdcmpInit, LogDetail, "DDCMP line %s halted\n", ddcmpCircuit->circuit->name);
 	QueueImmediate(line, line->LineDown);
-    ProcessEvent(ddcmpCircuit, DdcmpInitOPFEvent); // TODO: Not sure this is the right event for this situation
-	//DdcmpStart(&sockContext->line); // TODO: Not sure if should restart
+}
+
+// TODO: redundancy in context as it is also the notifyContext field
+static void HandleLineNotifyStateChange(line_t *line, void *context)
+{
+    ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitForLine(line);
+    if (line->lineState == LineStateUp)
+    {
+        ProcessEvent(ddcmpCircuit, DdcmpInitSCEvent);
+    }
+    else
+    {
+        ProcessEvent(ddcmpCircuit, DdcmpInitOPFEvent); // TODO: Not sure this is the right event for this situation
+	    //DdcmpStart(&sockContext->line); // TODO: Not sure if should restart
+    }
 }
 
 static socket_t * TcpAcceptCallback(sockaddr_t *receivedFrom)
