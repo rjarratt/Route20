@@ -80,13 +80,13 @@ void CheckRouterAdjacency(decnet_address_t *from, circuit_t *circuit, AdjacencyT
 	adjacency_t *adjacency = NULL;
 	AdjacencyState newState;
 
-	/*Log(LogInfo, "Checking adjacency for "); LogDecnetAddress(LogInfo, &from); Log(LogInfo, ", hello=%d, priority=%d\n", helloTimerPeriod, priority);*/
+	Log(LogAdjacency, LogVerbose, "Checking adjacency for "); LogDecnetAddress(LogAdjacency, LogVerbose, from); Log(LogAdjacency, LogVerbose, ", hello=%d, priority=%d\n", helloTimerPeriod, priority);
 
 	adjacency = FindAdjacency(from);
 
 	if (adjacency == NULL)
 	{
-        /*Log(LogInfo, "Adding adjacency\n");*/
+        Log(LogAdjacency, LogVerbose, "Adding adjacency\n");
         adjacency = AddRouterAdjacency(from, circuit, type, helloTimerPeriod, priority);
 	}
 
@@ -380,19 +380,22 @@ static AdjacencyState GetNewAdjacencyState(rslist_t *routers, int routersCount)
 {
 	AdjacencyState newState = Initialising;
 	int i;
+    Log(LogAdjacency, LogVerbose, "Received router list:");
 	for (i = 0; i < routersCount; i++)
 	{
 		decnet_address_t remoteAddress;
 
 		GetDecnetAddress(&routers[i].router, &remoteAddress);
+        Log(LogAdjacency, LogVerbose, " "); LogDecnetAddress(LogAdjacency, LogVerbose, &remoteAddress);
 		if (CompareDecnetAddress(&remoteAddress, &nodeInfo.address))
 		{
 			newState = Up;
 			break;
 		}
 	}
+    Log(LogAdjacency, LogVerbose, "\n");
 
-	return newState;
+ 	return newState;
 }
 
 static void PurgeLowestPriorityAdjacency(void)
