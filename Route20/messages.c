@@ -298,7 +298,9 @@ packet_t *CreateEthernetHello(decnet_address_t address)
 
 	rslistArgs.count = 0;
 	rslistArgs.rslist = msg.rslist;
+    Log(LogMessages, LogDetail, "Building Ethernet Hello with nodes:");
 	ProcessRouterAdjacencies(BuildRsListCallback, &rslistArgs);
+    Log(LogMessages, LogDetail, "\n");
 
 	msg.elistLen = (byte)(rslistArgs.count * sizeof(rslist_t) + 8);
 	msg.rslistlen = (byte)(rslistArgs.count * sizeof(rslist_t));
@@ -951,8 +953,11 @@ static int BuildRsListCallback(adjacency_t *adjacency, void *context)
 	byte state;
 	rslist_t *rslist = &rslistArgs->rslist[rslistArgs->count++];
 
+    Log(LogMessages, LogDetail, " ");
+    LogDecnetAddress(LogMessages, LogDetail, &adjacency->id);
     SetDecnetAddress(&rslist->router, adjacency->id);
 	state = (adjacency->state == Up)? 0x80 : 0;
+    Log(LogMessages, LogDetail, " %s", (adjacency->state == Up)? "Up" : "Down");
 	rslist->priority_state = adjacency->priority | state;
 
 	return 1;
