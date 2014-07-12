@@ -181,7 +181,7 @@ static void HandleLineNotifyData(line_t *line, void *context)
     circuit->WaitEventHandler(circuit);
 }
 
-static void HandleHelloTimer(rtimer_t *timer, char *name, void *context)
+static void HandleHelloTimer(rtimer_t *timer, char *name, void *context) // TODO: This should probably move to the init layer.
 {
 	packet_t *packet;
 
