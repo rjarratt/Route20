@@ -140,7 +140,7 @@ int EthSockLineWritePacket(line_t *line, packet_t *packet)
 static void ProcessDnsTimer(rtimer_t *timer, char *name, void *context)
 {
 	line_t *line = (line_t *)context;
-    circuit_t *circuit = (circuit_t *)line->notifyContext;
+    circuit_t *circuit = GetCircuitFromLine(line);
 	eth_sock_t *sockContext = (eth_sock_t *)line->lineContext;
 	DnsSendQuery(sockContext->destinationHostName, (uint16)circuit->slot, ProcessDnsResponse, context);
 }

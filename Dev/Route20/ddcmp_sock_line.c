@@ -151,7 +151,7 @@ int DdcmpSockLineWritePacket(line_t *line, packet_t *packet)
 static void ProcessDnsTimer(rtimer_t *timer, char *name, void *context)
 {
 	line_t *line = (line_t *)context;
-    circuit_t *circuit = (circuit_t *)line->notifyContext;
+    circuit_t *circuit = GetCircuitFromLine(line);
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
 	DnsSendQuery(sockContext->destinationHostName, (uint16)circuit->slot, ProcessDnsResponse, context);
 }

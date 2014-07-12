@@ -163,6 +163,11 @@ int  IsBroadcastCircuit(circuit_ptr circuit)
 	return circuit->circuitType == EthernetCircuit;
 }
 
+circuit_t *GetCircuitFromLine(line_t *line)
+{
+    return (circuit_t*)line->notifyContext;
+}
+
 static int FirstLevel1Node(void)
 {
 	int ans = 0;

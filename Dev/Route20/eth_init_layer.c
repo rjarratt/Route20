@@ -216,7 +216,7 @@ static int CheckDesignatedRouterCallback(adjacency_t *adjacency, void *context)
 
 static void HandleLineNotifyStateChange(line_t *line)
 {
-    circuit_t *circuit = (circuit_t *)line->notifyContext;
+    circuit_t *circuit = GetCircuitFromLine(line);
     if (line->lineState == LineStateUp)
     {
         QueueImmediate(circuit, CircuitUp);
