@@ -60,7 +60,7 @@ typedef struct line
 	packet_t *(*LineReadPacket)(line_ptr line);
 	int (*LineWritePacket)(line_ptr line, packet_t *packet);
 	void (*LineWaitEventHandler)(void *context);
-    void (*LineNotifyStateChange)(line_ptr line, void *context); /* set by the init layers only */
+    void (*LineNotifyStateChange)(line_ptr line); /* set by the init layers only */
     void (*LineNotifyData)(line_ptr line, void *context);
 } line_t;
 

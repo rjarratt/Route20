@@ -51,7 +51,7 @@ static time_t startTime;
 static void HandleDesignatedRouterTimer(rtimer_t *timer, char *name, void *context);
 static void HandleDesignatedRouterHelloTimer(rtimer_t *timer, char *name, void *context);
 static int CheckDesignatedRouterCallback(adjacency_t *adjacency, void *context);
-static void HandleLineNotifyStateChange(line_t *line, void *context);
+static void HandleLineNotifyStateChange(line_t *line);
 
 int EthInitLayerStart(circuit_t circuits[], int circuitCount)
 {
@@ -214,10 +214,9 @@ static int CheckDesignatedRouterCallback(adjacency_t *adjacency, void *context)
 	return 1;
 }
 
-// TODO: redundancy in context as it is also the notifyContext field
-static void HandleLineNotifyStateChange(line_t *line, void *context)
+static void HandleLineNotifyStateChange(line_t *line)
 {
-    circuit_t *circuit = (circuit_t *)context;
+    circuit_t *circuit = (circuit_t *)line->notifyContext;
     if (line->lineState == LineStateUp)
     {
         QueueImmediate(circuit, CircuitUp);

@@ -117,14 +117,14 @@ static void LineUp(line_ptr line)
 {
     Log(LogLine, LogInfo, "Line %s is up\n", line->name);
     line->lineState = LineStateUp;
-    line->LineNotifyStateChange(line, line->notifyContext);
+    line->LineNotifyStateChange(line);
 }
 
 static void LineDown(line_ptr line)
 {
     Log(LogLine, LogInfo, "Line %s is down\n", line->name);
     line->lineState = LineStateOff;
-    line->LineNotifyStateChange(line, line->notifyContext);
+    line->LineNotifyStateChange(line);
 }
 
 static void LineWaitEventHandler(void *context)
