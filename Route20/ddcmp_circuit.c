@@ -37,7 +37,7 @@
 #include "timer.h"
 #include "messages.h"
 
-static void HandleLineNotifyData(line_t *line, void *context);
+static void HandleLineNotifyData(line_t *line);
 static void DdcmpCircuitRejectionCompleteCallback(void *context);
 static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context);
 static void StopTimerIfRunning(ddcmp_circuit_t *ddcmpCircuit);
@@ -130,10 +130,9 @@ ddcmp_circuit_t *GetDdcmpCircuitForLine(line_t *line)
     return ddcmpCircuit;
 }
 
-// TODO: redundancy in context as it is also the notifyContext field
-static void HandleLineNotifyData(line_t *line, void *context)
+static void HandleLineNotifyData(line_t *line)
 {
-    circuit_t *circuit = (circuit_t *)context;
+    circuit_t *circuit = (circuit_t *)line->notifyContext;
     circuit->WaitEventHandler(circuit);
 }
 

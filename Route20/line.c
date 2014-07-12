@@ -40,7 +40,7 @@ static void LineWaitEventHandler(void *context);
 
 // TODO: abstract properly by putting common functions for read/write etc which do logging, stats etc, then delegate to actual line implementations.
 
-void LineCreateEthernetPcap(line_ptr line, char *name, void *notifyContext, void (*lineNotifyData)(line_ptr line, void *context))
+void LineCreateEthernetPcap(line_ptr line, char *name, void *notifyContext, void (*lineNotifyData)(line_ptr line))
 {
 	eth_pcap_t *context = (eth_pcap_t *)malloc(sizeof(eth_pcap_t));
 
@@ -61,7 +61,7 @@ void LineCreateEthernetPcap(line_ptr line, char *name, void *notifyContext, void
     line->LineNotifyData = lineNotifyData;
 }
 
-void LineCreateEthernetSocket(line_ptr line, char *name, uint16 receivePort, char *destinationHostName, uint16 destinationPort, void *notifyContext, void (*lineNotifyData)(line_ptr line, void *context))
+void LineCreateEthernetSocket(line_ptr line, char *name, uint16 receivePort, char *destinationHostName, uint16 destinationPort, void *notifyContext, void (*lineNotifyData)(line_ptr line))
 {
 	eth_sock_t *context = (eth_sock_t *)malloc(sizeof(eth_sock_t));
 	context->receivePort = receivePort;
@@ -86,7 +86,7 @@ void LineCreateEthernetSocket(line_ptr line, char *name, uint16 receivePort, cha
     line->LineNotifyData = lineNotifyData;
 }
 
-void LineCreateDdcmpSocket(line_ptr line, char *name, char *destinationHostName, uint16 destinationPort, void *notifyContext, void (*lineNotifyData)(line_ptr line, void *context))
+void LineCreateDdcmpSocket(line_ptr line, char *name, char *destinationHostName, uint16 destinationPort, void *notifyContext, void (*lineNotifyData)(line_ptr line))
 {
 	ddcmp_sock_t *context = (ddcmp_sock_t *)malloc(sizeof(ddcmp_sock_t));
     context->socket.socket = INVALID_SOCKET;
@@ -130,5 +130,5 @@ static void LineDown(line_ptr line)
 static void LineWaitEventHandler(void *context)
 {
     line_t *line = (line_t *)context;
-    line->LineNotifyData(line, line->notifyContext);
+    line->LineNotifyData(line);
 }

@@ -39,7 +39,7 @@
 #include "decnet.h"
 #include "node.h"
 
-static void HandleLineNotifyData(line_t *line, void *context);
+static void HandleLineNotifyData(line_t *line);
 static void HandleHelloTimer(rtimer_t *timer, char *name, void *context);
 static int IsAddressedToThisNode(packet_t * packet);
 
@@ -159,10 +159,9 @@ void EthCircuitStop(circuit_t *circuit)
 	line->LineStop(line);
 }
 
-// TODO: redundancy in context as it is also the notifyContext field
-static void HandleLineNotifyData(line_t *line, void *context)
+static void HandleLineNotifyData(line_t *line)
 {
-    circuit_t *circuit = (circuit_t *)context;
+    circuit_t *circuit = (circuit_t *)line->notifyContext;
     circuit->WaitEventHandler(circuit);
 }
 

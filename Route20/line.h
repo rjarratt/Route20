@@ -61,12 +61,12 @@ typedef struct line
 	int (*LineWritePacket)(line_ptr line, packet_t *packet);
 	void (*LineWaitEventHandler)(void *context);
     void (*LineNotifyStateChange)(line_ptr line); /* set by the init layers only */
-    void (*LineNotifyData)(line_ptr line, void *context);
+    void (*LineNotifyData)(line_ptr line);
 } line_t;
 
-void LineCreateEthernetPcap(line_ptr line, char *name, void *notifyContext, void (*lineNotifyData)(line_ptr line, void *context));
-void LineCreateEthernetSocket(line_ptr line, char *name, uint16 receivePort, char *destinationHostName, uint16 destinationPort, void *notifyContext, void (*lineNotifyData)(line_ptr line, void *context));
-void LineCreateDdcmpSocket(line_ptr line, char *name, char *destinationHostName, uint16 destinationPort, void *notifyContext, void (*lineNotifyData)(line_ptr line, void *context));
+void LineCreateEthernetPcap(line_ptr line, char *name, void *notifyContext, void (*lineNotifyData)(line_ptr line));
+void LineCreateEthernetSocket(line_ptr line, char *name, uint16 receivePort, char *destinationHostName, uint16 destinationPort, void *notifyContext, void (*lineNotifyData)(line_ptr line));
+void LineCreateDdcmpSocket(line_ptr line, char *name, char *destinationHostName, uint16 destinationPort, void *notifyContext, void (*lineNotifyData)(line_ptr line));
 
 #define LINE_H
 #endif
