@@ -52,21 +52,28 @@ static void HandleDesignatedRouterTimer(rtimer_t *timer, char *name, void *conte
 static void HandleDesignatedRouterHelloTimer(rtimer_t *timer, char *name, void *context);
 static int CheckDesignatedRouterCallback(adjacency_t *adjacency, void *context);
 
-void EthInitLayerStart(circuit_t circuits[], int circuitCount)
+int EthInitLayerStart(circuit_t circuits[], int circuitCount)
 {
+    int ans = 1;
 	int i;
 
 	for(i = 1; i <= circuitCount; i++)
 	{
 		if (circuits[i].circuitType == EthernetCircuit)
 		{
+            ans &= circuits[i].Start(&circuits[i]); // TODO: should start lines, when lines open then should open circuit.
 		    ethCircuits[ethCircuitCount++] = &circuits[i];
 		}
 	}
 
 	time(&startTime);
 	drDelayExpired = 0;
-	CreateTimer("DesignatedRouter", startTime + DRDELAY, 0, NULL, HandleDesignatedRouterTimer);
+	if (ans && ethCircuitCount > 0)
+    {
+        CreateTimer("DesignatedRouter", startTime + DRDELAY, 0, NULL, HandleDesignatedRouterTimer);
+    }
+
+    return ans;
 }
 
 void EthInitLayerStop(void)

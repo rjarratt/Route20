@@ -33,7 +33,7 @@
 
 typedef struct init_layer
 {
-	void (*Start)(circuit_t circuits[], int circuitCount);
+	int (*Start)(circuit_t circuits[], int circuitCount);
 	void (*Stop)(void);
 	void (*CircuitUpComplete)(circuit_ptr circuit);
 	void (*CircuitDownComplete)(circuit_ptr circuit);

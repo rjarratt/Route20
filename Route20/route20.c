@@ -122,7 +122,6 @@ void InitialiseLogging(void)
 int Initialise(char *configFileName)
 {
 	int ans;
-	int i;
 	time_t now;
 
 	DnsConfig.dnsConfigured = 0;
@@ -137,20 +136,16 @@ int Initialise(char *configFileName)
 		SetAdjacencyStateChangeCallback(ProcessAdjacencyStateChange);
 		SetCircuitStateChangeCallback(ProcessCircuitStateChange);
 		nodeInfo.state = Running;
-		for (i = 1; i <= numCircuits; i++)
-		{
-			ans &= (*(Circuits[i].Start))(&Circuits[i]); // TODO: should start lines, when lines open then should open circuit.
-		}
 		time(&now);
 		CreateTimer("PurgeAdjacencies", now + 1, 1, NULL, PurgeAdjacenciesCallback);
 
 		ethernetInitLayer = CreateEthernetInitializationSublayer();
 		InitializationSublayerAssociateCircuits(Circuits, numCircuits, EthernetCircuit, ethernetInitLayer);
-		ethernetInitLayer->Start(Circuits, numCircuits);
+		ans &= ethernetInitLayer->Start(Circuits, numCircuits);
 
 		ddcmpInitLayer = CreateDdcmpInitializationSublayer();
 		InitializationSublayerAssociateCircuits(Circuits, numCircuits, DDCMPCircuit, ddcmpInitLayer);
-		ddcmpInitLayer->Start(Circuits, numCircuits);
+		ans &= ddcmpInitLayer->Start(Circuits, numCircuits);
 
 		if (DnsConfig.dnsConfigured && dnsNeeded)
 		{
