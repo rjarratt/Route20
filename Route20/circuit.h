@@ -94,6 +94,7 @@ void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receive
 void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, uint16 port, int cost, void (*waitEventHandler)(void *context));
 line_t *GetLineFromCircuit(circuit_t *circuit);
 int  IsBroadcastCircuit(circuit_ptr circuit);
+circuit_t *GetCircuitFromLine(line_t *line);
 
 #define CIRCUIT_H
 #endif

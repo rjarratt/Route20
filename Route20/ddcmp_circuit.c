@@ -125,14 +125,14 @@ void DdcmpCircuitReject(circuit_ptr circuit)
 
 ddcmp_circuit_t *GetDdcmpCircuitForLine(line_t *line)
 {
-    circuit_t *circuit = (circuit_t *)line->notifyContext;
+    circuit_t *circuit = GetCircuitFromLine(line);
     ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)circuit->context;
     return ddcmpCircuit;
 }
 
 static void HandleLineNotifyData(line_t *line)
 {
-    circuit_t *circuit = (circuit_t *)line->notifyContext;
+    circuit_t *circuit = GetCircuitFromLine(line);
     circuit->WaitEventHandler(circuit);
 }
 

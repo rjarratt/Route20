@@ -161,7 +161,7 @@ void EthCircuitStop(circuit_t *circuit)
 
 static void HandleLineNotifyData(line_t *line)
 {
-    circuit_t *circuit = (circuit_t *)line->notifyContext;
+    circuit_t *circuit = GetCircuitFromLine(line);
     circuit->WaitEventHandler(circuit);
 }
 
