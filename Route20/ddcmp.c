@@ -260,6 +260,28 @@ static char * lineStateString[] =
 	"Running"
 };
 
+static char *lineEventString[] =
+{
+	"Undefined",
+	"UserRequestsHalt",
+	"UserRequestsStartup",
+	"UserRequestsDataSendAndReadyToSend",
+	"ReceiveStack",
+	"ReceiveStrt",
+	"TimerExpires",
+	"ReceiveAckResp0",
+	"ReceiveDataResp0",
+	"ReceiveRepNumEqualsR",
+	"ReceiveRepNumNotEqualsR",
+	"ReceiveDataMsgInSequence",
+	"ReceiveDataMsgOutOfSequence",
+	"ReceiveMessageInError",
+	"ReceiveAckForOutstandingMsg",
+	"ReceiveNakForOutstandingMsg",
+	"ReadyToRetransmitMsg",
+	"ReceiveMaintenanceMessage"
+};
+
 static state_table_entry_t stateTable[] =
 {
 	{ UserRequestsHalt,                   DdcmpLineAny,      DdcmpLineHalted,   { StopTimerAction } },
@@ -1009,7 +1031,7 @@ static void ProcessEvent(ddcmp_line_t *ddcmpLine, DdcmpEvent evt)
 		int ok = 1;
 		if (cb->state != entry->newState)
 		{
-			ddcmpLine->Log(LogVerbose, "Changing line state for %s from %s to %s\n", ddcmpLine->name, lineStateString[(int)cb->state], lineStateString[(int)entry->newState]);
+			ddcmpLine->Log(LogVerbose, "%s. Changing line state for %s from %s to %s\n", lineEventString[evt], ddcmpLine->name, lineStateString[(int)cb->state], lineStateString[(int)entry->newState]);
 		}
 
 		cb->state = entry->newState;
