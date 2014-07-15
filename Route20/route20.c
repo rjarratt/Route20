@@ -172,19 +172,36 @@ void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, int
 
 void RegisterEventHandler(unsigned int waitHandle, char *name, void *context, void (*eventHandler)(void *context))
 {
-	if (numEventHandlers >= MAX_EVENT_HANDLERS)
+    int i;
+    int entry = numEventHandlers;
+
+    /* we may already have this wait handle registered, if so just update the information. This can happen for outbound sockets where the handler changes after the socket is connected */
+
+    for (i = 0; i < numEventHandlers; i++)
+    {
+        if (eventHandlers[i].waitHandle == waitHandle)
+        {
+            entry = i;
+            break;
+        }
+    }
+
+	if (entry >= MAX_EVENT_HANDLERS)
 	{
 		Log(LogGeneral, LogFatal, "Cannot allocate a new event handler\n");
 		exit(EXIT_FAILURE);
 	}
 
-	Log(LogGeneral, LogVerbose, "Registering new event handler for %s in slot %d, handle is %d\n", name, numEventHandlers, waitHandle);
-	eventHandlers[numEventHandlers].waitHandle = waitHandle;
-	eventHandlers[numEventHandlers].name = name;
-	eventHandlers[numEventHandlers].context = context;
-	eventHandlers[numEventHandlers].eventHandler = eventHandler;
-	numEventHandlers++;
-	eventHandlersChanged = 1;
+	Log(LogGeneral, LogVerbose, "Registering event handler for %s in slot %d, handle is %d\n", name, entry, waitHandle);
+	eventHandlers[entry].waitHandle = waitHandle;
+	eventHandlers[entry].name = name;
+	eventHandlers[entry].context = context;
+	eventHandlers[entry].eventHandler = eventHandler;
+    if (entry >= numEventHandlers)
+    {
+        numEventHandlers++;
+        eventHandlersChanged = 1;
+    }
 }
 
 void DeregisterEventHandler(unsigned int waitHandle)
@@ -195,11 +212,11 @@ void DeregisterEventHandler(unsigned int waitHandle)
 	{
 		if (found)
 		{
-        	Log(LogGeneral, LogVerbose, "Deregistering event handler for %s in slot %d\n", &eventHandlers[i-1].name, i-1);
 			memcpy(&eventHandlers[i-1], &eventHandlers[i], sizeof(event_handler_t));
 		}
 		else if (eventHandlers[i].waitHandle == waitHandle)
 		{
+        	Log(LogGeneral, LogVerbose, "Deregistering event handler for %s in slot %d, handle is %d\n", eventHandlers[i].name, i, waitHandle);
 			found = 1;
 		}
 	}
@@ -209,6 +226,10 @@ void DeregisterEventHandler(unsigned int waitHandle)
 		numEventHandlers--;
 	    eventHandlersChanged = 1;
 	}
+    else
+    {
+        Log(LogGeneral, LogWarning, "Unable to deregister event handler for %s as the registration entry for the handle %d could not be found\n", eventHandlers[i].name, waitHandle);
+    }
 }
 
 void MainLoop(void)
