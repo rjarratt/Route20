@@ -85,10 +85,10 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 { 
 	int err;
 
-	SetupConfigWatcher();
     InitialiseLogging();
     ReadConfig(CONFIG_FILE_NAME, ConfigReadModeInitial);
     OpenLog();
+	SetupConfigWatcher();
 	SymSetOptions(SYMOPT_LOAD_LINES);
 
 	// If command-line parameter is "install", install the service. 
