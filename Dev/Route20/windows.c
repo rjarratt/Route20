@@ -302,7 +302,11 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 		if (i == -1)
 		{
 			DWORD err = GetLastError();
-			LogWin32Error("WaitForMultipleObjects error: %s\n", err);
+			LogWin32Error("WaitForMultipleObjects error: %s. Handle list follows.\n", err);
+			for (i = 0; i < numEventHandlers; i++)
+			{
+                Log(LogGeneral, LogError, "Wait handle %d\n", handles[i]);
+			}
 			break;
 		}
 		else
@@ -314,7 +318,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 			{
 				i = i - WAIT_OBJECT_0;
 				ResetEvent((HANDLE)eventHandlers[i].waitHandle);
-                Log(LogGeneral, LogVerbose, "Processing event handler for %s\n", eventHandlers[i].name);
+                Log(LogGeneral, LogDetail, "Processing event handler for %s\n", eventHandlers[i].name);
 				eventHandlers[i].eventHandler(eventHandlers[i].context);
 			}
 		}
@@ -445,7 +449,7 @@ static void LogWin32Error(char *format, DWORD err)
 
 static void ProcessStopEvent(void *context)
 {
-	Log(LogGeneral, LogVerbose, "Processing stop request\n");
+	Log(LogGeneral, LogDetail, "Processing stop request\n");
 	stop = 1;
 }
 

@@ -192,7 +192,7 @@ void RegisterEventHandler(unsigned int waitHandle, char *name, void *context, vo
 		exit(EXIT_FAILURE);
 	}
 
-	Log(LogGeneral, LogVerbose, "Registering event handler for %s in slot %d, handle is %d\n", name, entry, waitHandle);
+	Log(LogGeneral, LogDetail, "Registering event handler for %s in slot %d, handle is %d\n", name, entry, waitHandle);
 	eventHandlers[entry].waitHandle = waitHandle;
 	eventHandlers[entry].name = name;
 	eventHandlers[entry].context = context;
@@ -216,7 +216,7 @@ void DeregisterEventHandler(unsigned int waitHandle)
 		}
 		else if (eventHandlers[i].waitHandle == waitHandle)
 		{
-        	Log(LogGeneral, LogVerbose, "Deregistering event handler for %s in slot %d, handle is %d\n", eventHandlers[i].name, i, waitHandle);
+        	Log(LogGeneral, LogDetail, "Deregistering event handler for %s in slot %d, handle is %d\n", eventHandlers[i].name, i, waitHandle);
 			found = 1;
 		}
 	}
@@ -228,7 +228,7 @@ void DeregisterEventHandler(unsigned int waitHandle)
 	}
     else
     {
-        Log(LogGeneral, LogWarning, "Unable to deregister event handler for %s as the registration entry for the handle %d could not be found\n", eventHandlers[i].name, waitHandle);
+        Log(LogGeneral, LogWarning, "Unable to deregister event handler as the registration entry for the handle %d could not be found\n", waitHandle);
     }
 }
 
