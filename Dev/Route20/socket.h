@@ -62,14 +62,18 @@ typedef struct
 	unsigned int socket;
 	unsigned int waitHandle;
 	unsigned int receivePort;
+    sockaddr_t   remoteAddress;
+    char        *eventName;
 } socket_t;
 
 socket_config_t SocketConfig;
 socket_t ListenSocket;
 
 void InitialiseSockets(void);
-int OpenUdpSocket(socket_t *sock, char *eventName, uint16 receivePort);
-int OpenTcpSocket(socket_t *sock, char *eventName, uint16 receivePort);
+void InitialiseSocket(socket_t *sock, char *eventName);
+int OpenUdpSocket(socket_t *sock, uint16 receivePort);
+int OpenTcpSocketInbound(socket_t *sock, uint16 receivePort);
+int OpenTcpSocketOutbound(socket_t *sock, sockaddr_t *address);
 void SetTcpAcceptCallback(socket_t *(*callback)(sockaddr_t *receivedFrom));
 void SetTcpConnectCallback(void (*callback)(socket_t *sock));
 void SetTcpDisconnectCallback(void (*callback)(socket_t *sock));

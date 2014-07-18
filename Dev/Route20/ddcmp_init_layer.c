@@ -474,14 +474,7 @@ static socket_t * TcpAcceptCallback(sockaddr_t *receivedFrom)
 
 		if (memcmp(&receivedFromIn->sin_addr, &destinationAddressIn->sin_addr, sizeof(struct in_addr)) == 0)
 		{
-			if (ddcmpSock->socket.socket == INVALID_SOCKET)
-			{
-			   ans = &ddcmpSock->socket;
-			}
-			else
-			{
-	            Log(LogDdcmpInit, LogWarning, "Cannot accept a second connection from same source address on DDCMP line %s\n", ddcmpCircuit->circuit->name);
-			}
+		    ans = &ddcmpSock->socket;
 			break;
 		}
 	}
@@ -496,7 +489,8 @@ static void TcpConnectCallback(socket_t *sock)
     {
         line_t *line = GetLineFromDdcmpCircuit(ddcmpCircuit);
         line->waitHandle = sock->waitHandle;
-        Log(LogDdcmpInit, LogInfo, "DDCMP line %s has been opened\n", ddcmpCircuit->circuit->name);
+        Log(LogDdcmpInit, LogDetail, "DDCMP line %s has been opened\n", ddcmpCircuit->circuit->name);
+        line->LineOpen(line);
         RegisterEventHandler(line->waitHandle, "DDCMP Circuit", line, line->LineWaitEventHandler);
         ProcessEvent(ddcmpCircuit, DdcmpInitOPOEvent);
 	}
@@ -511,9 +505,11 @@ static void TcpDisconnectCallback(socket_t *sock)
     ddcmp_circuit_t *ddcmpCircuit = FindCircuit(sock);
     if (ddcmpCircuit != NULL)
     {
-        Log(LogDdcmpInit, LogInfo, "DDCMP line %s has been closed\n", ddcmpCircuit->circuit->name);
+        line_t *line = GetLineFromDdcmpCircuit(ddcmpCircuit);
 		ProcessEvent(ddcmpCircuit, DdcmpInitOPFEvent);
         DeregisterEventHandler(GetWaitHandleFromDdcmpCircuit(ddcmpCircuit));
+        Log(LogDdcmpInit, LogDetail, "DDCMP line %s has been closed\n", ddcmpCircuit->circuit->name);
+        line->LineClosed(line);
     }
 }
 

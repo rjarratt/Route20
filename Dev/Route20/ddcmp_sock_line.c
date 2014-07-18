@@ -45,6 +45,10 @@ typedef struct
 
 static void ProcessDnsTimer(rtimer_t *timer, char *name, void *context);
 static void ProcessDnsResponse(byte *address, void *context); // TODO: This is duplicated in eth_sock_line.c as well.
+static int  IsActiveOutbound(ddcmp_sock_t *ddcmpSock);
+static void StartConnectPollTimer(ddcmp_sock_t *ddcmpSock);
+static void StopConnectPollTimer(ddcmp_sock_t *ddcmpSock);
+static void ProcessConnectPollTimer(rtimer_t *timer, char *name, void *context);
 static int  CheckSourceAddress(sockaddr_t *receivedFrom, ddcmp_sock_t *context);
 static void DdcmpTimerHandler(rtimer_t *timer, char *name, void *context);
 static void *DdcmpCreateOneShotTimer(void *timerContext, char *name, int seconds, void (*timerHandler)(void *timerContext));
@@ -55,12 +59,15 @@ static void DdcmpLog(LogLevel level, char *format, ...);
 
 int DdcmpSockLineStart(line_t *line)
 {
-	/* We don't actually open a socket here, but just do the necessary preparations for when the remote side connects to the listen port.
-	   In this case that means just setting up the address of the peer for verification when the connection comes in. */
+	/* We don't necessarily open a socket here, but just do the necessary preparations for when the remote side connects to the listen port.
+	   In this case that means just setting up the address of the peer for verification when the connection comes in. However, if a destination port has been
+       specified then we actively try to connect to the other side. */
 
 	int ans = 1;
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
 	sockaddr_t *destinationAddress;
+
+    Log(LogDdcmpSock, LogDetail, "Starting DDCMP socket line %s\n", sockContext->destinationHostName);
 
 	sockContext->bufferLength = 0;
 	sockContext->bufferInUse = 0;
@@ -74,10 +81,16 @@ int DdcmpSockLineStart(line_t *line)
 	sockContext->line.NotifyDataMessage = DdcmpNotifyDataMessage;
 	sockContext->line.Log = DdcmpLog;
 
-	destinationAddress = GetSocketAddressFromName(sockContext->destinationHostName, 0);
+    InitialiseSocket(&sockContext->socket, line->name);
+
+	destinationAddress = GetSocketAddressFromName(sockContext->destinationHostName, sockContext->destinationPort);
 	if (destinationAddress != NULL)
 	{
 		memcpy(&sockContext->destinationAddress, destinationAddress, sizeof(sockContext->destinationAddress));
+        if (IsActiveOutbound(sockContext))
+        {
+            StartConnectPollTimer(sockContext);
+        }
 	}
 	else
 	{
@@ -100,10 +113,33 @@ int DdcmpSockLineStart(line_t *line)
 	return ans;
 }
 
+int DdcmpSockLineOpen(line_t *line)
+{
+	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
+    Log(LogDdcmpSock, LogDetail, "DDCMP socket line %s is open\n", sockContext->destinationHostName);
+    if (IsActiveOutbound(sockContext))
+    {
+        StopConnectPollTimer(sockContext);
+    }
+
+    return 1;
+}
+
+void DdcmpSockLineClosed(line_t *line)
+{
+	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
+    Log(LogDdcmpSock, LogDetail, "DDCMP socket line %s is closed\n", sockContext->destinationHostName);
+    if (IsActiveOutbound(sockContext))
+    {
+        StartConnectPollTimer(sockContext);
+    }
+}
+
 void DdcmpSockLineStop(line_t *line)
 {
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
 	CloseSocket(&sockContext->socket);
+    Log(LogDdcmpSock, LogDetail, "DDCMP socket line %s is stopped\n", sockContext->destinationHostName);
 }
 
 packet_t *DdcmpSockLineReadPacket(line_t *line)
@@ -167,6 +203,47 @@ static void ProcessDnsResponse(byte *address, void *context)
 	    Log(LogDdcmpSock, LogInfo, "Changed IP address for %s\n", line->name);
 	    memcpy(&sockContext->destinationAddress, newAddress, sizeof(sockContext->destinationAddress));
 	}
+}
+
+static int  IsActiveOutbound(ddcmp_sock_t *ddcmpSock)
+{
+    return ddcmpSock->destinationPort != 0;
+}
+
+static void StartConnectPollTimer(ddcmp_sock_t *ddcmpSock)
+{
+    time_t now;
+    time_t nextPollTime;
+
+    Log(LogDdcmpSock, LogVerbose, "Starting connect poll timer for %s\n", ddcmpSock->destinationHostName);
+
+    time(&now);
+    if (difftime(now, ddcmpSock->lastConnectAttempt) > ddcmpSock->connectPoll)
+    {
+        nextPollTime = now;
+    }
+    else
+    {
+        nextPollTime = ddcmpSock->lastConnectAttempt + ddcmpSock->connectPoll;
+    }
+
+    ddcmpSock->connectPollTimer = CreateTimer(ddcmpSock->destinationHostName, nextPollTime, ddcmpSock->connectPoll, ddcmpSock, ProcessConnectPollTimer);
+    Log(LogDdcmpSock, LogVerbose, "Handle for connect poll timer is %u, now is %llu, next poll %llu, interval %d\n", ddcmpSock->connectPollTimer, now, nextPollTime, ddcmpSock->connectPoll);
+}
+
+static void StopConnectPollTimer(ddcmp_sock_t *ddcmpSock)
+{
+    Log(LogDdcmpSock, LogVerbose, "Handle for connect poll timer to stop is %u\n", ddcmpSock->connectPollTimer);
+    StopTimer(ddcmpSock->connectPollTimer);
+    Log(LogDdcmpSock, LogVerbose, "Stopped connect poll timer for %s\n", ddcmpSock->destinationHostName);
+}
+
+static void ProcessConnectPollTimer(rtimer_t *timer, char *name, void *context)
+{
+    ddcmp_sock_t *ddcmpSock = (ddcmp_sock_t *)context;
+    Log(LogDdcmpSock, LogVerbose, "Processing connect poll timer %u for %s\n", ddcmpSock->connectPollTimer, ddcmpSock->destinationHostName);
+    time(&ddcmpSock->lastConnectAttempt);
+    OpenTcpSocketOutbound(&ddcmpSock->socket, &ddcmpSock->destinationAddress);
 }
 
 static int CheckSourceAddress(sockaddr_t *receivedFrom, ddcmp_sock_t *context)

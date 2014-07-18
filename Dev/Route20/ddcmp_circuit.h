@@ -54,7 +54,7 @@ typedef struct ddcmp_circuit
     DdcmpInitState  state;
 } ddcmp_circuit_t;
 
-ddcmp_circuit_ptr DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName, uint16 destinationPort);
+ddcmp_circuit_ptr DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName, uint16 destinationPort, int connectPoll);
 
 int DdcmpCircuitStart(circuit_ptr circuit);
 void DdcmpCircuitUp(circuit_ptr circuit);

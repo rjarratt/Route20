@@ -43,11 +43,11 @@ static void HandleHelloAndTestTimer(rtimer_t *timer, char *name, void *context);
 static void StopTimerIfRunning(ddcmp_circuit_t *ddcmpCircuit);
 static void StartTimer(ddcmp_circuit_t *ddcmpCircuit);
 
-ddcmp_circuit_t *DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName, uint16 destinationPort)
+ddcmp_circuit_t *DdcmpCircuitCreateSocket(circuit_t *circuit, char *destinationHostName, uint16 destinationPort, int connectPoll)
 {
 	ddcmp_circuit_t *ans = (ddcmp_circuit_t *)calloc(1, sizeof(ddcmp_circuit_t));
 	line_t *line = (line_t *)malloc(sizeof(line_t));
-    LineCreateDdcmpSocket(line, circuit->name, destinationHostName, destinationPort, circuit, HandleLineNotifyData);
+    LineCreateDdcmpSocket(line, circuit->name, destinationHostName, destinationPort, connectPoll, circuit, HandleLineNotifyData);
 
 	ans->circuit = circuit;
 	circuit->line = line;

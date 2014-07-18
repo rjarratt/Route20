@@ -27,6 +27,12 @@
 
   ------------------------------------------------------------------------------*/
 
+// TODO: Don't try outbound connect again, if there is still an outbound connect in progress
+// TODO: Stop recall timer when not actually connected?
+// TODO: Recall timer slowing things down even if has been disconnected for a while
+// TODO: Not randomizing the incoming/outgoing connection.
+
+#include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include "platform.h"
@@ -39,6 +45,8 @@ static int started;
 static int SockStartup(void);
 static int GetSockError(void);
 static void SockError(char *msg);
+static int IsSockClosed(socket_t *sock);
+static int IsSockConnected(socket_t *sock);
 static int IsSockErrorConnReset(int err);
 static int IsSockErrorConnAborted(int err);
 static int IsSockErrorWouldBlock(int err);
@@ -47,8 +55,14 @@ static void SockErrorClear(void);
 static void SetNonBlocking(socket_t *socket);
 static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int type, int protocol);
 static int ListenTcpSocket(socket_t *sock);
+static int ConnectTcpSocket(socket_t *sock);
 static void SetupSocketEvents(socket_t *sock, char *eventName, long events);
+static void CompleteSocketDisconnection(socket_t *sock);
 static void ProcessListenSocketEvent(void *context);
+static void ProcessConnectSocketEvent(void *context);
+static void LogNetworkEvent(WSANETWORKEVENTS *networkEvents, char *name, int mask, int bitNo);
+static void LogNetworkEvents(socket_t *sock);
+static char *FormatAddr(sockaddr_t *addr);
 
 static socket_t *(*tcpAcceptCallback)(sockaddr_t *receivedFrom);
 static void (*tcpConnectCallback)(socket_t *sock);
@@ -62,34 +76,56 @@ void InitialiseSockets(void)
 		SockStartup();
 	}
 
-	ListenSocket.socket = INVALID_SOCKET;
-	ListenSocket.waitHandle = (unsigned int)-1;
+    InitialiseSocket(&ListenSocket, "TCPLISTEN");
 	if (SocketConfig.socketConfigured)
 	{
-		if (OpenTcpSocket(&ListenSocket, "TCPLISTEN", SocketConfig.tcpListenPort))
+		if (OpenTcpSocketInbound(&ListenSocket, SocketConfig.tcpListenPort))
         {
-		    RegisterEventHandler(ListenSocket.waitHandle, "TCP socket", NULL, ProcessListenSocketEvent);
+		    RegisterEventHandler(ListenSocket.waitHandle, "TCP listen socket", NULL, ProcessListenSocketEvent);
         }
         else
         {
-            Log(LogSock, LogError, "Unable to open TCP socket on port %d\n", SocketConfig.tcpListenPort);
+            Log(LogSock, LogError, "Unable to open TCP listen socket on port %d\n", SocketConfig.tcpListenPort);
         }
 	}
 }
 
-int OpenUdpSocket(socket_t *sock, char *eventName, uint16 receivePort)
+void InitialiseSocket(socket_t *sock, char *eventName)
 {
-	int ans = OpenSocket(sock, eventName, receivePort, SOCK_DGRAM, 0);
+    sock->socket = INVALID_SOCKET;
+    sock->waitHandle = (unsigned int)-1;
+    sock->eventName = eventName;
+}
+
+int OpenUdpSocket(socket_t *sock, uint16 receivePort)
+{
+	int ans = OpenSocket(sock, sock->eventName, receivePort, SOCK_DGRAM, 0);
 
 	return ans;
 }
 
-int OpenTcpSocket(socket_t *sock, char *eventName, uint16 receivePort)
+int OpenTcpSocketInbound(socket_t *sock, uint16 receivePort)
 {
-	int ans = OpenSocket(sock, eventName, receivePort, SOCK_STREAM, IPPROTO_TCP);
+	int ans = OpenSocket(sock, sock->eventName, receivePort, SOCK_STREAM, IPPROTO_TCP);
 	if (ans)
 	{
 		ans = ListenTcpSocket(sock);
+	}
+
+	return ans;
+}
+
+int OpenTcpSocketOutbound(socket_t *sock, sockaddr_t *address)
+{
+	int ans = OpenSocket(sock, sock->eventName, 0, SOCK_STREAM, IPPROTO_TCP);
+	if (ans)
+	{
+        memcpy(&sock->remoteAddress, address, sizeof(sockaddr_t));
+		ans = ConnectTcpSocket(sock);
+        if (ans)
+        {
+		    RegisterEventHandler(sock->waitHandle, sock->eventName, sock, ProcessConnectSocketEvent);
+        }
 	}
 
 	return ans;
@@ -139,7 +175,7 @@ int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
 	int bytesRead;
 
 	ans = 0;
-    if (sock->socket != INVALID_SOCKET)
+    if (!IsSockClosed(sock))
     {
         bytesRead = recv(sock->socket, (char *)buffer, bufferLength, 0);
         if (bytesRead > 0)
@@ -167,12 +203,8 @@ int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
 
             if (closed)
             {
-                Log(LogSock, LogWarning, "TCP connection on port %d closed\n", sock->receivePort);
-                CloseSocket(sock);
-                if (tcpDisconnectCallback != NULL)
-                {
-                    tcpDisconnectCallback(sock);
-                }
+                Log(LogSock, LogDetail, "Socket read failure due to unexpected closure of socket %s\n", sock->eventName);
+                QueueImmediate(sock, CompleteSocketDisconnection);
             }
             else if (!IsSockErrorWouldBlock(sockErr))
             {
@@ -211,13 +243,8 @@ int WriteToStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
 #endif
 			if (!retry)
             {
-                Log(LogSock, LogWarning, "TCP connection on port %d closed\n", sock->receivePort);
-                CloseSocket(sock);
-                if (tcpDisconnectCallback != NULL)
-                {
-                    tcpDisconnectCallback(sock);
-                }
-
+               Log(LogSock, LogDetail, "Socket write failure due to unexpected closure of socket %s\n", sock->eventName);
+               QueueImmediate(sock, CompleteSocketDisconnection);
                 ans = 0;
                 break;
             }
@@ -289,6 +316,7 @@ void CloseSocket(socket_t *sock)
     if (sock->waitHandle != (unsigned int)-1)
     {
         CloseHandle((HANDLE)sock->waitHandle);
+        sock->waitHandle = (unsigned int)-1;
     }
 #endif
     ClosePrimitiveSocket(sock->socket);
@@ -386,6 +414,51 @@ static void SockError(char *msg)
 	}
 }
 
+static int IsSockClosed(socket_t *sock)
+{
+    return sock->socket == INVALID_SOCKET;
+}
+
+static int IsSockConnected(socket_t *sock)
+{
+    int ans = 0;
+    fd_set readSet;
+    fd_set writeSet;
+    fd_set errorSet;
+    struct timeval tz;
+
+    timerclear (&tz);
+    FD_ZERO (&readSet);
+    FD_ZERO (&writeSet);
+    FD_ZERO (&errorSet);
+    FD_SET (sock->socket, &readSet);
+    FD_SET (sock->socket, &writeSet);
+    FD_SET (sock->socket, &errorSet);
+
+    if (select ((int) sock->socket + 1, &readSet, &writeSet, &errorSet, &tz) == SOCKET_ERROR)
+    {
+        SockError("select");
+    }
+    else
+    {
+        ans = FD_ISSET(sock->socket, &writeSet);
+    }
+
+    /* Other possible techniques are to send zero bytes and to get the SO_ERROR socket option:
+
+    ans = send(sock->socket, "", 0, 0) != SOCKET_ERROR;
+    Log(LogSock, LogInfo, "Sendable %d\n", ans);
+    if (getsockopt(sock->socket, SOL_SOCKET, SO_ERROR, (char *)&err, &errLen) == SOCKET_ERROR)
+    {
+        SockError("getsockopt");
+    }
+    Log(LogSock, LogInfo, "SO_ERROR %d\n", err);
+    ans = err == 0;
+    */
+
+    return ans;
+}
+
 static int IsSockErrorConnReset(int err)
 {
     int ans;
@@ -463,8 +536,7 @@ static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int t
 {
 	sockaddr_in_t sa;
 
-	sock->socket = INVALID_SOCKET;
-	sock->waitHandle = (unsigned int)-1;
+    InitialiseSocket(sock, eventName);
 	sock->receivePort = receivePort;
 
 	if (!started)
@@ -493,7 +565,7 @@ static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int t
 			else
 			{
 #if defined(WIN32)
-				SetupSocketEvents(sock, eventName, FD_READ | FD_ACCEPT);
+				SetupSocketEvents(sock, eventName, FD_READ | FD_ACCEPT | FD_CONNECT);
 #else
 				SetupSocketEvents(sock, eventName, 0);
 #endif
@@ -514,10 +586,11 @@ static int ListenTcpSocket(socket_t *sock)
 	int ans = 1;
 	if (listen(sock->socket, 5) != SOCKET_ERROR)
 	{
-	    Log(LogSock, LogVerbose, "Listening for TCP connections on %d\n", sock->receivePort);
+	    Log(LogSock, LogDetail, "Listening for TCP connections on %d\n", sock->receivePort);
 	}
 	else
 	{
+        ans = 0;
 		SockErrorAndClear("listen");
 		CloseSocket(sock);
 	}
@@ -525,11 +598,42 @@ static int ListenTcpSocket(socket_t *sock)
 	return ans;
 }
 
+static int ConnectTcpSocket(socket_t *sock)
+{
+	int ans = 1;
+
+    if (connect(sock->socket, &sock->remoteAddress, sizeof(sockaddr_in_t)) == SOCKET_ERROR)
+    {
+        if (!IsSockErrorWouldBlock(GetSockError()))
+        {
+            ans = 0;
+            SockErrorAndClear("connect");
+            CloseSocket(sock);
+        }
+	}
+
+    if (ans)
+    {
+	    Log(LogSock, LogDetail, "Connecting to TCP address %s\n", FormatAddr(&sock->remoteAddress));
+    }
+
+    return ans;
+}
+
 static void SetupSocketEvents(socket_t *sock, char *eventName, long events)
 {
 #if defined(WIN32)
-	sock->waitHandle = (int)CreateEvent(NULL, 0, 0, eventName);
-	//Log(LogSock, LogVerbose, "Wait handle for port %d is %d\n", sock->receivePort, sock->waitHandle);
+    /* For outbound sockets we can change the events we are interested in and the event may already exist, so don't create it again */
+    if (sock->waitHandle == (unsigned int)-1)
+    {
+	    sock->waitHandle = (int)CreateEvent(NULL, 0, 0, eventName);
+	    Log(LogSock, LogDetail, "New wait handle for %s is %d\n", eventName, sock->waitHandle);
+    }
+    else
+    {
+	    Log(LogSock, LogDetail, "Reusing wait handle %d for %s\n", sock->waitHandle, eventName);
+    }
+
 	if (WSAEventSelect(sock->socket, (HANDLE)sock->waitHandle, events) == SOCKET_ERROR)
 	{
 		SockErrorAndClear("WSAEventSelect");
@@ -539,6 +643,20 @@ static void SetupSocketEvents(socket_t *sock, char *eventName, long events)
 #endif
 }
 
+static void CompleteSocketDisconnection(socket_t *sock)
+{
+    if (!IsSockClosed(sock))
+    {
+        if (tcpDisconnectCallback != NULL)
+        {
+            tcpDisconnectCallback(sock);
+        }
+
+        CloseSocket(sock);
+        Log(LogSock, LogDetail, "TCP connection on port %d closed\n", sock->receivePort);
+    }
+}
+
 static void ProcessListenSocketEvent(void *context)
 {
 	int ilen;
@@ -546,40 +664,131 @@ static void ProcessListenSocketEvent(void *context)
 	struct sockaddr_in  *inaddr;
 	unsigned int newSocket;
 
-	Log(LogSock, LogVerbose, "Processing TCP connection attempt on %d\n", ListenSocket.receivePort);
+	Log(LogSock, LogDetail, "Processing TCP connection attempt on %d\n", ListenSocket.receivePort);
 	ilen = sizeof(receivedFrom);
 	newSocket = accept(ListenSocket.socket, &receivedFrom, &ilen);
 	if (newSocket != INVALID_SOCKET)
 	{
+        int reject = 1;
 		socket_t *sock = NULL;
 		if (tcpAcceptCallback != NULL)
 		{
 			sock = tcpAcceptCallback(&receivedFrom);
+            if (sock == NULL)
+            {
+    	        Log(LogSock, LogDetail, "TCP connection from %s rejected\n", FormatAddr(&receivedFrom));
+            }
 		}
 
 		inaddr = (struct sockaddr_in *)&receivedFrom;
 
 		if (sock != NULL)
 		{
-	        Log(LogSock, LogInfo, "TCP connection from %d.%d.%d.%d accepted\n", (inaddr->sin_addr.s_addr) & 0xFF, (inaddr->sin_addr.s_addr >> 8) & 0xFF, (inaddr->sin_addr.s_addr >> 16) & 0xFF, (inaddr->sin_addr.s_addr >> 24) & 0xFF);
-			sock->socket = newSocket;
-			sock->receivePort = inaddr->sin_port;
-			SetNonBlocking(sock);
-#if defined(WIN32)
-			SetupSocketEvents(sock, NULL, FD_READ | FD_CLOSE); // TODO: DDCMP event name, ought to come from ddcmp circuit, but not available here and name is not essential, could move eventName to socket structure but not valid for eth_pcap
-#else
-			SetupSocketEvents(sock, NULL, 0); // TODO: DDCMP event name, ought to come from ddcmp circuit, but not available here and name is not essential, could move eventName to socket structure but not valid for eth_pcap
-#endif
-			if (tcpConnectCallback != NULL)
-			{
-				tcpConnectCallback(sock);
-			}
+            reject = 0;
+            if (sock->socket != INVALID_SOCKET)
+            {
+                if (IsSockConnected(sock))
+                {
+    	            Log(LogSock, LogDetail, "Rejecting incoming request from %s with outbound connection open\n", FormatAddr(&receivedFrom));
+                    reject = 1;
+                }
+            }
 
+            if (!reject)
+            {
+                Log(LogSock, LogDetail, "TCP connection from %s accepted\n", FormatAddr(&receivedFrom));
+                sock->socket = newSocket;
+                sock->receivePort = inaddr->sin_port;
+                SetNonBlocking(sock);
+#if defined(WIN32)
+                SetupSocketEvents(sock, sock->eventName, FD_READ | FD_CLOSE);
+#else
+                SetupSocketEvents(sock, sock->eventName, 0);
+#endif
+                if (tcpConnectCallback != NULL)
+                {
+                    tcpConnectCallback(sock);
+                }
+            }
 		}
-		else
+		
+        if (reject)
 		{
-	        Log(LogSock, LogInfo, "TCP connection from %d.%d.%d.%d rejected\n", (inaddr->sin_addr.s_addr) & 0xFF, (inaddr->sin_addr.s_addr >> 8) & 0xFF, (inaddr->sin_addr.s_addr >> 16) & 0xFF, (inaddr->sin_addr.s_addr >> 24) & 0xFF);
 			ClosePrimitiveSocket(newSocket);
 		}
 	}
+}
+
+static void ProcessConnectSocketEvent(void *context)
+{
+    socket_t *sock = (socket_t *)context;
+
+    LogNetworkEvents(sock);
+
+    Log(LogSock, LogDetail, "TCP connection to %s ", FormatAddr(&sock->remoteAddress));
+    
+    if (IsSockConnected(sock))
+    {
+        Log(LogSock, LogDetail, "connected\n");
+
+        SetNonBlocking(sock);
+#if defined(WIN32)
+        SetupSocketEvents(sock, sock->eventName, FD_READ | FD_CLOSE);
+#else
+        SetupSocketEvents(sock, sock->eventName, 0);
+#endif
+        if (tcpConnectCallback != NULL)
+        {
+            tcpConnectCallback(sock);
+        }
+    }
+    else
+    {
+        Log(LogSock, LogDetail, "failed or rejected\n");
+        DeregisterEventHandler(sock->waitHandle);
+        CloseSocket(sock);
+    }
+}
+
+static void LogNetworkEvent(WSANETWORKEVENTS *networkEvents, char *name, int mask, int bitNo)
+{
+    if ((networkEvents->lNetworkEvents & mask) != 0)
+    {
+        Log(LogSock, LogVerbose, "Socket event %s occurred, error code %d\n", name, networkEvents->iErrorCode[bitNo]);
+    }
+}
+
+static void LogNetworkEvents(socket_t *sock)
+{
+    WSANETWORKEVENTS NetworkEvents;
+
+    WSAEnumNetworkEvents(sock->socket, NULL, &NetworkEvents);
+
+    LogNetworkEvent(&NetworkEvents, "Connect", FD_CONNECT, FD_CONNECT_BIT);
+    LogNetworkEvent(&NetworkEvents, "Close", FD_CLOSE, FD_CLOSE_BIT);
+    LogNetworkEvent(&NetworkEvents, "Accept", FD_ACCEPT, FD_ACCEPT_BIT);
+    LogNetworkEvent(&NetworkEvents, "Address list change", FD_ADDRESS_LIST_CHANGE, FD_ADDRESS_LIST_CHANGE_BIT);
+    LogNetworkEvent(&NetworkEvents, "Group QOS", FD_GROUP_QOS, FD_GROUP_QOS_BIT);
+    LogNetworkEvent(&NetworkEvents, "QOS", FD_QOS, FD_QOS_BIT);
+    LogNetworkEvent(&NetworkEvents, "OOB", FD_OOB, FD_OOB_BIT);
+    LogNetworkEvent(&NetworkEvents, "Read", FD_READ, FD_READ_BIT);
+    LogNetworkEvent(&NetworkEvents, "Write", FD_WRITE, FD_WRITE_BIT);
+    LogNetworkEvent(&NetworkEvents, "Routing interface change", FD_ROUTING_INTERFACE_CHANGE, FD_ROUTING_INTERFACE_CHANGE_BIT);
+}
+
+static char *FormatAddr(sockaddr_t *addr)
+{
+    sockaddr_in_t *inaddr = (sockaddr_in_t *)addr;
+    static char buf[30];
+
+    if (inaddr->sin_port != 0)
+    {
+        sprintf(buf, "%d.%d.%d.%d:%d", (inaddr->sin_addr.s_addr) & 0xFF, (inaddr->sin_addr.s_addr >> 8) & 0xFF, (inaddr->sin_addr.s_addr >> 16) & 0xFF, (inaddr->sin_addr.s_addr >> 24) & 0xFF, ntohs(inaddr->sin_port));
+    }
+    else
+    {
+        sprintf(buf, "%d.%d.%d.%d", (inaddr->sin_addr.s_addr) & 0xFF, (inaddr->sin_addr.s_addr >> 8) & 0xFF, (inaddr->sin_addr.s_addr >> 16) & 0xFF, (inaddr->sin_addr.s_addr >> 24) & 0xFF);
+    }
+
+    return buf;
 }
