@@ -1033,6 +1033,10 @@ static void ProcessEvent(ddcmp_line_t *ddcmpLine, DdcmpEvent evt)
 		{
 			ddcmpLine->Log(LogVerbose, "%s. Changing line state for %s from %s to %s\n", lineEventString[evt], ddcmpLine->name, lineStateString[(int)cb->state], lineStateString[(int)entry->newState]);
 		}
+        else
+        {
+			ddcmpLine->Log(LogVerbose, "%s. Line %s. State is %s\n", lineEventString[evt], ddcmpLine->name, lineStateString[(int)cb->state]);
+        }
 
 		cb->state = entry->newState;
 
