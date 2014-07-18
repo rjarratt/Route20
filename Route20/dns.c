@@ -77,7 +77,8 @@ int DnsOpen(char *serverName)
 {
 	int ans;
 
-	ans = OpenUdpSocket(&DnsSocket, "DNS", 0);
+    InitialiseSocket(&DnsSocket, "DNS");
+	ans = OpenUdpSocket(&DnsSocket, 0);
 	if (ans)
 	{
 		memcpy(&DnsServer, GetSocketAddressFromName(serverName, 53), sizeof(DnsServer));

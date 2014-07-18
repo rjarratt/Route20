@@ -42,7 +42,7 @@ static void LineWaitEventHandler(void *context);
 
 void LineCreateEthernetPcap(line_ptr line, char *name, void *notifyContext, void (*lineNotifyData)(line_ptr line))
 {
-	eth_pcap_t *context = (eth_pcap_t *)malloc(sizeof(eth_pcap_t));
+	eth_pcap_t *context = (eth_pcap_t *)calloc(1, sizeof(eth_pcap_t));
 
 	line->name = (char *)malloc(strlen(name)+1);
 	strcpy(line->name, name);
@@ -63,7 +63,7 @@ void LineCreateEthernetPcap(line_ptr line, char *name, void *notifyContext, void
 
 void LineCreateEthernetSocket(line_ptr line, char *name, uint16 receivePort, char *destinationHostName, uint16 destinationPort, void *notifyContext, void (*lineNotifyData)(line_ptr line))
 {
-	eth_sock_t *context = (eth_sock_t *)malloc(sizeof(eth_sock_t));
+	eth_sock_t *context = (eth_sock_t *)calloc(1, sizeof(eth_sock_t));
 	context->receivePort = receivePort;
 	context->destinationPort = destinationPort;
 	context->destinationHostName = (char *)malloc(strlen(destinationHostName) + 1);
@@ -86,15 +86,15 @@ void LineCreateEthernetSocket(line_ptr line, char *name, uint16 receivePort, cha
     line->LineNotifyData = lineNotifyData;
 }
 
-void LineCreateDdcmpSocket(line_ptr line, char *name, char *destinationHostName, uint16 destinationPort, void *notifyContext, void (*lineNotifyData)(line_ptr line))
+void LineCreateDdcmpSocket(line_ptr line, char *name, char *destinationHostName, uint16 destinationPort, int connectPoll, void *notifyContext, void (*lineNotifyData)(line_ptr line))
 {
-	ddcmp_sock_t *context = (ddcmp_sock_t *)malloc(sizeof(ddcmp_sock_t));
-    context->socket.socket = INVALID_SOCKET;
+	ddcmp_sock_t *context = (ddcmp_sock_t *)calloc(1, sizeof(ddcmp_sock_t));
+    InitialiseSocket(&context->socket, destinationHostName);
 	
-	context->destinationHostName = (char *)calloc(1, strlen(destinationHostName) + 1);
+	context->destinationHostName = (char *)malloc(strlen(destinationHostName) + 1);
 	context->destinationPort = destinationPort;
 	strcpy(context->destinationHostName, destinationHostName);
-
+    context->connectPoll = connectPoll;
 
 	line->name = (char *)malloc(strlen(name)+1);
 	strcpy(line->name, name);
@@ -104,6 +104,8 @@ void LineCreateDdcmpSocket(line_ptr line, char *name, char *destinationHostName,
     memset(&line->stats, 0, sizeof(line->stats));
 
 	line->LineStart = DdcmpSockLineStart;
+    line->LineOpen = DdcmpSockLineOpen;
+    line->LineClosed = DdcmpSockLineClosed;
     line->LineStop = DdcmpSockLineStop;
     line->LineUp = LineUp;
     line->LineDown = LineDown;

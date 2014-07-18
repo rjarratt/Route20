@@ -45,11 +45,12 @@ int EthSockLineStart(line_t *line)
 	eth_sock_t *sockContext = (eth_sock_t *)line->lineContext;
 	sockaddr_t *destinationAddress;
 
+    InitialiseSocket(&sockContext->socket, line->name);
 	destinationAddress = GetSocketAddressFromName(sockContext->destinationHostName, sockContext->destinationPort);
 
 	if (destinationAddress != NULL)
 	{
-		ans = OpenUdpSocket(&sockContext->socket, line->name, sockContext->receivePort);
+		ans = OpenUdpSocket(&sockContext->socket, sockContext->receivePort);
 		if (ans)
 		{
 			if (DnsConfig.dnsConfigured)

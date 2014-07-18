@@ -37,15 +37,20 @@ typedef struct
 {
 	socket_t socket;
 	char *destinationHostName;
-	int destinationPort;
+	uint16 destinationPort;
 	sockaddr_t destinationAddress;
 	ddcmp_line_t line;
 	byte buffer[MAX_DDCMP_DATA_LENGTH];
 	int bufferLength;
 	int bufferInUse;
+    int connectPoll;
+    rtimer_t *connectPollTimer;
+    time_t lastConnectAttempt;
 } ddcmp_sock_t;
 
 int DdcmpSockLineStart(line_t *line);
+int DdcmpSockLineOpen(line_t *line);
+void DdcmpSockLineClosed(line_t *line);
 void DdcmpSockLineStop(line_t *line);
 packet_t *DdcmpSockLineReadPacket(line_t *line);
 int DdcmpSockLineWritePacket(line_t *line, packet_t *packet);

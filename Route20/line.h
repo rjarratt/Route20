@@ -54,6 +54,8 @@ typedef struct line
 	line_stats_t       stats;
 
 	int (*LineStart)(line_ptr line);
+	int (*LineOpen)(line_ptr line);
+    void (*LineClosed)(line_ptr line);
 	void (*LineStop)(line_ptr line);
 	void (*LineUp)(line_ptr line);
 	void (*LineDown)(line_ptr line);
@@ -66,7 +68,7 @@ typedef struct line
 
 void LineCreateEthernetPcap(line_ptr line, char *name, void *notifyContext, void (*lineNotifyData)(line_ptr line));
 void LineCreateEthernetSocket(line_ptr line, char *name, uint16 receivePort, char *destinationHostName, uint16 destinationPort, void *notifyContext, void (*lineNotifyData)(line_ptr line));
-void LineCreateDdcmpSocket(line_ptr line, char *name, char *destinationHostName, uint16 destinationPort, void *notifyContext, void (*lineNotifyData)(line_ptr line));
+void LineCreateDdcmpSocket(line_ptr line, char *name, char *destinationHostName, uint16 destinationPort, int connectPoll, void *notifyContext, void (*lineNotifyData)(line_ptr line));
 
 #define LINE_H
 #endif

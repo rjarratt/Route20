@@ -713,6 +713,7 @@ static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans)
 	char   hostName[80];
 	uint16 port;
 	int    cost = 5;
+    int    connectPoll = 30;
 
 	if (mode == ConfigReadModeFull)
 	{
@@ -748,6 +749,11 @@ static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans)
 				{
 					cost = atoi(value);
 				}
+
+				if (stricmp(name, "connectpoll") == 0)
+				{
+					connectPoll = atoi(value);
+				}
 			}
 		}
 
@@ -773,7 +779,7 @@ static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans)
 				    Log(LogGeneral, LogInfo, "DDCMP interface connecting to %s:%d\n", hostName, port);
 				}
 
-				CircuitCreateDdcmpSocket(&Circuits[1 + numCircuits++], hostName, port, cost, ProcessCircuitEvent);
+				CircuitCreateDdcmpSocket(&Circuits[1 + numCircuits++], hostName, port, cost, connectPoll, ProcessCircuitEvent);
 				dnsNeeded = 1;
 			}
 		}
