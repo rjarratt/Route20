@@ -123,6 +123,8 @@ void ProcessTimers(void)
                 {
 				    timer->immediateCallback(timer->context);
                 }
+
+                time(&now); /* update current time in case other timers fall due */
 			}
 
 			/* the callback may have added more timers to the head of the list, if so, adjust prevTimer if we were at the head list before the callback */
@@ -199,4 +201,22 @@ int  SecondsUntilNextDue(void)
 	}
 
 	return ans;
+}
+
+void DumpTimers(LogLevel level)
+{
+	rtimer_t *timer = timerList;
+	time_t now;
+    time(&now);
+
+    Log(LogGeneral, level, "Start of timer dump\n");
+
+	while (timer != NULL)
+	{
+        double dueIn = difftime(timer->due, now);
+        Log(LogGeneral, level, "  %s, due at %lld in %f (secs)\n", timer->name, timer->due, dueIn);
+        timer = timer->next;
+    }
+
+    Log(LogGeneral, level, "End of timer dump\n");
 }
