@@ -89,6 +89,7 @@ packet_t *DdcmpCircuitReadPacket(circuit_t *circuit)
 		}
 		else
 		{
+            memcpy(&ans->from, &circuit->adjacentNode, sizeof(decnet_address_t));
 			circuit->stats.decnetPacketsReceived++;
 			circuit->stats.decnetToThisNodePacketsReceived++;
 		}
