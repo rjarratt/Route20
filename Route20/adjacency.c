@@ -164,7 +164,7 @@ void CheckCircuitAdjacency(decnet_address_t *from, circuit_t *circuit)
 
     if (!IsBroadcastCircuit(circuit))
     {
-        /*Log(LogAdjacency, LogInfo, "Checking adjacency for "); LogDecnetAddress(LogAdjacency, LogInfo, from); Log(LogAdjacency, LogInfo, "\n");*/
+        Log(LogAdjacency, LogVerbose, "Checking adjacency for "); LogDecnetAddress(LogAdjacency, LogVerbose, from); Log(LogAdjacency, LogVerbose, "\n");
 
         adjacency = FindAdjacency(from);
 
@@ -240,7 +240,7 @@ int IsBroadcastEndnodeAdjacency(adjacency_t *adjacency)
 
 static void UpdateAdjacencyLiveness(adjacency_t *adjacency)
 {
-	/*Log(LogAdjacency, LogInfo, "Adjacency liveness update "); LogDecnetAddress(LogAdjacency, LogInfo, &adjacency->id); Log(LogAdjacency, LogInfo, " (Slot %d) on %s\n", adjacency->slot, adjacency->circuit->name);*/
+	Log(LogAdjacency, LogVerbose, "Adjacency liveness update "); LogDecnetAddress(LogAdjacency, LogVerbose, &adjacency->id); Log(LogAdjacency, LogVerbose, " (Slot %d) on %s\n", adjacency->slot, adjacency->circuit->name);
     time(&adjacency->lastHeardFrom);
 }
 
