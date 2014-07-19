@@ -154,7 +154,7 @@ packet_t *DdcmpSockLineReadPacket(line_t *line)
 
 	if (bufferLength > 0)
 	{
-		Log(LogDdcmpSock, LogDetail, "Read %d bytes from DDCMP socket\n", bufferLength);
+		Log(LogDdcmpSock, LogDetail, "Read %d bytes from DDCMP socket %s\n", bufferLength, sockContext->destinationHostName);
 		LogBytes(LogDdcmpSock, LogVerbose, buffer, bufferLength);
 		DdcmpProcessReceivedData(&sockContext->line, buffer, bufferLength);
 
@@ -179,6 +179,8 @@ int DdcmpSockLineWritePacket(line_t *line, packet_t *packet)
 	int ans = 0;
 	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
 
+	Log(LogDdcmpSock, LogDetail, "Writing %d bytes to DDCMP socket %s\n", packet->payloadLen, sockContext->destinationHostName);
+	LogBytes(LogDdcmpSock, LogVerbose, packet->payload, packet->payloadLen);
     ans = DdcmpSendDataMessage(&sockContext->line, packet->payload, packet->payloadLen);
 
 	return ans;
