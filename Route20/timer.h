@@ -28,6 +28,8 @@
   ------------------------------------------------------------------------------*/
 
 #include <time.h>
+#include "basictypes.h"
+#include "logging.h"
 
 #if !defined(TIMER_H)
 
@@ -53,6 +55,7 @@ void StopTimer(rtimer_t *);
 void StopAllTimers(void);
 void ProcessTimers(void);
 int  SecondsUntilNextDue(void);
+void DumpTimers(LogLevel level);
 
 #define TIMER_H
 #endif
