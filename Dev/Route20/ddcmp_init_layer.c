@@ -26,8 +26,6 @@ in this Software without prior written authorization from the author.
 
 ------------------------------------------------------------------------------*/
 
-// TODO: Consider active connections over DDCMP so two routers can connect back to back. Requires connection arbitration.
-
 #include "constants.h"
 #include "basictypes.h"
 #include "platform.h"
@@ -454,8 +452,9 @@ static void HandleLineNotifyStateChange(line_t *line)
     }
     else
     {
-        ProcessEvent(ddcmpCircuit, DdcmpInitOPFEvent); // TODO: Not sure this is the right event for this situation
-	    //DdcmpStart(&sockContext->line); // TODO: Not sure if should restart
+        /* Restart the circuit */
+        ProcessEvent(ddcmpCircuit, DdcmpInitOPFEvent);
+        ProcessEvent(ddcmpCircuit, DdcmpInitOPOEvent);
     }
 }
 
