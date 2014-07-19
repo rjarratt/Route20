@@ -1165,6 +1165,7 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 			msg = ParseRoutingMessage(packet);
 			if (msg != NULL)
 			{
+                CheckCircuitAdjacency(&msg->srcnode, circuit);
 				if (CompareDecnetAddress(&msg->srcnode, &nodeInfo.address))
 				{
 					LogLoopbackMessage(circuit, packet, "Level 1 Routing");
@@ -1187,6 +1188,7 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 			msg = ParseRoutingMessage(packet);
 			if (msg != NULL)
 			{
+                CheckCircuitAdjacency(&msg->srcnode, circuit);
 				if (CompareDecnetAddress(&msg->srcnode, &nodeInfo.address))
 				{
 					LogLoopbackMessage(circuit, packet, "Level 2 Routing");
