@@ -30,7 +30,6 @@
 // TODO: Don't try outbound connect again, if there is still an outbound connect in progress
 // TODO: Stop recall timer when not actually connected?
 // TODO: Recall timer slowing things down even if has been disconnected for a while
-// TODO: Not randomizing the incoming/outgoing connection.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -689,8 +688,19 @@ static void ProcessListenSocketEvent(void *context)
             {
                 if (IsSockConnected(sock))
                 {
-    	            Log(LogSock, LogDetail, "Rejecting incoming request from %s with outbound connection open\n", FormatAddr(&receivedFrom));
-                    reject = 1;
+                    /* we have both an inbound request connected, and an outbound request connected, so we randomly reject one of them */
+                    if (rand() < (RAND_MAX / 2))
+                    {
+                        /* reject inbound request */
+    	                Log(LogSock, LogDetail, "Successful inbound and outbound connection, randomly rejecting inbound request from %s\n", FormatAddr(&receivedFrom));
+                        reject = 1;
+                    }
+                    else
+                    {
+                        /* reject outbound connection */
+    	                Log(LogSock, LogDetail, "Successful inbound and outbound connection, randomly rejecting outbound request from %s\n", FormatAddr(&receivedFrom));
+                        ClosePrimitiveSocket(sock->socket);
+                    }
                 }
             }
 
