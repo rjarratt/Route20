@@ -335,6 +335,7 @@ void DdcmpStart(ddcmp_line_t *ddcmpLine)
 	}
 	else
 	{
+        StopTimer(ddcmpLine); /* in case timer was running from last attempt at starting the line */
 		memset(ddcmpLine->controlBlock, 0, sizeof(ddcmp_line_control_block_t));
 	}
 
