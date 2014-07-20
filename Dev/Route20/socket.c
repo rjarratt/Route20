@@ -28,8 +28,6 @@
   ------------------------------------------------------------------------------*/
 
 // TODO: Don't try outbound connect again, if there is still an outbound connect in progress
-// TODO: Stop recall timer when not actually connected?
-// TODO: Recall timer slowing things down even if has been disconnected for a while
 
 #include <stdio.h>
 #include <stdlib.h>
