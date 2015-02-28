@@ -298,7 +298,7 @@ int SendToSocket(socket_t *sock, sockaddr_t *destination, packet_t *packet)
 	return ans;
 }
 
-static void ClosePrimitiveSocket(unsigned int sock)
+static void ClosePrimitiveSocket(uint_ptr sock)
 {
 #if defined(WIN32)
 	closesocket(sock);
@@ -659,7 +659,7 @@ static void ProcessListenSocketEvent(void *context)
 	int ilen;
     sockaddr_t receivedFrom;
 	struct sockaddr_in  *inaddr;
-	unsigned int newSocket;
+	uint_ptr newSocket;
 
 	Log(LogSock, LogDetail, "Processing TCP connection attempt on %d\n", ListenSocket.receivePort);
 	ilen = sizeof(receivedFrom);

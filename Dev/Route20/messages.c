@@ -887,7 +887,7 @@ packet_t *CreateNodeInitPhaseIIMessage(decnet_address_t address, char *name)
 		msg.commver[1] = 0;
 		msg.commver[2] = 0;
 		strcpy(msg.sysver, "user-mode DECnet router");
-		sysverlen = strlen(msg.sysver);
+		sysverlen = (int)strlen(msg.sysver);
 		msg.sysverLen = (byte)sysverlen;
 
 		memmove(msg.nodename + msg.nodenameLen, &msg.functions, 15 + sysverlen);

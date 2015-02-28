@@ -31,7 +31,10 @@
 
 #define MAX_EVENT_HANDLERS 32
 
-#if !defined(WIN32)
+#if defined(WIN32)
+#define uint_ptr UINT_PTR
+#else
+#define uint_ptr unsigned int
 #define stricmp strcasecmp
 #endif
 

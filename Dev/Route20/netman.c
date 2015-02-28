@@ -324,7 +324,7 @@ static void AddDecnetIdToResponse(byte *data, int *pos, decnet_address_t *addres
 
 static void AddStringToResponse(byte *data, int *pos, char *s)
 {
-	int len = strlen(s);
+	int len = (int)strlen(s);
 	data[(*pos)++] = (byte)len;
 	strcpy((char *)(&data[*pos]), s);
 	*pos = *pos +len;
