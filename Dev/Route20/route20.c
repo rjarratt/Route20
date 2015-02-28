@@ -265,7 +265,7 @@ int ReadConfig(char *fileName, ConfigReadMode mode)
 	int ddcmpPresent = 0;
 	if ((f = fopen(fileName, "r")) == NULL)
 	{
-		Log(LogGeneral, LogError, "Could not open the configuration file: %s", fileName);
+		Log(LogGeneral, LogError, "Could not open the configuration file: %s, error %s (%d)\n", fileName, strerror(errno), errno);
 		ans = 0;
 	}
 
