@@ -138,7 +138,7 @@ void DnsSendQuery(char *name, uint16 id, void (*callback)(byte *, void *), void 
         *dataPtr++ = 1;
 
         packet.rawData = (byte *)&query;
-        packet.rawLen = dataPtr - (byte *)&query;
+        packet.rawLen = (int)(dataPtr - (byte *)&query);
 
         callbackEntry = FindCallbackEntry(id);
         if (callbackEntry == NULL)
