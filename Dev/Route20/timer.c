@@ -115,6 +115,7 @@ void ProcessTimers(void)
 		{
 			if (timer->interval >= 0)
 			{
+                Log(LogGeneral, LogVerbose, "Calling timer %s\n", timer->name);
                 if (timer->isFullTimer)
                 {
 				    timer->callback(timer, timer->name, timer->context);
@@ -123,6 +124,7 @@ void ProcessTimers(void)
                 {
 				    timer->immediateCallback(timer->context);
                 }
+                Log(LogGeneral, LogVerbose, "Finished calling timer %s\n", timer->name);
 
                 time(&now); /* update current time in case other timers fall due */
 			}

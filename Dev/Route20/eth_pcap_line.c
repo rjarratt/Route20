@@ -213,6 +213,10 @@ int EthPcapLineWritePacket(line_t *line, packet_t *packet)
 	u_char smallBuf[MIN_PACKET_SIZE];
 	u_char *data = packet->rawData;
 	int len = packet->rawLen;
+    int retries = 0;
+
+#define PCAP_WARN_RETRY 10
+#define PCAP_ERROR_RETRY 50
 
 	if (packet->rawLen < MIN_PACKET_SIZE)
 	{
@@ -222,10 +226,23 @@ int EthPcapLineWritePacket(line_t *line, packet_t *packet)
 		len = MIN_PACKET_SIZE;
 	}
 
-	while (pcap_sendpacket(pcapContext->pcap, (const u_char *)data, len) != 0)
+	while (pcap_sendpacket(pcapContext->pcap, (const u_char *)data, len) != 0 && retries <= PCAP_ERROR_RETRY)
 	{
+
+        if (retries != 0 && (retries % PCAP_WARN_RETRY) == 0)
+        {
+            Log(LogEthPcapLine, LogWarning, "Experiencing problems writing to %s using pcap, retrying: %s\n", line->name, pcap_geterr(pcapContext->pcap));
+        }
+
 		Sleep(1);
+        retries++;
 	}
+
+    if (retries > PCAP_ERROR_RETRY)
+    {
+        Log(LogEthPcapLine, LogError, "Error writing to %s using pcap: %s\n", line->name, pcap_geterr(pcapContext->pcap));
+        return 0; // TODO: Not sure we handle return value 0, make sure we do something sensible with it, kill the circuit, try to bring it up again.
+    }
 
 	return 1;
 }
