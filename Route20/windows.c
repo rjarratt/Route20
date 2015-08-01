@@ -287,17 +287,17 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 
 		if (eventHandlersChanged)
 		{
+            Log(LogGeneral, LogVerbose, "Refreshing event handles to wait for after a change in event handlers, there are now %d event handlers\n", numEventHandlers);
 			for (i = 0; i < numEventHandlers; i++)
 			{
 				handles[i] = (HANDLE)eventHandlers[i].waitHandle;
-                //Log(LogGeneral, LogVerbose, "Wait handle %d\n", handles[i]);
-			}
+ 			}
 
 			eventHandlersChanged = 0;
 		}
 
 		timeout = SecondsUntilNextDue();
-		/*Log(LogInfo, "Waiting for events, timeout is %d\n", timeout);*/
+		Log(LogGeneral, LogVerbose, "Waiting for %d events, timeout is %d\n", numEventHandlers, timeout);
 		i = WaitForMultipleObjects(numEventHandlers, handles, 0, timeout * 1000);
 		if (i == -1)
 		{
@@ -311,9 +311,9 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 		}
 		else
 		{
-    	    //Log(LogGeneral, LogVerbose, "Wait return is %d\n", i);
-            Log(LogGeneral, LogVerbose, "Processing timers\n", eventHandlers[i].name);
+    	    Log(LogGeneral, LogVerbose, "Wait return is %d, processing timers\n", i);
 			ProcessTimers();
+            Log(LogGeneral, LogVerbose, "Finished processing timers\n");
 			if (i != WAIT_TIMEOUT)
 			{
 				i = i - WAIT_OBJECT_0;
