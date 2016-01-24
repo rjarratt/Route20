@@ -132,7 +132,7 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 			__try
 			{
 #endif
-				if (Initialise(CONFIG_FILE_NAME))
+				if (Initialise(ReadConfig, CONFIG_FILE_NAME))
 				{
 					NspInitialise();
 					NetManInitialise();
@@ -470,7 +470,7 @@ static VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
 	__try
 	{
 #endif
-		if (Initialise(CONFIG_FILE_NAME))
+		if (Initialise(ReadConfig, CONFIG_FILE_NAME))
 		{
 			NspInitialise();
 			NetManInitialise();

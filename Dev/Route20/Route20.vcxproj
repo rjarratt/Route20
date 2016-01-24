@@ -133,9 +133,11 @@
     <ClCompile Include="socket.c" />
     <ClCompile Include="timer.c" />
     <ClCompile Include="update.c" />
+    <ClCompile Include="vaxeln.c" />
     <ClCompile Include="windows.c" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="descrip.mms" />
     <None Include="makefile" />
     <None Include="readme.txt" />
     <None Include="route20.ini" />

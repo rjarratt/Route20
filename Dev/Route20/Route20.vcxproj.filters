@@ -126,11 +126,15 @@
     <ClCompile Include="ddcmp_sock_line.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="vaxeln.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="makefile" />
     <None Include="readme.txt" />
     <None Include="route20.ini" />
+    <None Include="descrip.mms" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="platform.h">

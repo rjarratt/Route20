@@ -78,7 +78,7 @@ typedef struct
 	byte          flags;
 	uint16        srcnode;
     byte          testdataLength;
-    byte          testdata[0];
+    byte          testdata[1]; /* on VAX it does not like zero length */
 } hello_and_test_msg_t;
 
 typedef struct

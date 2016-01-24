@@ -27,6 +27,7 @@
   ------------------------------------------------------------------------------*/
 
 #include <time.h>
+#include <stdlib.h>
 #include "constants.h"
 #include "update.h"
 #include "routing_database.h"

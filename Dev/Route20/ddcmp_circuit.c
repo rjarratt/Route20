@@ -30,6 +30,7 @@
 #include <memory.h>
 #include <string.h>
 #include "platform.h"
+#include "line.h"
 #include "circuit.h"
 #include "ddcmp_circuit.h"
 #include "ddcmp_init_layer.h"

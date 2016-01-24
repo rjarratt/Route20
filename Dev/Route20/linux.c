@@ -114,11 +114,10 @@ int main(int argc, char *argv[])
     close(STDERR_FILENO);
     
     Log(LogGeneral, LogInfo, "Initialising");
-	if (Initialise(configFileName))
+	if (Initialise(ReadConfig, configFileName))
 	{
 		NspInitialise();
 		NetManInitialise();
-        Log(LogGeneral, LogInfo, "Initialised");
         MainLoop();
 	}
 

@@ -41,7 +41,7 @@ typedef enum
 typedef struct line_stats
 {
 	long          validPacketsReceived;
-	long          invalidPacketsReceived; // TODO: not sure all scenarios covered for line stats, also no writing counters
+	long          invalidPacketsReceived; /* TODO: not sure all scenarios covered for line stats, also no writing counters */
 } line_stats_t;
 
 typedef struct line
