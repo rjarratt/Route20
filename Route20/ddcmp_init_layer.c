@@ -26,6 +26,8 @@ in this Software without prior written authorization from the author.
 
 ------------------------------------------------------------------------------*/
 
+#include <stdlib.h>
+#include <memory.h>
 #include "constants.h"
 #include "basictypes.h"
 #include "platform.h"

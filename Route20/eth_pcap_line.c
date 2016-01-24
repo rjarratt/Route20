@@ -30,6 +30,9 @@ in this Software without prior written authorization from the author.
 #pragma warning( push, 3 )
 #include <string.h>
 #include <pcap.h>
+#if !defined(__VAX)
+#include <ctype.h>
+#endif
 #if defined(WIN32)
 #include <Win32-Extensions.h>
 #else
@@ -209,34 +212,34 @@ packet_t *EthPcapLineReadPacket(line_t *line)
 
 int EthPcapLineWritePacket(line_t *line, packet_t *packet)
 {
-	eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
-	u_char smallBuf[MIN_PACKET_SIZE];
-	u_char *data = packet->rawData;
-	int len = packet->rawLen;
+    eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
+    u_char smallBuf[MIN_PACKET_SIZE];
+    u_char *data = packet->rawData;
+    int len = packet->rawLen;
     int retries = 0;
 
 #define PCAP_WARN_RETRY 10
 #define PCAP_ERROR_RETRY 50
 
-	if (packet->rawLen < MIN_PACKET_SIZE)
-	{
-		memset(smallBuf, 0, MIN_PACKET_SIZE);
-		memcpy(smallBuf, packet->rawData, packet->rawLen);
-		data = smallBuf;
-		len = MIN_PACKET_SIZE;
-	}
+    if (packet->rawLen < MIN_PACKET_SIZE)
+    {
+        memset(smallBuf, 0, MIN_PACKET_SIZE);
+        memcpy(smallBuf, packet->rawData, packet->rawLen);
+        data = smallBuf;
+        len = MIN_PACKET_SIZE;
+    }
 
-	while (pcap_sendpacket(pcapContext->pcap, (const u_char *)data, len) != 0 && retries <= PCAP_ERROR_RETRY)
-	{
+    while (pcap_sendpacket(pcapContext->pcap, (const u_char *)data, len) != 0 && retries <= PCAP_ERROR_RETRY)
+    {
 
         if (retries != 0 && (retries % PCAP_WARN_RETRY) == 0)
         {
             Log(LogEthPcapLine, LogWarning, "Experiencing problems writing to %s using pcap, retrying: %s\n", line->name, pcap_geterr(pcapContext->pcap));
         }
 
-		Sleep(1);
+        Sleep(1);
         retries++;
-	}
+    }
 
     if (retries > PCAP_ERROR_RETRY)
     {
@@ -244,7 +247,7 @@ int EthPcapLineWritePacket(line_t *line, packet_t *packet)
         return 0; // TODO: Not sure we handle return value 0, make sure we do something sensible with it, kill the circuit, try to bring it up again.
     }
 
-	return 1;
+    return 1;
 }
 
 

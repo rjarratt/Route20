@@ -33,6 +33,17 @@
 
 #if defined(WIN32)
 #define uint_ptr UINT_PTR
+#elif defined(__VAX)
+#include <strings.h>
+#define uint_ptr unsigned int
+int stricmp(char *str1, char *str2);
+struct hostent *gethostbyname(const char *name);
+double difftime(time_t time2, time_t time1);
+size_t strftime(char *s, size_t smax, const char *fmt, const struct tm *tp);
+int isdigit(char c);
+typedef unsigned int u_int;
+typedef unsigned short u_short;
+typedef unsigned char u_char;
 #else
 #define uint_ptr unsigned int
 #define stricmp strcasecmp

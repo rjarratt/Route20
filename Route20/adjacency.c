@@ -36,7 +36,7 @@ in this Software without prior written authorization from the author.
 #include "eth_init_layer.h"
 
 #define NBRA_BASE (NC)
-#define NBEA_BASE (NC + NBRA + 1) // temp slot for router adjacencies is in slot at end of NBRA portion
+#define NBEA_BASE (NC + NBRA + 1) /* temp slot for router adjacencies is in slot at end of NBRA portion */
 
 typedef struct
 {
@@ -45,7 +45,7 @@ typedef struct
 
 } findargs_t;
 
-static adjacency_t adjacencies[NC + NBRA + NBEA + 1]; // Add one so there is room temporarily to store one router above the limit while choosing which one to drop
+static adjacency_t adjacencies[NC + NBRA + NBEA + 1]; /* Add one so there is room temporarily to store one router above the limit while choosing which one to drop */
 static int routerAdjacencyCount = 0;
 static int endnodeAdjacencyCount = 0;
 static void (*stateChangeCallback)(adjacency_t *adjacency);
@@ -180,7 +180,7 @@ void CheckCircuitAdjacency(decnet_address_t *from, circuit_t *circuit)
     }
 }
 
- void ProcessRouterAdjacencies(int (*process)(adjacency_t *adjacency, void *context), void *context)
+void ProcessRouterAdjacencies(int (*process)(adjacency_t *adjacency, void *context), void *context)
 {
 	int i;
 	for( i = NC; i < NC + NBRA + 1; i++)

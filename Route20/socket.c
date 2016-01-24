@@ -29,10 +29,10 @@
 
 // TODO: Don't try outbound connect again, if there is still an outbound connect in progress
 
+#include "platform.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#include "platform.h"
 #include "route20.h"
 #include "socket.h"
 
@@ -57,7 +57,9 @@ static void SetupSocketEvents(socket_t *sock, char *eventName, long events);
 static void CompleteSocketDisconnection(socket_t *sock);
 static void ProcessListenSocketEvent(void *context);
 static void ProcessConnectSocketEvent(void *context);
+#if defined(WIN32)
 static void LogNetworkEvent(WSANETWORKEVENTS *networkEvents, char *name, int mask, int bitNo);
+#endif
 static void LogNetworkEvents(socket_t *sock);
 static char *FormatAddr(sockaddr_t *addr);
 
@@ -419,6 +421,7 @@ static int IsSockClosed(socket_t *sock)
 static int IsSockConnected(socket_t *sock)
 {
     int ans = 0;
+#if !defined(__VAX)
     fd_set readSet;
     fd_set writeSet;
     fd_set errorSet;
@@ -452,6 +455,7 @@ static int IsSockConnected(socket_t *sock)
     Log(LogSock, LogInfo, "SO_ERROR %d\n", err);
     ans = err == 0;
     */
+#endif
 
     return ans;
 }
@@ -758,6 +762,7 @@ static void ProcessConnectSocketEvent(void *context)
     }
 }
 
+#if defined(WIN32)
 static void LogNetworkEvent(WSANETWORKEVENTS *networkEvents, char *name, int mask, int bitNo)
 {
     if ((networkEvents->lNetworkEvents & mask) != 0)
@@ -765,9 +770,11 @@ static void LogNetworkEvent(WSANETWORKEVENTS *networkEvents, char *name, int mas
         Log(LogSock, LogVerbose, "Socket event %s occurred, error code %d\n", name, networkEvents->iErrorCode[bitNo]);
     }
 }
+#endif
 
 static void LogNetworkEvents(socket_t *sock)
 {
+#if defined(WIN32)
     WSANETWORKEVENTS NetworkEvents;
 
     WSAEnumNetworkEvents(sock->socket, NULL, &NetworkEvents);
@@ -782,6 +789,7 @@ static void LogNetworkEvents(socket_t *sock)
     LogNetworkEvent(&NetworkEvents, "Read", FD_READ, FD_READ_BIT);
     LogNetworkEvent(&NetworkEvents, "Write", FD_WRITE, FD_WRITE_BIT);
     LogNetworkEvent(&NetworkEvents, "Routing interface change", FD_ROUTING_INTERFACE_CHANGE, FD_ROUTING_INTERFACE_CHANGE_BIT);
+#endif
 }
 
 static char *FormatAddr(sockaddr_t *addr)

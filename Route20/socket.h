@@ -26,6 +26,9 @@
 
   ------------------------------------------------------------------------------*/
 
+#if defined(__VAX)
+#include <if.h>
+#endif
 #if defined(WIN32)
 #pragma warning( push, 3 )
 //#include <Windows.h>

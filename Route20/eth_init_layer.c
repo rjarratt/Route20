@@ -26,6 +26,7 @@ in this Software without prior written authorization from the author.
 
 ------------------------------------------------------------------------------*/
 
+#include <stdlib.h>
 #include "constants.h"
 #include "decnet.h"
 #include "eth_init_layer.h"

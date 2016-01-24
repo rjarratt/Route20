@@ -26,6 +26,7 @@
 
   ------------------------------------------------------------------------------*/
 
+#include "platform.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -40,7 +41,6 @@
 #include "area_routing_database.h"
 #include "forwarding_database.h"
 #include "area_forwarding_database.h"
-#include "platform.h"
 
 static void Dump(int from, int to);
 static void DumpHeading(FILE *dumpFile, char * prefix, int from, int to);

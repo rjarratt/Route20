@@ -269,7 +269,7 @@ packet_t *CreateHelloAndTest(decnet_address_t address)
     msg.testdataLength = 0;
 
 	ans.payload = (byte *)&msg;
-	ans.payloadLen = sizeof(hello_and_test_msg_t);
+	ans.payloadLen = sizeof(hello_and_test_msg_t) - 1;
 	ans.rawData = ans.payload;
 	ans.rawLen = ans.payloadLen;
 
@@ -607,7 +607,7 @@ int IsValidVerificationMessage(packet_t *packet)
 int IsValidHelloAndTestMessage(packet_t *packet)
 {
     int valid = 0;
-    if (packet->payloadLen < sizeof(hello_and_test_msg_t))
+    if (packet->payloadLen < (sizeof(hello_and_test_msg_t) -1))
     {
 		Log(LogMessages, LogError, "Hello And Test message too short\n");
     }

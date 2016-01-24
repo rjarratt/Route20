@@ -30,6 +30,9 @@
 
 #include <string.h>
 #include <stdlib.h>
+#if !defined(__VAX)
+#include <ctype.h>
+#endif
 #include "basictypes.h"
 #include "platform.h"
 #include "route20.h"

@@ -26,15 +26,15 @@ in this Software without prior written authorization from the author.
 
 ------------------------------------------------------------------------------*/
 
+#include "platform.h"
 #pragma warning( push, 3 )
 #include <stdio.h>
 #include <stdlib.h>
-#include <pcap.h>
 #include <time.h>
 #include <string.h>
+#include <errno.h>
 #pragma warning( pop )
 
-#include "platform.h"
 #include "route20.h"
 #include "circuit.h"
 #include "line.h"
@@ -76,7 +76,6 @@ static void PurgeAdjacenciesCallback(rtimer_t *, char *, void *);
 static void LogAllStats(rtimer_t *, char *, void *);
 static void LogCircuitStats(circuit_t *);
 static void LogLineStats(line_t *);
-static void ProcessCircuitEvent(void *context);
 static int ProcessSingleCircuitPacket(circuit_t *circuit);
 static void ProcessPacket(circuit_t *circuit, packet_t *packet);
 static void ProcessPhaseIIMessage(circuit_t *circuit, packet_t *packet);
@@ -119,14 +118,14 @@ void InitialiseLogging(void)
     LogSourceName[LogNetMan] = "NMN";
 }
 
-int Initialise(char *configFileName)
+int Initialise(int (*ConfigReader)(char *fileName, ConfigReadMode mode), char *configFileName)
 {
 	int ans;
 	time_t now;
 
 	DnsConfig.dnsConfigured = 0;
 
-	ans = ReadConfig(configFileName, ConfigReadModeFull);
+	ans = ConfigReader(configFileName, ConfigReadModeFull);
 	if (ans)
 	{
         InitialiseSockets();
@@ -1022,7 +1021,7 @@ static void LogLineStats(line_t *line)
     Log(LogGeneral, LogFatal, "  Invalid packets received:            %d\n", line->stats.invalidPacketsReceived);
 }
 
-static void ProcessCircuitEvent(void *context)
+void ProcessCircuitEvent(void *context) /* TODO: not sure this should in here */
 {
 	circuit_t *circuit;
 	//int foundData;
@@ -1099,7 +1098,22 @@ static void ProcessPhaseIIMessage(circuit_t *circuit, packet_t *packet)
 		msg = ValidateAndParseNodeInitPhaseIIMessage(packet);
 		if (msg != NULL)
 		{
-		    Log(LogMessages, LogInfo, "From %d %s, Funcs=0x%02X Reqs=0x%02X, BlkSize=%d NspSize=%d, Routver=%d.%d.%d Commver=%d.%d.%d Sysver=%s\n", msg->nodeaddr, msg->nodename, msg->functions, msg->requests, msg->blksize, msg->nspsize, msg->routver[0], msg->routver[1], msg->routver[2], msg->commver[0], msg->commver[1], msg->commver[2], msg->sysver);
+		    Log(LogMessages,
+                LogInfo,
+                "From %d %s, Funcs=0x%02X Reqs=0x%02X, BlkSize=%d NspSize=%d, Routver=%d.%d.%d Commver=%d.%d.%d Sysver=%s\n",
+                msg->nodeaddr,
+                msg->nodename,
+                msg->functions,
+                msg->requests,
+                msg->blksize,
+                msg->nspsize,
+                msg->routver[0],
+                msg->routver[1],
+                msg->routver[2],
+                msg->commver[0],
+                msg->commver[1],
+                msg->commver[2],
+                msg->sysver);
 			//check version support
 			DdcmpInitProcessPhaseIINodeInitializationMessage(circuit, msg);
 		}
