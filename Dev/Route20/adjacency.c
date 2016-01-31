@@ -50,6 +50,7 @@ static int routerAdjacencyCount = 0;
 static int endnodeAdjacencyCount = 0;
 static void (*stateChangeCallback)(adjacency_t *adjacency);
 
+static void LogAdjacencyType(LogLevel level, AdjacencyType type);
 static void UpdateAdjacencyLiveness(adjacency_t *adjacency);
 static void AdjacencyUp(adjacency_t *adjacency);
 static void SoftAdjacencyUp(adjacency_t *adjacency);
@@ -315,11 +316,48 @@ static adjacency_t *FindFreeAdjacencySlot(int from, int n)
 	return adjacency;
 }
 
+static void LogAdjacencyType(LogLevel level, AdjacencyType type)
+{
+    switch (type)
+    {
+    case UnusedAdjacency: 
+        {
+            Log(LogAdjacency, level, "Unused");
+            break;
+        }
+    case EndnodeAdjacency: 
+        {
+            Log(LogAdjacency, level, "End Node");
+            break;
+        }
+    case Level1RouterAdjacency: 
+        {
+            Log(LogAdjacency, level, "Level 1 Router");
+            break;
+        }
+    case Level2RouterAdjacency: 
+        {
+            Log(LogAdjacency, level, "Level 2 Router");
+            break;
+        }
+    case PhaseIIIAdjacency: 
+        {
+            Log(LogAdjacency, level, "Phase III");
+            break;
+        }
+    default:
+        {
+            Log(LogAdjacency, level, "Unknown");
+            break;
+        }
+    }
+}
+
 static adjacency_t *AddRouterAdjacency(decnet_address_t *id, circuit_t *circuit, AdjacencyType type, int helloTimerPeriod, int priority)
 {
 	adjacency_t *adjacency = NULL;
 
-	/*Log(LogInfo, "Adding router adjacency "); LogDecnetAddress(LogInfo, id); Log(LogInfo, ", priority %d\n", priority);*/
+	Log(LogAdjacency, LogDetail, "Adding adjacency "); LogDecnetAddress(LogAdjacency, LogDetail, id); Log(LogAdjacency, LogDetail, ", type "); LogAdjacencyType(LogDetail, type); Log(LogAdjacency, LogDetail, ", priority %d\n", priority);
 	adjacency = FindFreeAdjacencySlot(NBRA_BASE, NBRA + 1);
 	routerAdjacencyCount++;
 		
@@ -343,7 +381,7 @@ static adjacency_t *AddEndnodeAdjacency(decnet_address_t *id, circuit_t *circuit
 {
 	adjacency_t *adjacency = NULL;
 
-	/*Log(LogInfo, "Adding endnode adjacency "); LogDecnetAddress(LogInfo, id); Log(LogInfo, "\n");*/
+	Log(LogAdjacency, LogDetail, "Adding adjacency "); LogDecnetAddress(LogAdjacency, LogDetail, id); Log(LogAdjacency, LogDetail, ", type "); LogAdjacencyType(LogDetail, EndnodeAdjacency); Log(LogAdjacency, LogDetail, "\n");
 	adjacency = FindFreeAdjacencySlot(NBEA_BASE, NBEA);
 	if (adjacency != NULL)
 	{
@@ -362,7 +400,7 @@ static adjacency_t *AddCircuitAdjacency(decnet_address_t *id, circuit_t *circuit
 {
 	adjacency_t *adjacency = NULL;
 
-	/*Log(LogInfo, "Adding circuit adjacency "); LogDecnetAddress(LogInfo, id); Log(LogInfo, "\n");*/
+	Log(LogAdjacency, LogDetail, "Adding adjacency "); LogDecnetAddress(LogAdjacency, LogDetail, id); Log(LogAdjacency, LogDetail, ", type "); LogAdjacencyType(LogDetail, type); Log(LogAdjacency, LogDetail, "\n");
 	adjacency = GetAdjacency(circuit->slot);
 	if (adjacency != NULL)
 	{
