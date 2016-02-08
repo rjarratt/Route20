@@ -29,6 +29,8 @@
 #include <stdarg.h>
 #include "circuit.h"
 
+#if !defined(PLATFORM_H)
+
 #define MAX_EVENT_HANDLERS 32
 
 #if defined(WIN32)
@@ -51,3 +53,6 @@ typedef unsigned char u_char;
 
 void VLog(LogSource source, LogLevel level, char *format, va_list argptr);
 void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *));
+
+#define PLATFORM_H
+#endif

@@ -27,7 +27,9 @@
   ------------------------------------------------------------------------------*/
 
 #if defined(__VAX)
-#include <if.h>
+#include types
+#include socket
+#include in
 #endif
 #if defined(WIN32)
 #pragma warning( push, 3 )

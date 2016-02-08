@@ -35,6 +35,9 @@
 #include <errno.h>
 #include "route20.h"
 #include "socket.h"
+#if defined(__VAX)
+#include inetdef
+#endif
 
 #define MAX_BUF_LEN 8192
 
@@ -98,7 +101,7 @@ void InitialiseSocket(socket_t *sock, char *eventName)
 
 int OpenUdpSocket(socket_t *sock, uint16 receivePort)
 {
-	int ans = OpenSocket(sock, sock->eventName, receivePort, SOCK_DGRAM, 0);
+	int ans = OpenSocket(sock, sock->eventName, receivePort, SOCK_DGRAM, IPPROTO_UDP);
 
 	return ans;
 }
@@ -513,6 +516,20 @@ static void SetNonBlocking(socket_t *socket)
 #if defined(WIN32)
     unsigned long value = 1;
 	ioctlsocket(socket->socket, FIONBIO, &value);
+#elif defined(__VAX)
+    int value = 1;
+    int socketDeviceDescriptor = vaxc$get_sdc((int)socket->socket);
+    if (socketDeviceDescriptor)
+    {
+        if (vaxc$socket_control(socketDeviceDescriptor, FIONBIO, &value) != 0)
+        {
+            Log(LogSock, LogError, "Failed to set non-blocking on socket, error=%d\n", errno);
+        }
+    }
+    else
+    {
+        Log(LogSock, LogError, "Failed to get socket device descriptor\n");
+    }
 #else
     int flags;
 	int status;
@@ -547,7 +564,7 @@ static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int t
 
 	if (started)
 	{
-		sock->socket = socket(PF_INET, type, protocol);
+		sock->socket = socket(AF_INET, type, protocol);
 		if (sock->socket == INVALID_SOCKET)
 		{
 			SockErrorAndClear("socket");
@@ -639,6 +656,8 @@ static void SetupSocketEvents(socket_t *sock, char *eventName, long events)
 	{
 		SockErrorAndClear("WSAEventSelect");
 	}
+#elif defined(__VAX)
+    sock->waitHandle = sock->socket;
 #else
 	sock->waitHandle = sock->socket;
 #endif
