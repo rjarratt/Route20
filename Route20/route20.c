@@ -118,39 +118,12 @@ void InitialiseLogging(void)
     LogSourceName[LogNetMan] = "NMN";
 }
 
-int Initialise(int (*ConfigReader)(char *fileName, ConfigReadMode mode), char *configFileName)
+int InitialiseConfig(int (*ConfigReader)(char *fileName, ConfigReadMode mode), char *configFileName)
 {
 	int ans;
-	time_t now;
-
 	DnsConfig.dnsConfigured = 0;
 
 	ans = ConfigReader(configFileName, ConfigReadModeFull);
-	if (ans)
-	{
-        InitialiseSockets();
-        InitialiseAdjacencies();
-		InitialiseDecisionProcess();
-		InitialiseUpdateProcess();
-		SetAdjacencyStateChangeCallback(ProcessAdjacencyStateChange);
-		SetCircuitStateChangeCallback(ProcessCircuitStateChange);
-		nodeInfo.state = Running;
-		time(&now);
-		CreateTimer("PurgeAdjacencies", now + 1, 1, NULL, PurgeAdjacenciesCallback);
-
-		ethernetInitLayer = CreateEthernetInitializationSublayer();
-		InitializationSublayerAssociateCircuits(Circuits, numCircuits, EthernetCircuit, ethernetInitLayer);
-		ans &= ethernetInitLayer->Start(Circuits, numCircuits);
-
-		ddcmpInitLayer = CreateDdcmpInitializationSublayer();
-		InitializationSublayerAssociateCircuits(Circuits, numCircuits, DDCMPCircuit, ddcmpInitLayer);
-		ans &= ddcmpInitLayer->Start(Circuits, numCircuits);
-
-		if (DnsConfig.dnsConfigured && dnsNeeded)
-		{
-			DnsOpen(DnsConfig.serverName);
-		}
-	}
 
     if (ans)
     {
@@ -161,7 +134,38 @@ int Initialise(int (*ConfigReader)(char *fileName, ConfigReadMode mode), char *c
         Log(LogGeneral, LogFatal, "Initialisation failed, router will now exit\n");
     }
 
-	return ans;
+    return ans;
+}
+
+int DecnetInitialise()
+{
+    int ans = 1;
+    time_t now;
+
+    InitialiseSockets();
+    InitialiseAdjacencies();
+    InitialiseDecisionProcess();
+    InitialiseUpdateProcess();
+    SetAdjacencyStateChangeCallback(ProcessAdjacencyStateChange);
+    SetCircuitStateChangeCallback(ProcessCircuitStateChange);
+    nodeInfo.state = Running;
+    time(&now);
+    CreateTimer("PurgeAdjacencies", now + 1, 1, NULL, PurgeAdjacenciesCallback);
+
+    ethernetInitLayer = CreateEthernetInitializationSublayer();
+    InitializationSublayerAssociateCircuits(Circuits, numCircuits, EthernetCircuit, ethernetInitLayer);
+    ans &= ethernetInitLayer->Start(Circuits, numCircuits);
+
+    ddcmpInitLayer = CreateDdcmpInitializationSublayer();
+    InitializationSublayerAssociateCircuits(Circuits, numCircuits, DDCMPCircuit, ddcmpInitLayer);
+    ans &= ddcmpInitLayer->Start(Circuits, numCircuits);
+
+    if (DnsConfig.dnsConfigured && dnsNeeded)
+    {
+        DnsOpen(DnsConfig.serverName);
+    }
+
+    return ans;
 }
 
 void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, int dataLength))

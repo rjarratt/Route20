@@ -76,8 +76,8 @@ typedef struct pcap_vaxeln
 route20()
 {
     int status;
-    /*int arguments=eln$program_argument_count();
-    VARYING_STRING(255) configFileName;*/
+    int arguments=eln$program_argument_count();
+    VARYING_STRING(255) configFileName;
     $DESCRIPTOR(startTime, "23-JAN-2016 09:00:00");
     LARGE_INTEGER tvalue;
 
@@ -85,26 +85,29 @@ route20()
     ker$set_time (NULL, &tvalue);
     
     InitialiseLogging();
-    if (0/*arguments < 1*/)
+    if (arguments < 1)
     {
         Log(LogGeneral, LogFatal, "Program must be configured with an argument, which is the path to the configuration file\n");
     }
     else
     {
         Log(LogGeneral, LogInfo, "Starting up\n");
-        /*eln$program_argument(&configFileName, 1);
+        eln$program_argument(&configFileName, 1);
         configFileName.data[configFileName.count] = '\0';
-        Log(LogGeneral, LogInfo, "Configuration file is %s\n", configFileName.data);*/
-        /* As there is no obvious way to set the Ethernet physical address, we include DECnet in the image, so that
-           it can set the physical address. Then we stop it, here, and take over DECnet operation
-        */
-        eln$netman_stop_network(&status);
-        Log(LogGeneral, LogInfo, "Stop DECnet status %s(%d)\n", GetMsg(status), status);
-        if (Initialise(ElnConfig, "" /*configFileName.data*/))
+        Log(LogGeneral, LogInfo, "Configuration file is %s\n", configFileName.data);
+        if (InitialiseConfig(ReadConfig, configFileName.data))
         {
-            NspInitialise();
-            NetManInitialise();
-            MainLoop();
+            /* As there is no obvious way to set the Ethernet physical address, we include DECnet in the image, so that
+            it can set the physical address. Then we stop it, here, and take over DECnet operation
+            */
+            eln$netman_stop_network(&status);
+            Log(LogGeneral, LogInfo, "Stop DECnet status %s(%d)\n", GetMsg(status), status);
+            if (DecnetInitialise())
+            {
+                NspInitialise();
+                NetManInitialise();
+                MainLoop();
+            }
         }
     }
 
