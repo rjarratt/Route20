@@ -116,9 +116,12 @@ int main(int argc, char *argv[])
     Log(LogGeneral, LogInfo, "Initialising");
 	if (Initialise(ReadConfig, configFileName))
 	{
-		NspInitialise();
-		NetManInitialise();
-        MainLoop();
+        if (DecnetInitialise())
+        {
+		    NspInitialise();
+		    NetManInitialise();
+            MainLoop();
+        }
 	}
 
     Log(LogGeneral, LogInfo, "Exited");

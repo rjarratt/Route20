@@ -132,11 +132,14 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 			__try
 			{
 #endif
-				if (Initialise(ReadConfig, CONFIG_FILE_NAME))
+				if (InitialiseConfig(ReadConfig, CONFIG_FILE_NAME))
 				{
-					NspInitialise();
-					NetManInitialise();
-					MainLoop();
+                    if (DecnetInitialise())
+                    {
+					    NspInitialise();
+					    NetManInitialise();
+					    MainLoop();
+                    }
 				}
 #if !defined(_DEBUG)
 			}
@@ -470,11 +473,14 @@ static VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
 	__try
 	{
 #endif
-		if (Initialise(ReadConfig, CONFIG_FILE_NAME))
+		if (InitialiseConfig(ReadConfig, CONFIG_FILE_NAME))
 		{
-			NspInitialise();
-			NetManInitialise();
-			MainLoop();
+            if (DecnetInitialise())
+            {
+			    NspInitialise();
+			    NetManInitialise();
+			    MainLoop();
+            }
 		}
 #if !defined(_DEBUG)
 	}
