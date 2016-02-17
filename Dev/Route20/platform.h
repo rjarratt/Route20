@@ -52,6 +52,7 @@ typedef unsigned char u_char;
 #endif
 
 void VLog(LogSource source, LogLevel level, char *format, va_list argptr);
+void QueuePacket(circuit_t *circuit, packet_t *packet);
 void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *));
 
 #define PLATFORM_H

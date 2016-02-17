@@ -77,7 +77,6 @@ static void LogAllStats(rtimer_t *, char *, void *);
 static void LogCircuitStats(circuit_t *);
 static void LogLineStats(line_t *);
 static int ProcessSingleCircuitPacket(circuit_t *circuit);
-static void ProcessPacket(circuit_t *circuit, packet_t *packet);
 static void ProcessPhaseIIMessage(circuit_t *circuit, packet_t *packet);
 static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet);
 static int RouterHelloIsForThisNode(decnet_address_t *from, int iinfo);
@@ -1067,14 +1066,14 @@ static int ProcessSingleCircuitPacket(circuit_t *circuit)
 	packet = (*(circuit->ReadPacket))(circuit);
 	if (packet != NULL)
 	{
-		ProcessPacket(circuit, packet);
+		QueuePacket(circuit, packet);
 		ans = 1;
 	}
 
 	return ans;
 }
 
-static void ProcessPacket(circuit_t *circuit, packet_t *packet)
+void ProcessPacket(circuit_t *circuit, packet_t *packet)
 {
 	if (nodeInfo.state == Running)
 	{
