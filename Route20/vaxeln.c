@@ -48,10 +48,11 @@ in this Software without prior written authorization from the author.
 #include "node.h"
 #include "circuit.h"
 #include "routing_database.h"
+#include "packet.h"
 #include <stdio.h>
 
-#define NUM_PORT_BUFFERS 4
-#define NUM_SOCK_BUFFERS 4
+#define NUM_PORT_BUFFERS 12
+#define NUM_SOCK_BUFFERS 16
 #define PACKET_BUFFER_LEN 1600
 #define PACKET_HEADER_LEN 14
 
@@ -72,17 +73,18 @@ typedef struct
     QUEUE_ENTRY header;
     char *name;
     SEMAPHORE hasEntry;
+    int length;
+    SEMAPHORE mutex;
 } queue_t;
 
 typedef struct
 {
     QUEUE_ENTRY entryq;
     int isPortBuffer;
-    void *context;
-    void (*eventHandler)(void *context);
-    /*    circuit_t *circuit;
+    circuit_t *circuit;
+    packet_t packet;
     int bufLen;
-    char buf[PACKET_BUFFER_LEN]*/
+    byte buf[PACKET_BUFFER_LEN];
 } BufferQueueEntry_t;
 
 static queue_t FreePortBufferQueue;
@@ -103,9 +105,11 @@ static char *GetMsg(int);
 static void OpenLog(void);
 static void CloseLog(void);
 static void InitialiseSynchronisation();
+static void CreateQueue(queue_t *queue, char *name, int maxLength);
 static BufferQueueEntry_t *DequeueWithWait(queue_t *queue, LARGE_INTEGER *timeout);
 static void EnqueueWithSignal(queue_t *queue, BufferQueueEntry_t *entry);
-static void QueueReceivedBuffer(queue_t *freeQueue, void *context, void (*eventHandler)(void *context));
+static void QueueReceivedBuffer(queue_t *freeQueue, circuit_t *circuit, packet_t *packet);
+static packet_t *ConstructDequeuedPacket(BufferQueueEntry_t *bufferQueueEntry);
 static int ElnConfig(char *fileName, ConfigReadMode mode);
 static void ProcessEventsPort();
 static void ProcessEventsSock();
@@ -251,28 +255,21 @@ static void InitialiseSynchronisation()
 {
     int i;
     int status;
-    ELN$START_QUEUE(FreePortBufferQueue.header);
-    ELN$START_QUEUE(FreeSockBufferQueue.header);
-    ELN$START_QUEUE(ProcessBufferQueue.header);
 
-    FreePortBufferQueue.name = "Port Free Queue";
-    FreeSockBufferQueue.name = "Socket Free Queue";
-    ProcessBufferQueue.name = "Process Buffer Queue";
-
-    ker$create_semaphore(NULL, &FreePortBufferQueue.hasEntry, 1, 1);
-    ker$create_semaphore(NULL, &FreeSockBufferQueue.hasEntry, 1, 1);
-    ker$create_semaphore(NULL, &ProcessBufferQueue.hasEntry, 0, 1);
+    CreateQueue(&FreePortBufferQueue, "Port Free Queue", NUM_PORT_BUFFERS);
+    CreateQueue(&FreeSockBufferQueue, "Socket Free Queue", NUM_SOCK_BUFFERS);
+    CreateQueue(&ProcessBufferQueue, "Process Buffer Queue", NUM_PORT_BUFFERS + NUM_SOCK_BUFFERS);
 
     for (i = 0; i < NUM_PORT_BUFFERS; i++)
     {
         InitialPortBuffers[i].isPortBuffer = 1;
-        eln$insert_entry(&FreePortBufferQueue.header, &InitialPortBuffers[i].entryq, NULL, QUEUE$HEAD);
+        EnqueueWithSignal(&FreePortBufferQueue.header, &InitialPortBuffers[i].entryq);
     }
 
     for (i = 0; i < NUM_SOCK_BUFFERS; i++)
     {
         InitialSockBuffers[i].isPortBuffer = 0;
-        eln$insert_entry(&FreeSockBufferQueue.header, &InitialSockBuffers[i].entryq, NULL, QUEUE$HEAD );
+        EnqueueWithSignal(&FreeSockBufferQueue.header, &InitialSockBuffers[i].entryq);
     }
 
     Log(LogGeneral, LogInfo, "Starting port process\n");
@@ -283,7 +280,7 @@ static void InitialiseSynchronisation()
     }
     else
     {
-        Log(LogGeneral, LogInfo, "Started port process\n");
+        Log(LogGeneral, LogInfo, "Started port process, pid is %d\n", PortProcess);
         Log(LogGeneral, LogInfo, "Starting socket process\n");
         ker$create_process(&status, &SockProcess, ProcessEventsSock, NULL);
         if ((status % 2) == 0)
@@ -292,66 +289,78 @@ static void InitialiseSynchronisation()
         }
         else
         {
-            Log(LogGeneral, LogInfo, "Started socket process\n");
+            Log(LogGeneral, LogInfo, "Started socket process, pid is %d\n", SockProcess);
         }
     }
 
     Log(LogGeneral, LogInfo, "Completed synchronisation initialisation\n");
 }
 
+static void CreateQueue(queue_t *queue, char *name, int maxLength)
+{
+    ELN$START_QUEUE(queue->header);
+    queue->name = name;
+    ker$create_semaphore(NULL, &queue->hasEntry, 0, maxLength);
+    queue->length = 0;
+    ker$create_semaphore(NULL, &queue->mutex, 1, 1);
+}
+
 static BufferQueueEntry_t *DequeueWithWait(queue_t *queue, LARGE_INTEGER *timeout)
 {
-    BufferQueueEntry_t *entry;
+    BufferQueueEntry_t *entry = NULL;
     int status;
     int waitResult;
 
-    do
+    ker$wait_any(&status, &waitResult, timeout, queue->hasEntry);
+    if ((status % 2) == 0)
+    {
+        Log(LogGeneral, LogFatal, "Wait for queue entry failed on %s: %s(%d)\n", queue->name, GetMsg(status), status);
+    }
+    else if (waitResult != 0)
     {
         eln$remove_entry(&queue->header, (QUEUE_ENTRY **)&entry, NULL, QUEUE$HEAD);
-        if (entry == NULL)
-        {
-            ker$wait_any(&status, &waitResult, timeout, queue->hasEntry);
-            if ((status % 2) == 0)
-            {
-                Log(LogGeneral, LogFatal, "Wait for queue entry failed on %s: %s(%d)\n", queue->name, GetMsg(status), status);
-            }
-            else if (waitResult == 0)
-            {
-                break;
-            }
-        }
+        queue->length--; /* TODO: get add_interlocked to work */
     }
-    while (entry == NULL);
 
     return entry;
 }
 
 static void EnqueueWithSignal(queue_t *queue, BufferQueueEntry_t *entry)
 {
-    BOOLEAN queueWasEmpty;
     int status;
 
-    eln$insert_entry(&queue->header, &entry->entryq, &queueWasEmpty, QUEUE$TAIL);
-    if (queueWasEmpty)
+    eln$insert_entry(&queue->header, &entry->entryq, NULL, QUEUE$TAIL);
+    queue->length++;  /* TODO: get add_interlocked to work */
+    ker$signal(&status, queue->hasEntry);
+    if ((status % 2) == 0)
     {
-        ker$signal(&status, queue->hasEntry);
-        if ((status % 2) == 0)
-        {
-            Log(LogGeneral, LogFatal, "Signal to %s failed: %s(%d)\n", queue->name, GetMsg(status), status);
-        }
+        Log(LogGeneral, LogFatal, "Signal to %s failed: %s(%d)\n", queue->name, GetMsg(status), status);
     }
 }
 
-static void QueueReceivedBuffer(queue_t *freeQueue, void *context, void (*eventHandler)(void *context))
+static void QueueReceivedBuffer(queue_t *freeQueue, circuit_t *circuit, packet_t *packet)
 {
     BufferQueueEntry_t *bufferQueueEntry;
 
     bufferQueueEntry = (BufferQueueEntry_t *)DequeueWithWait(freeQueue, NULL);
 
-    bufferQueueEntry->context = context;
-    bufferQueueEntry->eventHandler = eventHandler;
+    bufferQueueEntry->circuit = circuit;
+    memcpy(&bufferQueueEntry->packet, packet, sizeof(packet_t)); /* will need to reconstruct pointers when dequeuing */
+    bufferQueueEntry->bufLen = packet->rawLen;
+    memcpy(&bufferQueueEntry->buf, packet->rawData, packet->rawLen);
 
     EnqueueWithSignal(&ProcessBufferQueue, bufferQueueEntry);
+}
+
+static packet_t *ConstructDequeuedPacket(BufferQueueEntry_t *bufferQueueEntry)
+{
+    static packet_t ans;
+
+    memcpy(&ans, &bufferQueueEntry->packet, sizeof(packet_t));
+    ans.rawData = bufferQueueEntry->buf;
+    EthSetPayload(&ans);
+
+    return &ans;
 }
 
 static int ElnConfig(char *fileName, ConfigReadMode mode)
@@ -374,6 +383,18 @@ static int ElnConfig(char *fileName, ConfigReadMode mode)
     return 1;
 }
 
+void QueuePacket(circuit_t *circuit, packet_t *packet)
+{
+    if (circuit->line->lineType == PcapLineType)
+    {
+        QueueReceivedBuffer(&FreePortBufferQueue, circuit, packet);
+    }
+    else
+    {
+        QueueReceivedBuffer(&FreeSockBufferQueue, circuit, packet);
+    }
+}
+
 void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *))
 {
     LARGE_INTEGER timeout;
@@ -392,6 +413,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
             eventHandlersChanged = 0;
         }
 
+        /*Log(LogGeneral, LogInfo, "Queue lengths: Port Free %d. Sock Free %d. Process %d\n", FreePortBufferQueue.length, FreeSockBufferQueue.length, ProcessBufferQueue.length);*/
         Log(LogGeneral, LogVerbose, "Waiting for a buffer\n");
         BufferQueueEntry_t *buffer = DequeueWithWait(&ProcessBufferQueue, &timeout);
         ProcessTimers();
@@ -399,7 +421,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
         if (buffer != NULL)
         {
             Log(LogGeneral, LogVerbose, "Dequeued %s buffer\n", buffer->isPortBuffer ? "Port" : "Socket");
-            buffer->eventHandler(buffer->context);
+            ProcessPacket(buffer->circuit, ConstructDequeuedPacket(buffer));
             if (buffer->isPortBuffer)
             {
                 EnqueueWithSignal(&FreePortBufferQueue, buffer);
@@ -462,7 +484,7 @@ static void ProcessEventsPort()
                 if (waitResult > 0)
                 {
                     Log(LogGeneral, LogDetail, "Queueing event handler for %s\n", handlers[waitResult - 1].name);
-                    QueueReceivedBuffer(&FreePortBufferQueue, handlers[waitResult - 1].context, handlers[waitResult - 1].eventHandler);
+                    handlers[waitResult - 1].eventHandler(handlers[waitResult - 1].context);
                 }
             }
         }
@@ -536,7 +558,7 @@ static void ProcessEventsSock()
                         if (handles & (1 << (handlers[h].waitHandle)))
                         {
                             Log(LogGeneral, LogDetail, "Queueing event handler for %s\n", handlers[h].name);
-                            QueueReceivedBuffer(&FreeSockBufferQueue, handlers[h].context, handlers[h].eventHandler);
+                            handlers[h].eventHandler(handlers[h].context);
                         }
                     }
                 }

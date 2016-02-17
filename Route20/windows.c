@@ -278,6 +278,12 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
 	}
 }
 
+// TODO: Add threading to Windows implementation
+void QueuePacket(circuit_t *circuit, packet_t *packet)
+{
+    ProcessPacket(circuit, packet);
+}
+
 void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *))
 {
 	int i;

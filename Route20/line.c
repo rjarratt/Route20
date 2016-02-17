@@ -48,6 +48,7 @@ void LineCreateEthernetPcap(line_ptr line, char *name, void *notifyContext, void
 	strcpy(line->name, name);
 	line->lineContext = (void *)context;
     line->notifyContext = notifyContext;
+    line->lineType = PcapLineType;
 	line->lineState = LineStateOff;
     memset(&line->stats, 0, sizeof(line->stats));
 
@@ -73,6 +74,7 @@ void LineCreateEthernetSocket(line_ptr line, char *name, uint16 receivePort, cha
 	strcpy(line->name, name);
 	line->lineContext = (void *)context;
     line->notifyContext = notifyContext;
+    line->lineType = SockLineType;
 	line->lineState = LineStateOff;
     memset(&line->stats, 0, sizeof(line->stats));
 
@@ -100,6 +102,7 @@ void LineCreateDdcmpSocket(line_ptr line, char *name, char *destinationHostName,
 	strcpy(line->name, name);
 	line->lineContext = (void *)context;
     line->notifyContext = notifyContext;
+    line->lineType = DDCMPSockLineType;
 	line->lineState = LineStateOff;
     memset(&line->stats, 0, sizeof(line->stats));
 

@@ -34,6 +34,13 @@ typedef struct line *line_ptr;
 
 typedef enum
 {
+    PcapLineType,
+    SockLineType,
+    DDCMPSockLineType
+} LineType;
+
+typedef enum
+{
 	LineStateOff,
 	LineStateUp
 } LineState;
@@ -50,6 +57,7 @@ typedef struct line
 	void              *lineContext; /* internal context */
     void              *notifyContext; /* context for notify callbacks */
 	int                waitHandle;
+    LineType           lineType;
 	LineState          lineState;
 	line_stats_t       stats;
 

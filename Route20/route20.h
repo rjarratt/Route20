@@ -61,6 +61,7 @@ void ProcessCircuitEvent(void *context);
 void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, int dataLength));
 void RegisterEventHandler(unsigned int waitHandle, char *name, void *context, void (*eventHandler)(void *context));
 void DeregisterEventHandler(unsigned int waitHandle);
+void ProcessPacket(circuit_t *circuit, packet_t *packet);
 void MainLoop(void);
 
 #define ROUTE20_H
