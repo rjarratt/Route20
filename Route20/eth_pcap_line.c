@@ -81,6 +81,8 @@ int EthPcapLineStart(line_t *line)
 	char devname[1024];
 	char ebuf[PCAP_ERRBUF_SIZE];
 
+	Log(LogEthPcapLine, LogInfo, "Starting line %s\n", line->name);
+
 	pcapContext->pcap = NULL;
 
 	if (eth_translate(line->name, devname) != NULL)
@@ -159,6 +161,7 @@ packet_t *EthPcapLineReadPacket(line_t *line)
 {
 	eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
 
+    static int hadErrorLastTime = 0;
 	static packet_t packet;
 	packet_t * ans;
 	struct pcap_pkthdr *h;
@@ -166,11 +169,22 @@ packet_t *EthPcapLineReadPacket(line_t *line)
 
     do
     {
+        if (hadErrorLastTime)
+        {
+            Log(LogEthPcapLine, LogError, "About to try reading again after error last time around\n");
+        }
+
         ans = &packet;
         ans->IsDecnet = EthPcapIsDecnet;
         pcapRes = pcap_next_ex(pcapContext->pcap, &h, (const u_char **)&packet.rawData); 
+        if (hadErrorLastTime)
+        {
+            Log(LogEthPcapLine, LogError, "Completed reading again after error last time around\n");
+        }
+
         if (pcapRes == 1) /* success */
         {
+            hadErrorLastTime = 0;
             packet.rawLen = h->caplen;
             if (EthValidPacket(&packet))
             {
@@ -196,6 +210,7 @@ packet_t *EthPcapLineReadPacket(line_t *line)
         }
         else if (pcapRes == 0) /* timeout */
         {
+            hadErrorLastTime = 0;
             Log(LogEthPcapLine, LogVerbose, "No data from %s\n", line->name);
             ans = NULL;
         }
@@ -203,6 +218,7 @@ packet_t *EthPcapLineReadPacket(line_t *line)
         {
             Log(LogEthPcapLine, LogError, "Error reading from pcap: %s\n", pcap_geterr(pcapContext->pcap));
             ans = NULL;
+            hadErrorLastTime = 1;
         }
     }
     while (pcapRes == 1 && ans == NULL); /* keep reading packets if we have discarded a loopback packet */
