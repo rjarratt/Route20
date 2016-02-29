@@ -506,16 +506,19 @@ static void DumpTimer(rtimer_t *timer, char *name, void *context)
 */
 static void Rowmin(int M[][NC+NBRA+1], int I, int *minimum, int *VECT)
 {
-	int j;
-	*minimum = INT_MAX;
-	for (j = 0; j <= NC + NBRA; j++)
-	{
-		if ((M[I][j] < *minimum) || ((M[I][j] == *minimum) &&  GetDecnetId(GetAdjacency(j)->id) > GetDecnetId(GetAdjacency(VECT[I])->id)))
-		{
-			*minimum = M[I][j];
-			VECT[I] = j;
-		}
-	}
+    int j;
+    uint16 idOfVectI = GetDecnetId(GetAdjacency(VECT[I])->id);
+    *minimum = INT_MAX;
+
+    for (j = 0; j <= NC + NBRA; j++)
+    {
+        if ((M[I][j] < *minimum) || ((M[I][j] == *minimum) &&  GetDecnetId(GetAdjacency(j)->id) > idOfVectI))
+        {
+            *minimum = M[I][j];
+            VECT[I] = j;
+            idOfVectI = GetDecnetId(GetAdjacency(j)->id);
+        }
+    }
 }
 
 /* This routine determines entries for vector V,
