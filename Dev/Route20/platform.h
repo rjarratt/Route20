@@ -49,6 +49,7 @@ typedef unsigned char u_char;
 #else
 #define uint_ptr unsigned int
 #define stricmp strcasecmp
+#define sleep Sleep
 #endif
 
 void VLog(LogSource source, LogLevel level, char *format, va_list argptr);
