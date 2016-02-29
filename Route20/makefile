@@ -12,18 +12,19 @@ ROUTE20 = adjacency.c \
           ddcmp.c \
           ddcmp_circuit.c \
           ddcmp_init_layer.c \
-          ddcmp_sock.c \
+          ddcmp_sock_line.c \
           decision.c \
           decnet.c \
           dns.c \
           eth_circuit.c \
           eth_decnet.c \
           eth_init_layer.c \
-          eth_pcap.c \
-          eth_sock.c \
+          eth_pcap_line.c \
+          eth_sock_line.c \
           forwarding.c \
           forwarding_database.c \
           init_layer.c \
+          line.c \
           linux.c \
           logging.c \
           messages.c \
