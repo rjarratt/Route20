@@ -35,6 +35,10 @@
 #include "eth_circuit.h"
 #include "ddcmp_circuit.h"
 
+int numEthPcapCircuits = 0;
+int numEthSockCircuits = 0;
+int numDdcmpCircuits = 0;
+
 static void (*stateChangeCallback)(circuit_t *circuit);
 static int FirstLevel1Node(void);
 
@@ -111,6 +115,8 @@ void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost, void (
 	circuit->Stop = EthCircuitStop;
 	circuit->Reject = NULL;
 	circuit->WaitEventHandler = waitEventHandler;
+
+    numEthPcapCircuits++;
 }
 
 void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receivePort, uint16 destinationPort, int cost, void (*waitEventHandler)(void *context))
@@ -131,6 +137,8 @@ void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receive
 	circuit->Stop = EthCircuitStop;
 	circuit->Reject = NULL;
 	circuit->WaitEventHandler = waitEventHandler;
+
+    numEthSockCircuits++;
 }
 
 void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, uint16 port, int cost, int connectPoll, void (*waitEventHandler)(void *context))
@@ -151,6 +159,8 @@ void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, uint16 port, int 
 	circuit->Stop = DdcmpCircuitStop;
 	circuit->Reject = DdcmpCircuitReject;
 	circuit->WaitEventHandler = waitEventHandler;
+
+    numDdcmpCircuits++;
 }
 
 line_t *GetLineFromCircuit(circuit_t *circuit)
