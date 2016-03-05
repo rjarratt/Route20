@@ -355,7 +355,7 @@ static char *ReadLoggingConfig(FILE *f, ConfigReadMode mode, int *ans)
 	/* if this is an update where a setting has been commented out it should return to the default setting */
 	InitialiseLogging();
 
-	while (line = ReadConfigLine(f))
+	while (((line = ReadConfigLine(f))))
 	{
 		if (*line == '[')
 		{
@@ -463,7 +463,7 @@ static char *ReadNodeConfig(FILE *f, ConfigReadMode mode, int *ans)
 		nodeInfo.priority = 64;
 		nodeInfo.level = 2;
 
-		while (line = ReadConfigLine(f))
+		while (((line = ReadConfigLine(f))))
 		{
 			if (*line == '[')
 			{
@@ -532,7 +532,7 @@ static char *ReadSocketConfig(FILE *f, ConfigReadMode mode, int *ans)
 
 	if (mode == ConfigReadModeFull)
 	{
-		while (line = ReadConfigLine(f))
+		while ((line = ReadConfigLine(f)))
 		{
 			if (*line == '[')
 			{
@@ -578,7 +578,7 @@ static char *ReadEthernetConfig(FILE *f, ConfigReadMode mode, int *ans)
 
 	if (mode == ConfigReadModeFull)
 	{
-		while (line = ReadConfigLine(f))
+		while ((line = ReadConfigLine(f)))
 		{
 			if (*line == '[')
 			{
@@ -638,7 +638,7 @@ static char *ReadBridgeConfig(FILE *f, ConfigReadMode mode, int *ans)
 
 	if (mode == ConfigReadModeFull)
 	{
-		while (line = ReadConfigLine(f))
+		while ((line = ReadConfigLine(f)))
 		{
 			if (*line == '[')
 			{
@@ -719,7 +719,7 @@ static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans)
 
 	if (mode == ConfigReadModeFull)
 	{
-		while (line = ReadConfigLine(f))
+		while ((line = ReadConfigLine(f)))
 		{
 			if (*line == '[')
 			{
@@ -804,7 +804,7 @@ static char *ReadDnsConfig(FILE *f, ConfigReadMode mode, int *ans)
 
 	if (mode == ConfigReadModeFull)
 	{
-		while (line = ReadConfigLine(f))
+		while ((line = ReadConfigLine(f)))
 		{
 			if (*line == '[')
 			{
@@ -858,7 +858,7 @@ static char *ReadStatsConfig(FILE *f, ConfigReadMode mode, int *ans)
 
 	if (mode == ConfigReadModeFull || mode == ConfigReadModeUpdate)
 	{
-		while (line = ReadConfigLine(f))
+		while ((line = ReadConfigLine(f)))
 		{
 			if (*line == '[')
 			{
@@ -917,7 +917,7 @@ static char *ReadConfigLine(FILE *f)
 static char *ReadConfigToNextSection(FILE *f)
 {
 	char *line;
-	while (line = ReadConfigLine(f))
+	while ((line = ReadConfigLine(f)))
 	{
 		if (*line == '[')
 		{
@@ -943,7 +943,7 @@ static int SplitString(char *string, char splitBy, char **left, char **right)
 			break;
 		}
 
-		*ptr++;
+		ptr++;
 	}
 
 	return *right != NULL;

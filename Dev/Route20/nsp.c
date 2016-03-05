@@ -229,6 +229,10 @@ static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_
 					SendConnectAcknowledgement(from, connectInitiate->srcAddr);
 					break;
 				}
+            default:
+                {
+                    break;
+                }
 			}
 
 			port->connectCallback(port->addrLoc);
@@ -276,6 +280,10 @@ static void ProcessDisconnectInitiate(decnet_address_t *from, nsp_disconnect_ini
 				SendDisconnectConfirm(from, disconnectInitiate->dstAddr, disconnectInitiate->srcAddr, disconnectInitiate->reason);
 				break;
 			}
+        default:
+            {
+                break;
+            }
 		}
 
 		Log(LogNsp, LogInfo, "Closed NSP connection from ");

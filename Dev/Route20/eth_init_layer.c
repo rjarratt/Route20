@@ -220,11 +220,11 @@ static void HandleLineNotifyStateChange(line_t *line)
     circuit_t *circuit = GetCircuitFromLine(line);
     if (line->lineState == LineStateUp)
     {
-        QueueImmediate(circuit, CircuitUp);
+        QueueImmediate(circuit, (void (*)(void *))CircuitUp);
     }
     else
     {
-        QueueImmediate(circuit, CircuitDown);
+        QueueImmediate(circuit, (void (*)(void *))CircuitDown);
     }
 }
 

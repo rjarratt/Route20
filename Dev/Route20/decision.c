@@ -207,7 +207,7 @@ static void Dump(int from, int to)
 			}
 			else if (c > 9)
 			{
-				fprintf(dumpFile, "H", c);
+				fprintf(dumpFile, "H");
 			}
 			else
 			{
@@ -351,7 +351,7 @@ static void ProcessCircuitDown(circuit_t *circuit)
 
 	Routes(0, NN);
 
-	QueueImmediate(circuit, circuit->initLayer->CircuitDownComplete);
+	QueueImmediate(circuit, (void (*)(void *))(circuit->initLayer->CircuitDownComplete));
 }
 
 static void ProcessCircuitUp(circuit_t *circuit)
@@ -407,7 +407,7 @@ static void ProcessCircuitUp(circuit_t *circuit)
 		}
 	}
 
-	QueueImmediate(circuit, circuit->initLayer->CircuitUpComplete);
+	QueueImmediate(circuit, (void (*)(void *))(circuit->initLayer->CircuitUpComplete));
 }
 
 static int DownAdjacencyAssociatedWithCircuit(adjacency_t *adjacency, void *context)

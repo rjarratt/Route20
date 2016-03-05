@@ -46,6 +46,7 @@
 #include "timer.h"
 #include "route20.h"
 #include "nsp.h"
+#include "netman.h"
 #include "dns.h"
 
 static void ProcessPackets(circuit_t *circuit, void (*process)(circuit_t *, packet_t *));
@@ -114,7 +115,7 @@ int main(int argc, char *argv[])
     close(STDERR_FILENO);
     
     Log(LogGeneral, LogInfo, "Initialising");
-	if (Initialise(ReadConfig, configFileName))
+	if (InitialiseConfig(ReadConfig, configFileName))
 	{
         if (DecnetInitialise())
         {

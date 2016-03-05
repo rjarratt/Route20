@@ -422,19 +422,19 @@ void DdcmpInitProcessCircuitRejectComplete(circuit_t *circuit)
 
 static void DdcmpInitLineUp(ddcmp_circuit_t *ddcmpCircuit)
 {
-	QueueImmediate(ddcmpCircuit->circuit, CircuitUp);
+	QueueImmediate(ddcmpCircuit->circuit, (void (*)(void *))CircuitUp);
 }
 
 static void DdcmpInitLineDown(ddcmp_circuit_t *ddcmpCircuit)
 {
-	QueueImmediate(ddcmpCircuit->circuit, CircuitDown);
+	QueueImmediate(ddcmpCircuit->circuit, (void (*)(void *))CircuitDown);
 }
 
 static void DdcmpInitNotifyRunning(void *context)
 {
     line_t *line = (line_t *)context;
 	Log(LogDdcmpInit, LogDetail, "DDCMP line %s running\n", line->name);
-	QueueImmediate(line, line->LineUp);
+	QueueImmediate(line, (void (*)(void *))(line->LineUp));
 }
 
 static void DdcmpInitNotifyHalt(void *context)
@@ -442,7 +442,7 @@ static void DdcmpInitNotifyHalt(void *context)
     line_t *line = (line_t *)context;
     ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitForLine(line);
 	Log(LogDdcmpInit, LogDetail, "DDCMP line %s halted\n", ddcmpCircuit->circuit->name);
-	QueueImmediate(line, line->LineDown);
+	QueueImmediate(line, (void (*)(void *))(line->LineDown));
 }
 
 static void HandleLineNotifyStateChange(line_t *line)
@@ -559,7 +559,7 @@ static void QueueEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
     queued_ddcmp_init_event_t *queuedEvt = (queued_ddcmp_init_event_t *)malloc(sizeof(queued_ddcmp_init_event_t));
     queuedEvt->ddcmpCircuit = ddcmpCircuit;
     queuedEvt->evt = evt;
-    QueueImmediate(queuedEvt, ProcessQueuedEvent);
+    QueueImmediate(queuedEvt, (void (*)(void *))ProcessQueuedEvent);
 }
 
 static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)

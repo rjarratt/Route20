@@ -34,9 +34,11 @@
 #define MAX_EVENT_HANDLERS 32
 
 #if defined(WIN32)
+typedef int socklen_t;
 #define uint_ptr UINT_PTR
 #elif defined(__VAX)
 #include <strings.h>
+typedef int socklen_t;
 #define uint_ptr unsigned int
 int stricmp(char *str1, char *str2);
 struct hostent *gethostbyname(const char *name);
@@ -46,10 +48,11 @@ int isdigit(char c);
 typedef unsigned int u_int;
 typedef unsigned short u_short;
 typedef unsigned char u_char;
+#define Sleep sleep
 #else
 #define uint_ptr unsigned int
 #define stricmp strcasecmp
-#define sleep Sleep
+#define Sleep sleep
 #endif
 
 void VLog(LogSource source, LogLevel level, char *format, va_list argptr);
