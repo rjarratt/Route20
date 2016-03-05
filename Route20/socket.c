@@ -32,11 +32,16 @@
 #include "platform.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <memory.h>
 #include <errno.h>
 #include "route20.h"
 #include "socket.h"
-#if defined(__VAX)
+#if defined(WIN32)
+#elif defined(__VAX)
 #include inetdef
+#else
+#include <unistd.h>
+#include <sys/time.h>
 #endif
 
 #define MAX_BUF_LEN 8192
@@ -152,7 +157,7 @@ int ReadFromDatagramSocket(socket_t *sock, packet_t *packet, sockaddr_t *receive
 {
 	static byte buf[8192];
 	int ans;
-	int ilen;
+	socklen_t ilen;
 
 	ans = 1;
 	ilen = sizeof(*receivedFrom);
@@ -206,7 +211,7 @@ int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
             if (closed)
             {
                 Log(LogSock, LogDetail, "Socket read failure due to unexpected closure of socket %s\n", sock->eventName);
-                QueueImmediate(sock, CompleteSocketDisconnection);
+                QueueImmediate(sock, (void (*)(void *))CompleteSocketDisconnection);
             }
             else if (!IsSockErrorWouldBlock(sockErr))
             {
@@ -246,7 +251,7 @@ int WriteToStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
 			if (!retry)
             {
                Log(LogSock, LogDetail, "Socket write failure due to unexpected closure of socket %s\n", sock->eventName);
-               QueueImmediate(sock, CompleteSocketDisconnection);
+               QueueImmediate(sock, (void (*)(void *))CompleteSocketDisconnection);
                 ans = 0;
                 break;
             }
@@ -679,7 +684,7 @@ static void CompleteSocketDisconnection(socket_t *sock)
 
 static void ProcessListenSocketEvent(void *context)
 {
-	int ilen;
+	socklen_t ilen;
     sockaddr_t receivedFrom;
 	struct sockaddr_in  *inaddr;
 	uint_ptr newSocket;

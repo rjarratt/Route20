@@ -64,7 +64,7 @@ int EthSockLineStart(line_t *line)
 			line->waitHandle = sockContext->socket.waitHandle;
 			RegisterEventHandler(line->waitHandle, "EthSock Line", line, line->LineWaitEventHandler);
 			memcpy(&sockContext->destinationAddress, destinationAddress, sizeof(sockContext->destinationAddress));
-			QueueImmediate(line, line->LineUp);
+			QueueImmediate(line, (void (*)(void *))(line->LineUp));
 		}
 	}
 	else

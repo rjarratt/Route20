@@ -28,6 +28,7 @@ in this Software without prior written authorization from the author.
 ------------------------------------------------------------------------------*/
 
 #pragma warning( push, 3 )
+#include <stdlib.h>
 #include <string.h>
 #include <pcap.h>
 #if !defined(__VAX)
@@ -36,6 +37,7 @@ in this Software without prior written authorization from the author.
 #if defined(WIN32)
 #include <Win32-Extensions.h>
 #else
+#include <unistd.h>
 #include <pcap/bpf.h>
 //#include <sys/ioctl.h>
 #endif
@@ -55,117 +57,117 @@ in this Software without prior written authorization from the author.
 #define PCAP_ERRBUF_SIZE     256
 #define MIN_PACKET_SIZE      128
 
-static struct eth_list {
-	int     num;
-	char    name[ETH_DEV_NAME_MAX];
-	char    desc[ETH_DEV_DESC_MAX];
+struct eth_list {
+    int     num;
+    char    name[ETH_DEV_NAME_MAX];
+    char    desc[ETH_DEV_DESC_MAX];
 };
 
-static struct bpf_insn filterInstructions[] = {
-	BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 12),
-	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_LOOPBACK, 5, 0),
-	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_MOPRC, 4, 0),
-	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_MOPDL, 3, 0),
-	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_LAT, 2, 0),
-	BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_DECnet, 1, 0),
-	BPF_STMT(BPF_RET+BPF_K, 0),
-	BPF_STMT(BPF_RET+BPF_K, 1518),
+struct bpf_insn filterInstructions[] = {
+    BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 12),
+    BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_LOOPBACK, 5, 0),
+    BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_MOPRC, 4, 0),
+    BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_MOPDL, 3, 0),
+    BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_LAT, 2, 0),
+    BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_DECnet, 1, 0),
+    BPF_STMT(BPF_RET+BPF_K, 0),
+    BPF_STMT(BPF_RET+BPF_K, 1518),
 };
 
 static char *eth_translate(char *name, char *translated_name);
 
 int EthPcapLineStart(line_t *line)
 {
-	int ans = 0;
-	eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
-	char devname[1024];
-	char ebuf[PCAP_ERRBUF_SIZE];
+    int ans = 0;
+    eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
+    char devname[1024];
+    char ebuf[PCAP_ERRBUF_SIZE];
 
-	Log(LogEthPcapLine, LogInfo, "Starting line %s\n", line->name);
+    Log(LogEthPcapLine, LogInfo, "Starting line %s\n", line->name);
 
-	pcapContext->pcap = NULL;
+    pcapContext->pcap = NULL;
 
-	if (eth_translate(line->name, devname) != NULL)
-	{
-		Log(LogEthPcapLine, LogInfo, "Opening %s for packet capture\n", devname);
-		if ((pcapContext->pcap = pcap_open_live(devname, 1518, ETH_PROMISC, 1, ebuf)) == 0)
-		{
-			Log(LogEthPcapLine, LogError, "Error opening device %s\n", ebuf);
-		}
-		else
-		{
+    if (eth_translate(line->name, devname) != NULL)
+    {
+        Log(LogEthPcapLine, LogInfo, "Opening %s for packet capture\n", devname);
+        if ((pcapContext->pcap = pcap_open_live(devname, 1518, ETH_PROMISC, 1, ebuf)) == 0)
+        {
+            Log(LogEthPcapLine, LogError, "Error opening device %s\n", ebuf);
+        }
+        else
+        {
 #if defined(WIN32)
-			line->waitHandle = (int)pcap_getevent(pcapContext->pcap);
-			if (pcap_setmintocopy(pcapContext->pcap, 0) != 0)
-			{
-				Log(LogEthPcapLine, LogError, "Error setting min to copy\n");
-			}
+            line->waitHandle = (int)pcap_getevent(pcapContext->pcap);
+            if (pcap_setmintocopy(pcapContext->pcap, 0) != 0)
+            {
+                Log(LogEthPcapLine, LogError, "Error setting min to copy\n");
+            }
 #else
-			int one = 1;
-			line->waitHandle = pcap_fileno(pcapContext->pcap);
-			//      if (ioctl(line->waitHandle,BIOCIMMEDIATE,&one) == -1)
-			//{
-			//	Log(LogError, "ioctl BIOCIMMEDIATE failed\n");
-			//      }
+            int one = 1;
+            line->waitHandle = pcap_fileno(pcapContext->pcap);
+            //      if (ioctl(line->waitHandle,BIOCIMMEDIATE,&one) == -1)
+            //{
+            //	Log(LogError, "ioctl BIOCIMMEDIATE failed\n");
+            //      }
 
-			//if (ioctl(line->waitHandle,BIOCSHDRCMPLT,&i))
-			//{
-			//	Log(LogError, "ioctl BIOCSHDRCMPLT failed\n");
-			//}
+            //if (ioctl(line->waitHandle,BIOCSHDRCMPLT,&i))
+            //{
+            //	Log(LogError, "ioctl BIOCSHDRCMPLT failed\n");
+            //}
 #endif
-			RegisterEventHandler(line->waitHandle, "EthPcap Line", line, line->LineWaitEventHandler);
-			if (pcap_setnonblock(pcapContext->pcap, 1, ebuf) != 0)
-			{
-				Log(LogEthPcapLine, LogError, "Error setting nonblock mode.\n%s\n", ebuf);
-			}
-			else
-			{
-				struct bpf_program pgm;
-				pgm.bf_len = sizeof(filterInstructions)/sizeof(struct bpf_insn);
-				pgm.bf_insns = filterInstructions;
-				if (pcap_setfilter(pcapContext->pcap, &pgm) == -1) // TODO: change filter not to pass LAT.
-				{
-					Log(LogEthPcapLine, LogError, "loading filter program");
-				}
-				else
-				{
-					QueueImmediate(line, line->LineUp);
-					ans = 1;
-				}
-			}
+            RegisterEventHandler(line->waitHandle, "EthPcap Line", line, line->LineWaitEventHandler);
+            if (pcap_setnonblock(pcapContext->pcap, 1, ebuf) != 0)
+            {
+                Log(LogEthPcapLine, LogError, "Error setting nonblock mode.\n%s\n", ebuf);
+            }
+            else
+            {
+                struct bpf_program pgm;
+                pgm.bf_len = sizeof(filterInstructions)/sizeof(struct bpf_insn);
+                pgm.bf_insns = filterInstructions;
+                if (pcap_setfilter(pcapContext->pcap, &pgm) == -1) // TODO: change filter not to pass LAT.
+                {
+                    Log(LogEthPcapLine, LogError, "loading filter program");
+                }
+                else
+                {
+                    QueueImmediate(line, (void (*)(void *))(line->LineUp));
+                    ans = 1;
+                }
+            }
 
-			if (!ans)
-			{
-				EthPcapLineStop(line);
-			}
-		}
-	}
+            if (!ans)
+            {
+                EthPcapLineStop(line);
+            }
+        }
+    }
 
 
     if (!ans)
     {
-		Log(LogEthPcapLine, LogError, "Could not open circuit for %s\n", line->name);
+        Log(LogEthPcapLine, LogError, "Could not open circuit for %s\n", line->name);
     }
 
-	return ans;
+    return ans;
 }
 
 void EthPcapLineStop(line_t *line)
 {
-	eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
+    eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
 
-	pcap_close(pcapContext->pcap);
+    pcap_close(pcapContext->pcap);
 }
 
 packet_t *EthPcapLineReadPacket(line_t *line)
 {
-	eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
+    eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
 
     static int hadErrorLastTime = 0;
-	static packet_t packet;
-	packet_t * ans;
-	struct pcap_pkthdr *h;
-	int pcapRes;
+    static packet_t packet;
+    packet_t * ans;
+    struct pcap_pkthdr *h;
+    int pcapRes;
 
     do
     {
@@ -223,7 +225,7 @@ packet_t *EthPcapLineReadPacket(line_t *line)
     }
     while (pcapRes == 1 && ans == NULL); /* keep reading packets if we have discarded a loopback packet */
 
-	return ans;
+    return ans;
 }
 
 int EthPcapLineWritePacket(line_t *line, packet_t *packet)
@@ -351,78 +353,78 @@ returned by pcap_findalldevs.
 
 static int eth_devices(int max, struct eth_list* list)
 {
-	pcap_if_t* alldevs;
-	pcap_if_t* dev;
-	int i = 0;
-	char errbuf[PCAP_ERRBUF_SIZE];
+    pcap_if_t* alldevs;
+    pcap_if_t* dev;
+    int i = 0;
+    char errbuf[PCAP_ERRBUF_SIZE];
 
 #ifndef DONT_USE_PCAP_FINDALLDEVS
-	/* retrieve the device list */
-	if (pcap_findalldevs(&alldevs, errbuf) == -1)
-	{
-		char* msg = "Eth: error in pcap_findalldevs: %s\r\n";
-		Log(LogEthPcapLine, LogError, msg, errbuf);
-	}
-	else
-	{
-		/* copy device list into the passed structure */
-		for (i=0, dev=alldevs; dev; dev=dev->next)
-		{
-			//struct pcap_addr *addr = dev->addresses;
-			Log(LogEthPcapLine, LogInfo, "Device list entry %d. Name %s. Description %s.\n", i, dev->name, dev->description);
-			//while (addr != NULL)
-			//{
-			//	Log(LogInfo, "Address family %d: %d %d %d %d %d %d\n", addr->addr->sa_family, addr->addr->sa_data[0] & 0xFF, addr->addr->sa_data[1] & 0xFF, addr->addr->sa_data[2] & 0xFF, addr->addr->sa_data[3] & 0xFF, addr->addr->sa_data[4] & 0xFF, addr->addr->sa_data[5] & 0xFF);
-			//	addr = addr->next;
-			//}
-			if ((dev->flags & PCAP_IF_LOOPBACK) || (!strcmp("any", dev->name))) continue;
-			list[i].num = i;
-			strncpy(list[i].name, dev->name, ETH_DEV_NAME_MAX);
-			if (dev->description)
-			{
-				strncpy(list[i].desc, dev->description, ETH_DEV_DESC_MAX);
-			}
-			else
-			{
-				strncpy(list[i].desc, "No description available", ETH_DEV_DESC_MAX);
-			}
-			if (i++ >= max) break;
-		}
+    /* retrieve the device list */
+    if (pcap_findalldevs(&alldevs, errbuf) == -1)
+    {
+        char* msg = "Eth: error in pcap_findalldevs: %s\r\n";
+        Log(LogEthPcapLine, LogError, msg, errbuf);
+    }
+    else
+    {
+        /* copy device list into the passed structure */
+        for (i=0, dev=alldevs; dev; dev=dev->next)
+        {
+            //struct pcap_addr *addr = dev->addresses;
+            Log(LogEthPcapLine, LogInfo, "Device list entry %d. Name %s. Description %s.\n", i, dev->name, dev->description);
+            //while (addr != NULL)
+            //{
+            //	Log(LogInfo, "Address family %d: %d %d %d %d %d %d\n", addr->addr->sa_family, addr->addr->sa_data[0] & 0xFF, addr->addr->sa_data[1] & 0xFF, addr->addr->sa_data[2] & 0xFF, addr->addr->sa_data[3] & 0xFF, addr->addr->sa_data[4] & 0xFF, addr->addr->sa_data[5] & 0xFF);
+            //	addr = addr->next;
+            //}
+            if ((dev->flags & PCAP_IF_LOOPBACK) || (!strcmp("any", dev->name))) continue;
+            list[i].num = i;
+            strncpy(list[i].name, dev->name, ETH_DEV_NAME_MAX);
+            if (dev->description)
+            {
+                strncpy(list[i].desc, dev->description, ETH_DEV_DESC_MAX);
+            }
+            else
+            {
+                strncpy(list[i].desc, "No description available", ETH_DEV_DESC_MAX);
+            }
+            if (i++ >= max) break;
+        }
 
-		/* free device list */
-		pcap_freealldevs(alldevs);
-	}
+        /* free device list */
+        pcap_freealldevs(alldevs);
+    }
 #endif
 
-	///* Add any host specific devices and/or validate those already found */
-	//i = eth_host_devices(i, max, list);
+    ///* Add any host specific devices and/or validate those already found */
+    //i = eth_host_devices(i, max, list);
 
-	/* return device count */
-	return i;
+    /* return device count */
+    return i;
 }
 
 static char* eth_getname(int number, char* name)
 {
-	struct eth_list  list[ETH_MAX_DEVICE];
-	int count = eth_devices(ETH_MAX_DEVICE, list);
+    struct eth_list  list[ETH_MAX_DEVICE];
+    int count = eth_devices(ETH_MAX_DEVICE, list);
 
-	if (count <= number) return 0;
-	strcpy(name, list[number].name);
-	return name;
+    if (count <= number) return 0;
+    strcpy(name, list[number].name);
+    return name;
 }
 
 static char *eth_translate(char *name, char *translated_name)
 {
-	int num;
-	if ((strlen(name) == 4)
-		&& (tolower(name[0]) == 'e')
-		&& (tolower(name[1]) == 't')
-		&& (tolower(name[2]) == 'h')
-		&& isdigit(name[3])
-		) {
-			num = atoi(&name[3]);
-			return eth_getname(num, translated_name);
-	}
-	else
-		return NULL;
+    int num;
+    if ((strlen(name) == 4)
+        && (tolower(name[0]) == 'e')
+        && (tolower(name[1]) == 't')
+        && (tolower(name[2]) == 'h')
+        && isdigit(name[3])
+        ) {
+            num = atoi(&name[3]);
+            return eth_getname(num, translated_name);
+    }
+    else
+        return NULL;
 }
