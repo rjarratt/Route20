@@ -53,8 +53,10 @@ typedef enum
 	LogEndMarker
 } LogSource;
 
+int LoggingLevels[LogEndMarker];
 char *LogSourceName[LogEndMarker + 1];
 
+int IsLoggable(LogSource source, LogLevel level);
 void Log(LogSource source, LogLevel level, char *format, ...);
 void LogBytes(LogSource source, LogLevel level, byte *buffer, int length);
 

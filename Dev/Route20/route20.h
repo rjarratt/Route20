@@ -48,7 +48,6 @@ typedef struct
 
 } event_handler_t;
 
-int LoggingLevels[LogEndMarker];
 event_handler_t eventHandlers[MAX_EVENT_HANDLERS];
 int numEventHandlers;
 int eventHandlersChanged;

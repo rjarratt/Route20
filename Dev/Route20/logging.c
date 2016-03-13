@@ -29,6 +29,11 @@
 #include "platform.h"
 #include "logging.h"
 
+int IsLoggable(LogSource source, LogLevel level)
+{
+    return level <= LoggingLevels[source];
+}
+
 void Log(LogSource source, LogLevel level, char *format, ...)
 {
 	va_list va;
@@ -42,25 +47,28 @@ void Log(LogSource source, LogLevel level, char *format, ...)
 
 void LogBytes(LogSource source, LogLevel level, byte *buffer, int length)
 {
-	int i;
-	for (i = 0; i < length; i++)
-	{
-		if ((i % 16) == 0)
-		{
-			Log(source, level, "%02X", buffer[i]);
-		}
-		else if ((i % 16) == 15)
-		{
-			Log(source, level, " %02X\n", buffer[i]);
-		}
-		else
-		{
-			Log(source, level, " %02X", buffer[i]);
-		}
-	}
+    int i;
+    if (IsLoggable(source, level))
+    {
+        for (i = 0; i < length; i++)
+        {
+            if ((i % 16) == 0)
+            {
+                Log(source, level, "%02X", buffer[i]);
+            }
+            else if ((i % 16) == 15)
+            {
+                Log(source, level, " %02X\n", buffer[i]);
+            }
+            else
+            {
+                Log(source, level, " %02X", buffer[i]);
+            }
+        }
 
-	if (length != 0 && (length % 16) != 0)
-	{
-	    Log(source, level, "\n", buffer[i]);
-	}
+        if (length != 0 && (length % 16) != 0)
+        {
+            Log(source, level, "\n", buffer[i]);
+        }
+    }
 }
