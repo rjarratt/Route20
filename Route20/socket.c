@@ -164,8 +164,11 @@ int ReadFromDatagramSocket(socket_t *sock, packet_t *packet, sockaddr_t *receive
 	packet->rawLen = recvfrom(sock->socket, (char *)buf, 1518, 0, receivedFrom, &ilen);
 	if (packet->rawLen > 0)
 	{
-	    Log(LogSock, LogVerbose, "Read %d bytes on port %d\n", packet->rawLen, sock->receivePort);
-		LogBytes(LogSock, LogVerbose, buf, packet->rawLen);
+        if (IsLoggable(LogSock, LogVerbose)
+        {
+	        Log(LogSock, LogVerbose, "Read %d bytes on port %d\n", packet->rawLen, sock->receivePort);
+		    LogBytes(LogSock, LogVerbose, buf, packet->rawLen);
+        }
 		packet->rawData = buf;
 	}
 	else
