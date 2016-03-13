@@ -268,7 +268,6 @@ int EthPcapLineWritePacket(line_t *line, packet_t *packet)
     return 1;
 }
 
-
 /*
 The libpcap provided API pcap_findalldevs() on most platforms, will 
 leverage the getifaddrs() API if it is available in preference to 
