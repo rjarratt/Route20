@@ -559,6 +559,7 @@ static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int t
 {
 	sockaddr_in_t sa;
 
+    Log(LogSock, LogVerbose, "Opening %s socket for %s, receive port is %d, protocol is %d\n", (type==SOCK_DGRAM) ? "UDP": "TCP", eventName, receivePort, protocol);
     InitialiseSocket(sock, eventName);
 	sock->receivePort = receivePort;
 
