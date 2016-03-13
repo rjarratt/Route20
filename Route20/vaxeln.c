@@ -52,11 +52,14 @@ in this Software without prior written authorization from the author.
 #include <stdio.h>
 
 #define NUM_PORT_BUFFERS 12
-#define NUM_SOCK_BUFFERS 16
+#define NUM_SOCK_BUFFERS 32
 #define PACKET_BUFFER_LEN 1600
 #define PACKET_HEADER_LEN 14
 
 int numCircuits;
+int numEthPcapCircuits;
+int numEthSockCircuits;
+int numDdcmpCircuits;
 
 FILE *logFile;
 typedef struct pcap_vaxeln
@@ -114,14 +117,15 @@ static int ElnConfig(char *fileName, ConfigReadMode mode);
 static void ProcessEventsPort();
 static void ProcessEventsSock();
 static void show_arp_entries();
+static void SetTimeFromOtherNode(char *dateTimeFile);
 
 route20()
 {
     int status;
     int arguments=eln$program_argument_count();
     VARYING_STRING(255) configFileName;
-    $DESCRIPTOR(startTime, "23-JAN-2016 09:00:00");
-    LARGE_INTEGER tvalue;
+    VARYING_STRING(255) dateTimeFileName;
+    int argBase;
 
     ker$create_semaphore(&status, &LoggingSemaphore, 1, 1);
     if ((status % 2) == 0)
@@ -129,27 +133,48 @@ route20()
         printf("Failed to create logging semaphore: %s(%d)\n", GetMsg(status), status);
     }
 
-    tvalue = eln$time_value (&startTime);
-    ker$set_time (NULL, &tvalue);
-
     InitialiseLogging();
-    if (arguments < 1)
+    /* If there is 1 arg then it is autostarted, if there are more than 3 then it will be started from the console.
+       If started from the console it needs the CONSOLE args to be able to do console I/O.
+    */
+    if (arguments != 2 && arguments != 8 && arguments != 11)
     {
-        Log(LogGeneral, LogFatal, "Program must be configured with an argument, which is the path to the configuration file\n");
+        Log(LogGeneral, LogFatal, "Program must be configured with an argument, which is the path to the configuration file, argument count is %d\n", arguments);
     }
     else
     {
+        if (arguments == 2)
+        {
+            argBase = 0;
+        }
+        else if (arguments == 8)
+        {
+            argBase = 0;
+        }
+        else
+        {
+            argBase = 3;
+        }
         Log(LogGeneral, LogInfo, "Starting up\n");
-        eln$program_argument(&configFileName, 1);
+        eln$program_argument(&configFileName, argBase + 1);
         configFileName.data[configFileName.count] = '\0';
+        eln$program_argument(&dateTimeFileName, argBase + 2);
+        dateTimeFileName.data[dateTimeFileName.count] = '\0';
         Log(LogGeneral, LogInfo, "Configuration file is %s\n", configFileName.data);
+        Log(LogGeneral, LogInfo, "Date & time file is %s\n", dateTimeFileName.data);
+        /*SetTimeFromOtherNode(dateTimeFileName.data);*/
         if (InitialiseConfig(ReadConfig, configFileName.data))
         {
-            /* As there is no obvious way to set the Ethernet physical address, we include DECnet in the image, so that
-            it can set the physical address. Then we stop it, here, and take over DECnet operation
+            /* As there is no obvious way to set the Ethernet physical address, we include DECnet in
+            the image, so that it can set the physical address. Then we stop it, here, and take over
+            DECnet operation. For debug and performance analysis purposes, we don't stop DECnet if
+            there are no pcap circuits.
             */
-            eln$netman_stop_network(&status);
-            Log(LogGeneral, LogInfo, "Stop DECnet status %s(%d)\n", GetMsg(status), status);
+            if (numEthPcapCircuits > 0)
+            {
+                eln$netman_stop_network(&status);
+                Log(LogGeneral, LogInfo, "Stop DECnet status %s(%d)\n", GetMsg(status), status);
+            }
             if (DecnetInitialise())
             {
                 NspInitialise();
@@ -161,6 +186,65 @@ route20()
     }
 
     Log(LogGeneral, LogInfo, "Exited");
+}
+
+void SetTimeFromOtherNode(char *dateTimeFile)
+{
+    int status;
+    PORT srcPort;
+    struct dsc$descriptor destinationName;
+    VARYING_STRING(16) connectData;
+    VARYING_STRING(16) acceptData;
+    struct dsc$descriptor time_string;
+    LARGE_INTEGER tvalue;
+   
+    ker$create_port(&status, &srcPort, 4);
+    destinationName.dsc$a_pointer = dateTimeFile;
+    destinationName.dsc$w_length = strlen(dateTimeFile);
+    strcpy(connectData.data, "GetTime");
+    connectData.count = strlen(connectData.data);
+
+    ker$connect_circuit(&status, &srcPort, NULL, &destinationName, NULL, &connectData, acceptData);
+    if ((status % 2) == 0)
+    {
+        Log(LogGeneral, LogError, "Cannot connect to node for time service: %s\n", GetMsg(status));
+    }
+    else
+    {
+        Log(LogGeneral, LogInfo, "Time service response: %0.*s\n", acceptData.count, acceptData.data);
+        time_string.dsc$a_pointer = acceptData.data;
+        time_string.dsc$w_length = acceptData.count;
+        tvalue = eln$time_value(&time_string);
+        ker$set_time (NULL, &tvalue);
+        ker$disconnect_circuit(NULL, &srcPort);
+    }
+
+    ker$delete(NULL, &srcPort);
+/*    int success = 0;
+    char buf[80];
+    struct dsc$descriptor time_string;
+    LARGE_INTEGER tvalue;
+
+    do
+    {
+        FILE *f = fopen(dateTimeFile, "r");
+        if (f != NULL)
+        {
+            fgets(buf, sizeof(buf), f);
+            fclose(f);
+            time_string.dsc$a_pointer = buf;
+            time_string.dsc$w_length = strlen(buf);
+            tvalue = eln$time_value(&time_string);
+            ker$set_time (NULL, &tvalue);
+            success = 1;
+        }
+        else
+        {
+            Log(LogGeneral, LogWarning, "Failed to get time from other node, retrying\n");
+            Sleep(1);
+        }
+    }
+    while (!success);*/
 }
 
 int stricmp(char *str1, char *str2)
@@ -244,7 +328,7 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
         n = vsprintf(buf, format, argptr);
         onNewLine = buf[n-1] == '\n';
         /*fprintf(logFile, buf);*/
-        printf(buf);
+        printf("%s", buf);
         /*fflush(logFile);*/
         
         ker$signal(NULL, LoggingSemaphore);
@@ -320,6 +404,10 @@ static BufferQueueEntry_t *DequeueWithWait(queue_t *queue, LARGE_INTEGER *timeou
     {
         eln$remove_entry(&queue->header, (QUEUE_ENTRY **)&entry, NULL, QUEUE$HEAD);
         queue->length--; /* TODO: get add_interlocked to work */
+        if (timeout == NULL && queue->length == 0)
+        {
+            Log(LogGeneral, LogWarning, "%s is empty\n", queue->name);
+        }
     }
 
     return entry;
