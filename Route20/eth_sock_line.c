@@ -106,7 +106,10 @@ packet_t *EthSockLineReadPacket(line_t *line)
                 {
                     GetDecnetAddress((decnet_eth_address_t *)&sockPacket.rawData[0], &sockPacket.to);
                     GetDecnetAddress((decnet_eth_address_t *)&sockPacket.rawData[6], &sockPacket.from);
-                    Log(LogEthSockLine, LogVerbose, "Packet from : ");LogDecnetAddress(LogEthSockLine, LogVerbose, &sockPacket.from);Log(LogEthSockLine, LogVerbose, " received on line %s\n", line->name);
+                    if (IsLoggable(LogEthSockLine, LogVerbose))
+                    {
+                        Log(LogEthSockLine, LogVerbose, "Packet from : ");LogDecnetAddress(LogEthSockLine, LogVerbose, &sockPacket.from);Log(LogEthSockLine, LogVerbose, " received on line %s\n", line->name);
+                    }
                     line->stats.validPacketsReceived++;
                     EthSetPayload(&sockPacket);
                     packet = &sockPacket;
