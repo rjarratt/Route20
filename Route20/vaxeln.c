@@ -135,7 +135,7 @@ route20()
 
     InitialiseLogging();
     /* If there is 1 arg then it is autostarted, if there are more than 3 then it will be started from the console.
-       If started from the console it needs the CONSOLE args to be able to do console I/O.
+    If started from the console it needs the CONSOLE args to be able to do console I/O.
     */
     if (arguments != 2 && arguments != 8 && arguments != 11)
     {
@@ -197,7 +197,7 @@ void SetTimeFromOtherNode(char *dateTimeFile)
     VARYING_STRING(16) acceptData;
     struct dsc$descriptor time_string;
     LARGE_INTEGER tvalue;
-   
+
     ker$create_port(&status, &srcPort, 4);
     destinationName.dsc$a_pointer = dateTimeFile;
     destinationName.dsc$w_length = strlen(dateTimeFile);
@@ -220,29 +220,29 @@ void SetTimeFromOtherNode(char *dateTimeFile)
     }
 
     ker$delete(NULL, &srcPort);
-/*    int success = 0;
+    /*    int success = 0;
     char buf[80];
     struct dsc$descriptor time_string;
     LARGE_INTEGER tvalue;
 
     do
     {
-        FILE *f = fopen(dateTimeFile, "r");
-        if (f != NULL)
-        {
-            fgets(buf, sizeof(buf), f);
-            fclose(f);
-            time_string.dsc$a_pointer = buf;
-            time_string.dsc$w_length = strlen(buf);
-            tvalue = eln$time_value(&time_string);
-            ker$set_time (NULL, &tvalue);
-            success = 1;
-        }
-        else
-        {
-            Log(LogGeneral, LogWarning, "Failed to get time from other node, retrying\n");
-            Sleep(1);
-        }
+    FILE *f = fopen(dateTimeFile, "r");
+    if (f != NULL)
+    {
+    fgets(buf, sizeof(buf), f);
+    fclose(f);
+    time_string.dsc$a_pointer = buf;
+    time_string.dsc$w_length = strlen(buf);
+    tvalue = eln$time_value(&time_string);
+    ker$set_time (NULL, &tvalue);
+    success = 1;
+    }
+    else
+    {
+    Log(LogGeneral, LogWarning, "Failed to get time from other node, retrying\n");
+    Sleep(1);
+    }
     }
     while (!success);*/
 }
@@ -292,12 +292,12 @@ static char *GetMsg(int status)
 
 static void OpenLog(void)
 {
-    /*	logFile = fopen("Route20.log", "w+");*/
+    /*logFile = fopen("Route20.log", "w+");*/
 }
 
 static void CloseLog(void)
 {
-    /*    fclose(logFile);*/
+    /*fclose(logFile);*/
 }
 
 void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
@@ -321,7 +321,7 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
             printf(buf);
             printf(" ");
 
-            /*            fprintf(logFile, "%s\t", LogSourceName[source]);*/
+            /*fprintf(logFile, "%s\t", LogSourceName[source]);*/
             printf("%s ", LogSourceName[source]);
         }
 
@@ -330,7 +330,7 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
         /*fprintf(logFile, buf);*/
         printf("%s", buf);
         /*fflush(logFile);*/
-        
+
         ker$signal(NULL, LoggingSemaphore);
     }
 }
@@ -364,7 +364,7 @@ static void InitialiseSynchronisation()
     }
     else
     {
-        Log(LogGeneral, LogInfo, "Started port process, pid is %d\n", PortProcess);
+        Log(LogGeneral, LogInfo, "Started port process, pid is %08X\n", PortProcess);
         Log(LogGeneral, LogInfo, "Starting socket process\n");
         ker$create_process(&status, &SockProcess, ProcessEventsSock, NULL);
         if ((status % 2) == 0)
@@ -373,7 +373,7 @@ static void InitialiseSynchronisation()
         }
         else
         {
-            Log(LogGeneral, LogInfo, "Started socket process, pid is %d\n", SockProcess);
+            Log(LogGeneral, LogInfo, "Started socket process, pid is %08X\n", SockProcess);
         }
     }
 
@@ -462,9 +462,9 @@ static int ElnConfig(char *fileName, ConfigReadMode mode)
     nodeInfo.address.area = 5;
     nodeInfo.address.node = 30;
     nodeInfo.level = 2;
-    nodeInfo.priority = 64;
+    nodeInfo.priority = 65;
     strcpy(nodeInfo.name, "A5RTR2");
-    CircuitCreateEthernetPcap(&Circuits[1],"eth0", 3, ProcessCircuitEvent);
+    CircuitCreateEthernetPcap(&Circuits[1 + numCircuits++],"eth0", 3, ProcessCircuitEvent);
     CircuitCreateEthernetSocket(&Circuits[1 + numCircuits++], "130.238.19.25", 4711, 4711, 5, ProcessCircuitEvent);
     Log(LogGeneral, LogDetail, "Finished hard coded configuration.\n");
 
@@ -750,7 +750,7 @@ pcap_t *pcap_open_live (const char *device, int snaplen, int promisc, int to_ms,
             }
             else
             {
-                Log(LogEthPcapLine, LogError, "Failed to connect to %s. Error is %s\n", device, GetMsg(status));
+                Log(LogEthPcapLine, LogError, "Failed to connect to %s. Error is %s. Portal id is %d\n", device, GetMsg(status), portalId);
                 ker$delete(NULL, &dispatchPort);
                 ker$delete(NULL, &transmitReplyPort);
             }
@@ -867,7 +867,7 @@ int pcap_next_ex(pcap_t *p, struct pcap_pkthdr **pkt_header, const u_char **pkt_
         {
             result = 1;
             *pkt_header = &headerResult;
-            if ((dataSize + 14) > sizeof(buffer))
+            if ((dataSize + PACKET_HEADER_LEN) > sizeof(buffer))
             {
                 Log(LogEthPcapLine, LogError, "Truncating large packet, received packet of %d bytes\n", dataSize);
                 dataSize = sizeof(buffer) - PACKET_HEADER_LEN;
