@@ -265,9 +265,17 @@ int ReadConfig(char *fileName, ConfigReadMode mode)
 	int ans = 1;
 	int nodePresent = 0;
 	int ddcmpPresent = 0;
+	char *errString;
+
 	if ((f = fopen(fileName, "r")) == NULL)
 	{
-		Log(LogGeneral, LogError, "Could not open the configuration file: %s, error %s (%d)\n", fileName, strerror(errno), errno);
+		errString = strerror(errno);
+		if (errString == NULL)
+		{
+			errString = "n/a";
+		}
+
+		Log(LogGeneral, LogError, "Could not open the configuration file: %s, error %s (%d)\n", fileName, errString, errno);
 		ans = 0;
 	}
 
