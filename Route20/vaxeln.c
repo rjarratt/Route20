@@ -173,7 +173,14 @@ route20()
             if (numEthPcapCircuits > 0)
             {
                 eln$netman_stop_network(&status);
-                Log(LogGeneral, LogInfo, "Stop DECnet status %s(%d)\n", GetMsg(status), status);
+                if ((status % 2) == 1)
+                {
+                    Log(LogGeneral, LogInfo, "Stopped DECnet\n");
+                }
+                else
+                {
+                    Log(LogGeneral, LogInfo, "Failed to stop DECnet: %s(%d)\n", GetMsg(status), status);
+                }
             }
             if (DecnetInitialise())
             {
