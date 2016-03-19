@@ -164,15 +164,23 @@ static void ProcessDnsResponse(byte *address, void *context)
 
 static int CheckSourceAddress(sockaddr_t *receivedFrom, eth_sock_t *context)
 {
-	int ans = 0;
-	if (memcmp(receivedFrom, &context->destinationAddress, sizeof(sockaddr_t)) == 0)
-	{
-		ans = 1;
-	}
-	//else
-	//{
-	//	Log(LogError, "Security, dropping packet from unrecognised source\n");
-	//}
+    int ans = 0;
+    if (receivedFrom->sa_family == context->destinationAddress.sa_family)
+    {
+        if (memcmp(receivedFrom->sa_data, &context->destinationAddress.sa_data, sizeof(receivedFrom->sa_data)) == 0)
+        {
+            context->loggedSourceError = 0;
+            ans = 1;
+        }
+    }
+
+    if (!ans && !context->loggedSourceError)
+    {
+        Log(LogEthSockLine, LogError, "Security, dropping packet from unrecognised source %u.%u.%u.%u for %s\n", receivedFrom->sa_data[2] & 0xFF, receivedFrom->sa_data[3] & 0xFF, receivedFrom->sa_data[4] & 0xFF, receivedFrom->sa_data[5] & 0xFF, context->destinationHostName);
+        LogBytes(LogEthSockLine, LogError, (byte *)receivedFrom, sizeof(sockaddr_t));
+        LogBytes(LogEthSockLine, LogError, (byte *)&context->destinationAddress, sizeof(sockaddr_t));
+        context->loggedSourceError = 1;
+    }
 
 	return ans;
 }
