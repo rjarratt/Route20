@@ -39,6 +39,7 @@ typedef struct
 	uint16 destinationPort;
 	char *destinationHostName;
 	sockaddr_t destinationAddress;
+    int loggedSourceError;
 } eth_sock_t;
 
 int EthSockLineStart(line_t *line);
