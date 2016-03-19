@@ -51,7 +51,7 @@ void SetCircuitStateChangeCallback(void (*callback)(circuit_t *circuit))
 
 void CircuitUp(circuit_t *circuit)
 {
-	Log(LogCircuit, LogWarning, "Circuit %s is coming up\n", circuit->name);
+	Log(LogCircuit, LogInfo, "Circuit %s is coming up\n", circuit->name);
 	circuit->state = CircuitStateUp;
 	stateChangeCallback(circuit);
 }
