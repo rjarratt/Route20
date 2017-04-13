@@ -35,12 +35,12 @@ I am not sure if this is a flaw or a feature.
 
 The program expects a configuration file called route20.ini. A sample is provided, but here are some notes.
 
-An {"[ethernet](ethernet)(ethernet)"} section is used to define an Ethernet network interface. You can have as many {"[ethernet](ethernet)(ethernet)"} sections as you have ethernet network interfaces.
+An \[ethernet\] section is used to define an Ethernet network interface. You can have as many \[ethernet\] sections as you have ethernet network interfaces.
 
-A {"[bridge](bridge)(bridge)"} section is used to define an interface compatible with Johnny's bridge. You can have as many {"[bridge](bridge)(bridge)"} sections as you have direct links to other people's bridge or router (each requires a separate port). Use a DNS name rather than an IP address, the IP address is checked and updated according the {"[dns](dns)"} section. Note also that the router will not accept packets from bridges not configured in the 
-{"[bridge](bridge)"} section.
+A \[bridge\] section is used to define an interface compatible with Johnny's bridge. You can have as many \[bridge\] sections as you have direct links to other people's bridge or router (each requires a separate port). Use a DNS name rather than an IP address, the IP address is checked and updated according the \[dns\] section. Note also that the router will not accept packets from bridges not configured in the 
+\[bridge\] section.
 
-The {"[dns](dns)"} section is used to specify the IP address of your DNS server. This must be a numeric IP address. The poll period determines the period (in seconds) of the checks for changes to the IP address in your {"[bridge](bridge)"} sections.
+The \[dns\] section is used to specify the IP address of your DNS server. This must be a numeric IP address. The poll period determines the period (in seconds) of the checks for changes to the IP address in your \[bridge\] sections.
 
 # Windows Installation
 
