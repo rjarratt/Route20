@@ -441,7 +441,7 @@ static VOID WINAPI SvcMain( DWORD dwArgc, LPTSTR *lpszArgv )
 
 static void OpenLog(void)
 {
-	logFile = fopen("C:\\temp\\Route20.log", "w+");
+	logFile = fopen("%TEMP%\Route20.log", "w+");
 }
 
 static void CloseLog(void)

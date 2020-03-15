@@ -74,7 +74,7 @@ struct bpf_insn filterInstructions[] = {
     BPF_STMT(BPF_RET+BPF_K, 1518),
 };
 
-static char *eth_translate(char *name, char *translated_name);
+static int eth_translate(char *name, char *translated_name);
 
 int EthPcapLineStart(line_t *line)
 {
@@ -87,7 +87,7 @@ int EthPcapLineStart(line_t *line)
 
     pcapContext->pcap = NULL;
 
-    if (eth_translate(line->name, devname) != NULL)
+    if (eth_translate(line->name, devname))
     {
         Log(LogEthPcapLine, LogInfo, "Opening %s for packet capture\n", devname);
         if ((pcapContext->pcap = pcap_open_live(devname, 1518, ETH_PROMISC, 1, ebuf)) == 0)
@@ -402,28 +402,62 @@ static int eth_devices(int max, struct eth_list* list)
     return i;
 }
 
-static char* eth_getname(int number, char* name)
+static int eth_getname(int number, char* name, struct eth_list *list, int count)
 {
-    struct eth_list  list[ETH_MAX_DEVICE];
-    int count = eth_devices(ETH_MAX_DEVICE, list);
+    int result = 0;
+    if (count > number)
+    {
+        strcpy(name, list[number].name);
+        result = 1;
+    }
 
-    if (count <= number) return 0;
-    strcpy(name, list[number].name);
-    return name;
+    return result;
 }
 
-static char *eth_translate(char *name, char *translated_name)
+static int eth_checkname(char* name, struct eth_list *list, int count)
 {
-    int num;
-    if ((strlen(name) == 4)
-        && (tolower(name[0]) == 'e')
-        && (tolower(name[1]) == 't')
-        && (tolower(name[2]) == 'h')
-        && isdigit(name[3])
-        ) {
-            num = atoi(&name[3]);
-            return eth_getname(num, translated_name);
+    int found = 0;
+    int i;
+    for (i = 0; i < count && !found; i++)
+    {
+        if (stricmp(name, list[i].name) == 0)
+        {
+            found = 1;
+        }
+    }
+
+    return found;
+}
+
+static int eth_translate(char *name, char *translated_name)
+{
+    int result = 0;
+    struct eth_list list[ETH_MAX_DEVICE];
+    int count = eth_devices(ETH_MAX_DEVICE, list);
+
+    if (eth_checkname(name, list, count))
+    {
+        strcpy(translated_name, name);
+        result = 1;
     }
     else
-        return NULL;
+    {
+        char *numberPtr = name;
+        while (!isdigit(*numberPtr))
+        {
+            numberPtr++;
+        }
+
+        if (numberPtr != '\0')
+        {
+            result = eth_getname(atoi(numberPtr), translated_name, list, count);
+        }
+    }
+
+    if (!result)
+    {
+        Log(LogEthPcapLine, LogError, "Cannot find interface %s\n", name);
+    }
+
+    return result;
 }
