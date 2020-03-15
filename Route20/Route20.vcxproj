@@ -56,7 +56,7 @@
       <WarningLevel>EnableAllWarnings</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_USING_V110_SDK71_;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Rob\Documents\DEC\DECEmulation\WinPCap Developer Pack WpdPack_4_1_2\WpdPack\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>D:\Users\Rob\Documents\DEC\DECEmulation\WinPCap Developer Pack WpdPack_4_1_2\WpdPack\Include</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>
@@ -68,7 +68,7 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>dbghelp.lib;wsock32.lib;ws2_32.lib;wpcap.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\Users\Rob\Documents\DEC\DECEmulation\WinPCap Developer Pack WpdPack_4_1_2\WpdPack\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>D:\Users\Rob\Documents\DEC\DECEmulation\WinPCap Developer Pack WpdPack_4_1_2\WpdPack\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>copy "$(ProjectDir)route20.ini" "$(TargetDir)"
