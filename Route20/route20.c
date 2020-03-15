@@ -136,7 +136,7 @@ int InitialiseConfig(int (*ConfigReader)(char *fileName, ConfigReadMode mode), c
     return ans;
 }
 
-int DecnetInitialise()
+int DecnetInitialise(void)
 {
     int ans = 1;
     time_t now;

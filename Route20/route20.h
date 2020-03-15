@@ -55,7 +55,7 @@ int eventHandlersChanged;
 void InitialiseLogging(void);
 int ReadConfig(char *fileName, ConfigReadMode mode);
 int InitialiseConfig(int (*ConfigReader)(char *fileName, ConfigReadMode mode), char *configFileName);
-int DecnetInitialise();
+int DecnetInitialise(void);
 void ProcessCircuitEvent(void *context);
 void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, int dataLength));
 void RegisterEventHandler(unsigned int waitHandle, char *name, void *context, void (*eventHandler)(void *context));
