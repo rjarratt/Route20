@@ -50,7 +50,7 @@ in this Software without prior written authorization from the author.
 #include "eth_line.h"
 #include "eth_pcap_line.h"
 
-#define ETH_MAX_DEVICE        10                        /* maximum ethernet devices */
+#define ETH_MAX_DEVICE        20                        /* maximum ethernet devices */
 #define ETH_DEV_NAME_MAX     256                        /* maximum device name size */
 #define ETH_DEV_DESC_MAX     256                        /* maximum device description size */
 #define ETH_PROMISC            1                        /* promiscuous mode = true */
@@ -387,7 +387,12 @@ static int eth_devices(int max, struct eth_list* list)
             {
                 strncpy(list[i].desc, "No description available", ETH_DEV_DESC_MAX);
             }
-            if (i++ >= max) break;
+            i++;
+            if (i >= max)
+            {
+                Log(LogEthPcapLine, LogWarning, "Too many devices, the limit is %d\n", max);
+                break;
+            }
         }
 
         /* free device list */
@@ -443,7 +448,7 @@ static int eth_translate(char *name, char *translated_name)
     else
     {
         char *numberPtr = name;
-        while (!isdigit(*numberPtr))
+        while (!isdigit(*numberPtr) && *numberPtr != '\0')
         {
             numberPtr++;
         }
