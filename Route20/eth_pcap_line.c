@@ -370,7 +370,7 @@ static int eth_devices(int max, struct eth_list* list)
         for (i=0, dev=alldevs; dev; dev=dev->next)
         {
             //struct pcap_addr *addr = dev->addresses;
-            Log(LogEthPcapLine, LogInfo, "Device list entry %d. Name %s. Description %s.\n", i, dev->name, dev->description);
+            Log(LogEthPcapLine, LogInfo, "Device list entry %d. Name %s. Description %s.\n", i, dev->name, (dev->description == NULL)? "n/a" : dev->description);
             //while (addr != NULL)
             //{
             //	Log(LogInfo, "Address family %d: %d %d %d %d %d %d\n", addr->addr->sa_family, addr->addr->sa_data[0] & 0xFF, addr->addr->sa_data[1] & 0xFF, addr->addr->sa_data[2] & 0xFF, addr->addr->sa_data[3] & 0xFF, addr->addr->sa_data[4] & 0xFF, addr->addr->sa_data[5] & 0xFF);
