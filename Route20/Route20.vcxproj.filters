@@ -135,6 +135,7 @@
     <None Include="readme.txt" />
     <None Include="route20.ini" />
     <None Include="descrip.mms" />
+    <None Include="..\README.md" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="platform.h">

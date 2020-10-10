@@ -2,7 +2,7 @@
 This program is a DECnet router that implements version 2.0 of the DECnet routing specification
 found here: http://linux-decnet.sourceforge.net/docs/route20.txt
 
-# Third Alpha Release 18th March 2020
+# Third Alpha Release 10th October 2020
 This third release has the following major new Features
 1. Basic Network Management commands with support for the following commands:
    * SHOW KNOWN CIRCUITS

@@ -137,6 +137,7 @@
     <ClCompile Include="windows.c" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\README.md" />
     <None Include="descrip.mms" />
     <None Include="makefile" />
     <None Include="readme.txt" />
