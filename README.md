@@ -2,6 +2,21 @@
 This program is a DECnet router that implements version 2.0 of the DECnet routing specification
 found here: http://linux-decnet.sourceforge.net/docs/route20.txt
 
+# Third Alpha Release 18th March 2020
+This third release has the following major new Features
+1. Basic Network Management commands with support for the following commands:
+   * SHOW KNOWN CIRCUITS
+   * SHOW ADJACENT NODES
+1. DDCMP over TCP/IP
+   * There are the beginnings of some Phase II support, which has been partially tested against TOPS-20 on SimH. Maintenance mode is not supported
+1. A partially completed port to VAXELN.
+
+More minor changes include:
+1. Now also runs on FreeBSD.
+1. Added a requirement for the router node to be named. This is needed particularly for Phase II.
+1. Windows logging will log to console as well if it is being run interactively.
+1. Lots of bug fixes and minor improvements.
+
 # Second Alpha Release 15th Sep 2012
 This second release has been successfully tested with another person in another area. It
 fixes the following bugs and limitations:
@@ -15,7 +30,7 @@ I am not sure if this is a flaw or a feature.
 
 1. Features
 1. Runs on Windows either as a Windows Service, or as a console program.
-1. Runs on Linux as a daemon.
+1. Runs on Linux and FreeBSD as a daemon.
 1. Full routing capability, so it avoids broadcasting all routing messages to entire network and kills looping packets.
 1. Supports Ethernet (using pcap/winpcap).
 1. Supports Johnny's bridge. You can now have multiple bridge connections to Johnny and direct to other people without creating loops.
