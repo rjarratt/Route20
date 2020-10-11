@@ -49,12 +49,15 @@
 #include "netman.h"
 #include "dns.h"
 
+#define PID_FILE_NAME "/var/run/route20.pid"
+
 static void ProcessPackets(circuit_t *circuit, void (*process)(circuit_t *, packet_t *));
 static void SigTermHandler(int signum);
 
 int main(int argc, char *argv[])
 {
 	char configFileName[PATH_MAX];
+	FILE* pidFile;
 
     /* Our process ID and Session ID */
     pid_t pid, sid;
@@ -69,6 +72,12 @@ int main(int argc, char *argv[])
 		getcwd(configFileName, PATH_MAX - 1);
 		strcat(configFileName, "/");
 		strcat(configFileName, CONFIG_FILE_NAME);
+	}
+
+	if (access(PID_FILE_NAME, R_OK) == 0)
+	{
+		printf("Daemon is already running\n");
+		exit(EXIT_FAILURE);
 	}
 
     InitialiseLogging();
@@ -86,13 +95,16 @@ int main(int argc, char *argv[])
     if (pid > 0)
 	{
 		printf("Daemon running with pid %d\n", pid);
+		pidFile = fopen(PID_FILE_NAME, "w");
+		fprintf(pidFile, "%d", pid);
+		fclose(pidFile);
         exit(EXIT_SUCCESS);
     }
 
     /* Change the file mode mask */
     umask(0);
         
-   openlog("Route20", 0, LOG_DAEMON);
+    openlog("Route20", 0, LOG_DAEMON);
 
     /* Create a new SID for the child process */
     sid = setsid();
