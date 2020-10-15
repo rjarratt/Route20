@@ -118,9 +118,9 @@ void CheckEndnodeAdjacency(decnet_address_t *from, circuit_t *circuit, int hello
 
 	/*Log(LogInfo, "Checking adjacency for "); LogDecnetAddress(LogInfo, &from); Log(LogInfo, ", hello=%d\n", helloTimerPeriod);*/
 
-	adjacency = FindAdjacency(from);
+	adjacency = GetAdjacency(NBEA_BASE + from->node);
 
-	if (adjacency == NULL)
+	if (adjacency->type == UnusedAdjacency)
 	{
         adjacency = AddEndnodeAdjacency(from, circuit, helloTimerPeriod);
 	}
@@ -382,7 +382,7 @@ static adjacency_t *AddEndnodeAdjacency(decnet_address_t *id, circuit_t *circuit
 	adjacency_t *adjacency = NULL;
 
 	Log(LogAdjacency, LogDetail, "Adding adjacency "); LogDecnetAddress(LogAdjacency, LogDetail, id); Log(LogAdjacency, LogDetail, ", type "); LogAdjacencyType(LogDetail, EndnodeAdjacency); Log(LogAdjacency, LogDetail, "\n");
-	adjacency = FindFreeAdjacencySlot(NBEA_BASE, NBEA);
+	adjacency = GetAdjacency(NBEA_BASE + id->node);
 	if (adjacency != NULL)
 	{
 		endnodeAdjacencyCount++;
