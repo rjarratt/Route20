@@ -96,9 +96,17 @@ int main(int argc, char *argv[])
 	{
 		printf("Daemon running with pid %d\n", pid);
 		pidFile = fopen(PID_FILE_NAME, "w");
-		fprintf(pidFile, "%d", pid);
-		fclose(pidFile);
-        exit(EXIT_SUCCESS);
+		if (pidFile != NULL)
+		{
+			fprintf(pidFile, "%d", pid);
+			fclose(pidFile);
+            exit(EXIT_SUCCESS);
+		}
+		else
+		{
+			printf("Unable to write PID file\n");
+			exit(EXIT_FAILURE);
+		}
     }
 
     /* Change the file mode mask */
@@ -135,6 +143,16 @@ int main(int argc, char *argv[])
 		    NetManInitialise();
             MainLoop();
         }
+		else
+		{
+			Log(LogGeneral, LogFatal, "Exiting because failed to initiliase DECnet\n");
+			exit(EXIT_FAILURE);
+		}
+	}
+	else
+	{
+		Log(LogGeneral, LogFatal, "Exiting because failed to initiliase configuration\n");
+		exit(EXIT_FAILURE);
 	}
 
     Log(LogGeneral, LogInfo, "Exited");

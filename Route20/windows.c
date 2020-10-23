@@ -140,6 +140,14 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 					    NetManInitialise();
 					    MainLoop();
                     }
+					else
+					{
+						Log(LogGeneral, LogFatal, "Exiting because failed to initiliase DECnet\n");
+					}
+				}
+				else
+				{
+					Log(LogGeneral, LogFatal, "Exiting because failed to initiliase configuration\n");
 				}
 #if !defined(_DEBUG)
 			}
@@ -487,6 +495,14 @@ static VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
 			    NetManInitialise();
 			    MainLoop();
             }
+			else
+			{
+				Log(LogGeneral, LogFatal, "Exiting because failed to initiliase DECnet\n");
+			}
+		}
+		else
+		{
+			Log(LogGeneral, LogFatal, "Exiting because failed to initiliase configuration\n");
 		}
 #if !defined(_DEBUG)
 	}
