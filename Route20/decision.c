@@ -560,14 +560,11 @@ static void Routes(int FirstDest, int LastDest)
 
 		if (Col <= NC && Circuits[Col].circuitType == EthernetCircuit)
 		{
-			int j;
-			for(j = NC + NBRA + 1; j <= NC + NBRA + 1 + NBEA; j++)
+			int j = NC + NBRA + 1 + i; // no need to search as the table is indexed by node number now
+			adjacency_t *adj = GetAdjacency(j);
+			if (adj->type == EndnodeAdjacency && adj->id.node == i)
 			{
-				adjacency_t *adj = GetAdjacency(j);
-				if (adj->type == EndnodeAdjacency && adj->id.node == i)
-				{
-                    OA[i] = j;
-				}
+				OA[i] = j;
 			}
 		}
 

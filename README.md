@@ -5,6 +5,7 @@ found here: http://linux-decnet.sourceforge.net/docs/route20.txt
 # Fourth Alpha Release <unreleased>
 
 Minor changes:
+1. Improved internal representation of adjacencies to minimise searching
 1. On Unix flavours it now creates a PID file in /var/run.
 1. On Unix flavours it now re-reads parts of the configuration on receiving a kill -s HUP.
 1. Miscellanous bug fixes
