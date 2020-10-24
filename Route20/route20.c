@@ -267,6 +267,11 @@ int ReadConfig(char *fileName, ConfigReadMode mode)
 	int ddcmpPresent = 0;
 	char *errString;
 
+	if (mode == ConfigReadModeUpdate)
+	{
+		Log(LogGeneral, LogInfo, "Updating configuration\n");
+	}
+
 	if ((f = fopen(fileName, "r")) == NULL)
 	{
 		errString = strerror(errno);

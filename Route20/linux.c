@@ -52,11 +52,15 @@
 #define PID_FILE_NAME "/var/run/route20.pid"
 
 static void ProcessPackets(circuit_t *circuit, void (*process)(circuit_t *, packet_t *));
+static void SetupHupHandler(void);
+static void SigHupHandler(int signum);
 static void SigTermHandler(int signum);
+
+static char configFileName[PATH_MAX];
+static volatile int shutdownRequested = 0;
 
 int main(int argc, char *argv[])
 {
-	char configFileName[PATH_MAX];
 	FILE* pidFile;
 
     /* Our process ID and Session ID */
@@ -82,6 +86,7 @@ int main(int argc, char *argv[])
 
     InitialiseLogging();
     ReadConfig(configFileName, ConfigReadModeInitial);
+	SetupHupHandler();
 
     /* Fork off the parent process */
     pid = fork();
@@ -236,7 +241,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 
 	signal(SIGTERM, SigTermHandler);
 
-	while(1)
+	while(!shutdownRequested)
 	{
 		struct timespec timeout;
 		timeout.tv_sec = SecondsUntilNextDue();
@@ -254,12 +259,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 		i = pselect(nfds + 1, &handles, NULL, NULL, &timeout, NULL);
 		if (i == -1)
 		{
-			if (errno == EINTR)
-			{
-				Log(LogGeneral, LogInfo, "Signalled to shutdown.\n", errno);
-				break;
-			}
-			else
+			if (errno != EINTR)
 			{
 			    Log(LogGeneral, LogError, "pselect error: %d\n", errno);
 			}
@@ -295,8 +295,24 @@ static void ProcessPackets(circuit_t *circuit, void (*process)(circuit_t *, pack
 	} while (packet != NULL);
 }
 
+static void SetupHupHandler(void)
+{
+	struct sigaction sa;
+
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = SA_RESTART;
+	sa.sa_handler = SigHupHandler;
+	sigaction(SIGHUP, &sa, NULL);
+}
+
 static void SigTermHandler(int signum)
 {
+	shutdownRequested = 1;
+}
+
+static void SigHupHandler(int signum)
+{
+	ReadConfig(configFileName, ConfigReadModeUpdate);
 }
 
 #endif

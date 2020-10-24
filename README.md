@@ -2,6 +2,13 @@
 This program is a DECnet router that implements version 2.0 of the DECnet routing specification
 found here: http://linux-decnet.sourceforge.net/docs/route20.txt
 
+# Fourth Alpha Release <unreleased>
+
+Minor changes:
+1. On Unix flavours it now creates a PID file in /var/run.
+1. On Unix flavours it now re-reads parts of the configuration on receiving a kill -s HUP.
+1. Miscellanous bug fixes
+
 # Third Alpha Release 10th October 2020
 This third release has the following major new Features
 1. Basic Network Management commands with support for the following commands:
@@ -38,7 +45,7 @@ I am not sure if this is a flaw or a feature.
 1. Does dynamic DNS updates without blocking.
 
 # Limitations
-1. Only tested on Windows Server 2003 and Raspberry Pi running Debian.
+1. Only tested on Windows Server 2003, Raspberry Pi running Debian and FreeBSD.
 1. Does not support Phase III nodes.
 1. Although it can be configured as a Level 1 node, it has only been tested as a Level 2 (area router) node.
 1. Limited testing on Raspberry Pi.
@@ -79,4 +86,4 @@ Prerequisites: winpcap
 Prerequisites: pcap
 
 The program is designed to run only as a daemon. It logs to the syslog.
-Launch the program and it will fork and create a daemon.
+Launch the program and it will fork and create a daemon. Using kill -s HUP will cause parts of the configuration to be re-read.
