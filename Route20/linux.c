@@ -145,17 +145,20 @@ int main(int argc, char *argv[])
         }
 		else
 		{
+			remove(PID_FILE_NAME);
 			Log(LogGeneral, LogFatal, "Exiting because failed to initiliase DECnet\n");
 			exit(EXIT_FAILURE);
 		}
 	}
 	else
 	{
+		remove(PID_FILE_NAME);
 		Log(LogGeneral, LogFatal, "Exiting because failed to initiliase configuration\n");
 		exit(EXIT_FAILURE);
 	}
 
-    Log(LogGeneral, LogInfo, "Exited");
+	remove(PID_FILE_NAME);
+	Log(LogGeneral, LogInfo, "Exited");
     exit(EXIT_SUCCESS);
 }
 
@@ -253,6 +256,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 		{
 			if (errno == EINTR)
 			{
+				Log(LogGeneral, LogInfo, "Signalled to shutdown.\n", errno);
 				break;
 			}
 			else
