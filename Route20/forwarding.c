@@ -188,7 +188,9 @@ int SendPacket(circuit_t *srcCircuit, decnet_address_t *dstNode, packet_t *packe
 	}
 	else
 	{
-		Log(LogForwarding, LogWarning, "Destination adjacency not found.\n");
+		Log(LogForwarding, LogWarning, "Destination adjacency not found on circuit %s for adjacency %s.\n", srcCircuit->name);
+		LogDecnetAddress(LogForwarding, LogWarning, dstNode);
+		Log(LogForwarding, LogWarning, ".\n");
 	}
 
 	return ans;
