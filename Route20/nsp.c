@@ -54,7 +54,7 @@ static void TransmitQueuedMessages(session_control_port_t *port);
 
 static void SendConnectAcknowledgement(decnet_address_t *to, uint16 dstAddr); 
 static void SendDisconnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 reason); 
-static void SendConnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, byte services); 
+static void SendConnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, byte services, byte dataLen, byte* data); 
 static void SendOtherDataAcknowledgement(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number);
 static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength);
 
@@ -95,7 +95,7 @@ int NspOpen(void (*closeCallback)(uint16 srcAddr), void (*connectCallback)(uint1
 	return ans;
 }
 
-int NspAccept(uint16 srcAddr, byte services)
+int NspAccept(uint16 srcAddr, byte services, byte dataLen, byte* data)
 {
 	int ans = 0;
 	session_control_port_t *port;
@@ -107,7 +107,7 @@ int NspAccept(uint16 srcAddr, byte services)
 		{
 			ans = 1;
 		    SetPortState(port, NspPortStateConnectConfirm);
-			SendConnectConfirm(&port->node, port->addrLoc, port->addrRem, services);
+			SendConnectConfirm(&port->node, port->addrLoc, port->addrRem, services, dataLen, data);
 			Log(LogNsp, LogInfo, "Opened NSP connection from ");
 			LogDecnetAddress(LogNsp, LogInfo, &port->node);
 			Log(LogNsp, LogInfo, " on port %hu\n", port->addrLoc);
@@ -374,11 +374,11 @@ static void SendDisconnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 d
 	SendPacket(NULL, to, confirmPacket);
 }
 
-static void SendConnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, byte services)
+static void SendConnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, byte services, byte dataLen, byte *data)
 {
 	packet_t *confirmPacket;
 	Log(LogNspMessages, LogVerbose, "Sending ConnectConfirm\n");
-	confirmPacket = NspCreateConnectConfirm(to, srcAddr, dstAddr, services, INFO_V40, NSP_SEGMENT_SIZE);
+	confirmPacket = NspCreateConnectConfirm(to, srcAddr, dstAddr, services, INFO_V40, NSP_SEGMENT_SIZE, dataLen, data);
 	SendPacket(NULL, to, confirmPacket);
 }
 

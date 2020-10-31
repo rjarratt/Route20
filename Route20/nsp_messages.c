@@ -137,7 +137,7 @@ packet_t *NspCreateConnectAcknowledgement(decnet_address_t *toAddress, uint16 ds
 	return ans;
 }
 
-packet_t *NspCreateConnectConfirm(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, byte services, byte info, uint16 segSize)
+packet_t *NspCreateConnectConfirm(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, byte services, byte info, uint16 segSize, byte dataLen, byte* data)
 {
 	packet_t *ans;
 	nsp_connect_confirm_t payload;
@@ -147,7 +147,9 @@ packet_t *NspCreateConnectConfirm(decnet_address_t *toAddress, uint16 srcAddr, u
 	payload.services = services;
 	payload.info = info;
 	payload.segSize = Uint16ToLittleEndian(segSize);
-	ans = CreateLongDataMessage(&nodeInfo.address, toAddress, 6, 0, (byte *)&payload, sizeof(payload));
+	payload.dataCtl[0] = dataLen;
+	memcpy(&payload.dataCtl[1], data, dataLen);
+	ans = CreateLongDataMessage(&nodeInfo.address, toAddress, 6, 0, (byte *)&payload, sizeof(payload) - (16-dataLen));
 
 	return ans;
 }

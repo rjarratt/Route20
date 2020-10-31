@@ -35,7 +35,7 @@
 
 void NspInitialise(void);
 int NspOpen(void (*closeCallback)(uint16 locAddr), void (*connectCallback)(uint16 locAddr), void (*dataCallback)(uint16 locAddr, byte *data, int dataLength));
-int NspAccept(uint16 srcAddr, byte services);
+int NspAccept(uint16 srcAddr, byte services, byte dataLen, byte *data);
 void NspTransmit(uint16 srcAddr, byte *data, int dataLength); // TODO: will need to identify link src, dst (and node?)
 void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength);
 #define NSP_H

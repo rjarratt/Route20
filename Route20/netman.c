@@ -94,8 +94,10 @@ void CloseCallback(uint16 locAddr)
 
 void ConnectCallback(uint16 locAddr)
 {
+	byte data[] = { NETMAN_VERSION, NETMAN_DEC_ECO, NETMAN_USER_ECO };
+
 	Log(LogNetMan, LogVerbose, "Accepting on NSP port %hu\n", locAddr);
-	NspAccept(locAddr, SERVICES_NONE);
+	NspAccept(locAddr, SERVICES_NONE, sizeof(data), data);
 }
 
 void DataCallback(uint16 locAddr, byte *data, int dataLength)
