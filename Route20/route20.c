@@ -115,6 +115,8 @@ void InitialiseLogging(void)
     LogSourceName[LogNsp] = "NSP";
     LogSourceName[LogNspMessages] = "NSM";
     LogSourceName[LogNetMan] = "NMN";
+
+	SysLogLocalFacilityNumber = 0;
 }
 
 int InitialiseConfig(int (*ConfigReader)(char *fileName, ConfigReadMode mode), char *configFileName)
@@ -456,6 +458,10 @@ static char *ReadLoggingConfig(FILE *f, ConfigReadMode mode, int *ans)
 			else if (stricmp(name, "netman") == 0)
 			{
 				ParseLogLevel(value, &LoggingLevels[LogNetMan]);
+			}
+			else if (stricmp(name, "SysLogLocalFacilityNumber") == 0)
+			{
+				SysLogLocalFacilityNumber = atoi(value);
 			}
 		}
 	}

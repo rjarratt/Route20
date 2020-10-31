@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
 		pidFile = fopen(PID_FILE_NAME, "w");
 		if (pidFile != NULL)
 		{
-			fprintf(pidFile, "%d", pid);
+			fprintf(pidFile, "%d\n", pid);
 			fclose(pidFile);
             exit(EXIT_SUCCESS);
 		}
@@ -220,7 +220,7 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
 
 		if (onNewLine)
 		{
-			syslog(sysLevel, "%s %s", LogSourceName[source], line);
+			syslog(sysLevel | LOG_LOCAL0 + SysLogLocalFacilityNumber, "%s %s", LogSourceName[source], line);
 			currentLen = 0;
 		}
 	}

@@ -54,6 +54,7 @@ typedef enum
 } LogSource;
 
 int LoggingLevels[LogEndMarker];
+int SysLogLocalFacilityNumber; // used on Unix flavours for the facility part
 char *LogSourceName[LogEndMarker + 1];
 
 int IsLoggable(LogSource source, LogLevel level);
