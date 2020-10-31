@@ -136,6 +136,9 @@
     <None Include="route20.ini" />
     <None Include="descrip.mms" />
     <None Include="..\README.md" />
+    <None Include="route20">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="platform.h">
