@@ -37,7 +37,7 @@
 #include "netman.h"
 #include "nsp.h"
 
-  // TODO: Check object type and reject objects not supported in connect callback
+#define OBJECT_NML 19
 
 int numCircuits;
 
@@ -97,11 +97,32 @@ void CloseCallback(uint16 locAddr)
 
 void ConnectCallback(decnet_address_t *remNode, uint16 locAddr, uint16 remAddr, byte* data, int dataLength)
 {
+	int reject = 0;
+
 	byte acceptData[] = { NETMAN_VERSION, NETMAN_DEC_ECO, NETMAN_USER_ECO };
 
 	Log(LogNetMan, LogVerbose, "Accepting on NSP port %hu\n", locAddr);
-	NspAccept(locAddr, SERVICES_NONE, sizeof(acceptData), acceptData);
-	//NspReject(remNode, locAddr, remAddr, 0, 0, NULL);
+	if (dataLength < 2)
+	{
+		reject = 1;
+	}
+	else
+	{
+		uint16 objectType = BigEndianBytesToUint16(data);
+		if (objectType != OBJECT_NML)
+		{
+			reject = 1;
+		}
+	}
+
+	if (!reject)
+	{
+		NspAccept(locAddr, SERVICES_NONE, sizeof(acceptData), acceptData);
+	}
+	else
+	{
+		NspReject(remNode, locAddr, remAddr, 0, 0, NULL);
+	}
 }
 
 void DataCallback(uint16 locAddr, byte *data, int dataLength)
