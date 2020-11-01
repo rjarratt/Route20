@@ -48,7 +48,7 @@ typedef struct
 
 void OpenPort(void);
 void CloseCallback(uint16 locAddr);
-void ConnectCallback(uint16 locAddr);
+void ConnectCallback(decnet_address_t* remNode, uint16 locAddr, uint16 remAddr, byte* data, int dataLength);
 void DataCallback(uint16 locAddr, byte *data, int dataLength);
 
 static void ProcessReadInformationMessage(uint16 locAddr, netman_read_information_t *readInformation);
@@ -92,12 +92,13 @@ void CloseCallback(uint16 locAddr)
 	OpenPort();
 }
 
-void ConnectCallback(uint16 locAddr)
+void ConnectCallback(decnet_address_t *remNode, uint16 locAddr, uint16 remAddr, byte* data, int dataLength)
 {
-	byte data[] = { NETMAN_VERSION, NETMAN_DEC_ECO, NETMAN_USER_ECO };
+	byte acceptData[] = { NETMAN_VERSION, NETMAN_DEC_ECO, NETMAN_USER_ECO };
 
 	Log(LogNetMan, LogVerbose, "Accepting on NSP port %hu\n", locAddr);
-	NspAccept(locAddr, SERVICES_NONE, sizeof(data), data);
+	NspAccept(locAddr, SERVICES_NONE, sizeof(acceptData), acceptData);
+	//NspReject(remNode, locAddr, remAddr, 0, 0, NULL);
 }
 
 void DataCallback(uint16 locAddr, byte *data, int dataLength)

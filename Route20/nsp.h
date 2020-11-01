@@ -34,8 +34,9 @@
 #define SERVICES_SEGMENT 5
 
 void NspInitialise(void);
-int NspOpen(void (*closeCallback)(uint16 locAddr), void (*connectCallback)(uint16 locAddr), void (*dataCallback)(uint16 locAddr, byte *data, int dataLength));
-int NspAccept(uint16 srcAddr, byte services, byte dataLen, byte *data);
+int NspOpen(void (*closeCallback)(uint16 locAddr), void (*connectCallback)(decnet_address_t* remNode, uint16 locAddr, uint16 remAddr, byte* data, int dataLength), void (*dataCallback)(uint16 locAddr, byte *data, int dataLength));
+int NspAccept(uint16 srcAddr, byte services, byte dataLen, byte* data);
+int NspReject(decnet_address_t* dstNode, uint16 srcAddr, uint16 dstAddr, uint16 reason, byte dataLen, byte* data);
 void NspTransmit(uint16 srcAddr, byte *data, int dataLength); // TODO: will need to identify link src, dst (and node?)
 void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength);
 #define NSP_H

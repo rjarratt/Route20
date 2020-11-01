@@ -37,6 +37,10 @@ in this Software without prior written authorization from the author.
 
 #define INFO_V40 2
 
+#define NO_RESOURCES 1
+#define DISCONNECT_COMPLETE 42
+#define NO_LINK_TERMINATE 41
+
 typedef struct
 {
 	decnet_address_t *node;
@@ -47,14 +51,16 @@ typedef struct
 static void ProcessLinkConnectionCompletion(decnet_address_t *from, nsp_header_t *);
 static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_t *connectInitiate);
 static void ProcessDisconnectInitiate(decnet_address_t *from, nsp_disconnect_initiate_t *disconnectInitiate);
+/* TODO: must add ProcessDisconnectConfirm */
 static void ProcessDataAcknowledgement(decnet_address_t *from, nsp_data_acknowledgement_t *dataAcknowledgement);
 static void ProcessDataMessage(decnet_address_t *from, nsp_header_t *header, byte *data, int dataLength);
 
 static void TransmitQueuedMessages(session_control_port_t *port);
 
 static void SendConnectAcknowledgement(decnet_address_t *to, uint16 dstAddr); 
-static void SendDisconnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 reason); 
-static void SendConnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, byte services, byte dataLen, byte* data); 
+static void SendDisconnectInitiate(decnet_address_t* to, uint16 srcAddr, uint16 dstAddr, uint16 reason, byte dataLen, byte* data);
+static void SendDisconnectConfirm(decnet_address_t* to, uint16 srcAddr, uint16 dstAddr, uint16 reason);
+static void SendConnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, byte services, byte dataLen, byte* data);
 static void SendOtherDataAcknowledgement(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number);
 static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength);
 
@@ -75,7 +81,7 @@ void NspInitialise(void)
 	RoutingSetCallback(NspProcessPacket);
 }
 
-int NspOpen(void (*closeCallback)(uint16 srcAddr), void (*connectCallback)(uint16 locAddr), void (*dataCallback)(uint16 locAddr, byte *data, int dataLength))
+int NspOpen(void (*closeCallback)(uint16 srcAddr), void (*connectCallback)(decnet_address_t* remNode, uint16 locAddr, uint16 remAddr, byte* data, int dataLength), void (*dataCallback)(uint16 locAddr, byte *data, int dataLength))
 {
 	int ans = 0;
 	session_control_port_t *port = NspFindFreeScpDatabaseEntry();
@@ -111,6 +117,28 @@ int NspAccept(uint16 srcAddr, byte services, byte dataLen, byte* data)
 			Log(LogNsp, LogInfo, "Opened NSP connection from ");
 			LogDecnetAddress(LogNsp, LogInfo, &port->node);
 			Log(LogNsp, LogInfo, " on port %hu\n", port->addrLoc);
+		}
+	}
+
+	return ans;
+}
+
+int NspReject(decnet_address_t* dstNode, uint16 srcAddr, uint16 dstAddr, uint16 reason, byte dataLen, byte* data)
+{
+	int ans = 0;
+	session_control_port_t* port;
+
+	port = FindScpEntryForRemoteNode(dstNode, dstAddr);
+	if (port != NULL)
+	{
+		if (port->state == NspPortStateConnectReceived)
+		{
+			ans = 1;
+			SetPortState(port, NspPortStateDisconnectReject);
+			SendDisconnectInitiate(&port->node, port->addrLoc, port->addrRem, reason, dataLen, data);
+			Log(LogNsp, LogInfo, "Rejected NSP connection from ");
+			LogDecnetAddress(LogNsp, LogInfo, &port->node);
+			Log(LogNsp, LogInfo, " on port %hu, reason=%hu\n", port->addrLoc, reason);
 		}
 	}
 
@@ -212,9 +240,9 @@ static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_
 
 		if (port != NULL)
 		{
-			switch(port->state)
+			switch (port->state)
 			{
-			case NspPortStateOpen:
+				case NspPortStateOpen:
 				{
 					port->addrRem = connectInitiate->srcAddr;
 					memcpy(&port->node, from, sizeof(decnet_address_t));
@@ -222,20 +250,24 @@ static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_
 					SendConnectAcknowledgement(from, connectInitiate->srcAddr);
 					break;
 				}
-			case NspPortStateConnectReceived:
-			case NspPortStateConnectConfirm:
-			case NspPortStateDisconnectReject:
+				case NspPortStateConnectReceived:
+				case NspPortStateConnectConfirm:
+				case NspPortStateDisconnectReject:
 				{
 					SendConnectAcknowledgement(from, connectInitiate->srcAddr);
 					break;
 				}
-            default:
-                {
-                    break;
-                }
+				default:
+				{
+					break;
+				}
 			}
 
-			port->connectCallback(port->addrLoc);
+			port->connectCallback(from, port->addrLoc, port->addrRem, connectInitiate->dataCtl, connectInitiate->dataCtlLength);
+		}
+		else
+		{
+			SendDisconnectConfirm(from, connectInitiate->dstAddr, connectInitiate->srcAddr, NO_RESOURCES);
 		}
 	}
 
@@ -366,10 +398,35 @@ static void SendConnectAcknowledgement(decnet_address_t *to, uint16 dstAddr)
 	SendPacket(NULL, to, ackPacket);
 }
 
+static void SendDisconnectInitiate(decnet_address_t* to, uint16 srcAddr, uint16 dstAddr, uint16 reason, byte dataLen, byte* data)
+{
+	packet_t* diPacket;
+    Log(LogNspMessages, LogVerbose, "Sending DisconnectInitiate, reason=%d\n", reason);
+	diPacket = NspCreateDisconnectInitiate(to, srcAddr, dstAddr, reason, dataLen, data);
+	SendPacket(NULL, to, diPacket);
+}
+
 static void SendDisconnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 reason)
 {
 	packet_t *confirmPacket;
-	Log(LogNspMessages, LogVerbose, "Sending DisconnectConfirm\n");
+
+	if (reason == NO_RESOURCES)
+	{
+		Log(LogNspMessages, LogVerbose, "Sending NoResources\n");
+	}
+	else if (reason == DISCONNECT_COMPLETE)
+	{
+		Log(LogNspMessages, LogVerbose, "Sending DisconnectComplete\n");
+	}
+	else if (reason == NO_LINK_TERMINATE)
+	{
+		Log(LogNspMessages, LogVerbose, "Sending NoLink\n");
+	}
+	else
+	{
+		Log(LogNspMessages, LogVerbose, "Sending DisconnectConfirm\n");
+	}
+
 	confirmPacket = NspCreateDisconnectConfirm(to, srcAddr, dstAddr, reason);
 	SendPacket(NULL, to, confirmPacket);
 }

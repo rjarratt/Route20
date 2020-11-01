@@ -105,6 +105,12 @@ nsp_connect_initiate_t *ParseConnectInitiate(byte *nspPayload, int nspPayloadLen
 {
 	nsp_connect_initiate_t *payload = (nsp_connect_initiate_t *)nspPayload;
 	payload->segSize = LittleEndianBytesToUint16((byte *)&payload->segSize);
+	payload->dataCtlLength = nspPayloadLength - sizeof(nsp_connect_initiate_t) + sizeof(payload->dataCtl);
+	if (payload->dataCtlLength > sizeof(payload->dataCtl))
+	{
+		Log(LogNspMessages, LogWarning, "Connect Initiate data truncated, max length is %d, received %d\n", sizeof(payload->dataCtl), payload->dataCtlLength);
+		payload->dataCtlLength = sizeof(payload->dataCtl);
+	}
 
 	return payload;
 }
@@ -149,20 +155,23 @@ packet_t *NspCreateConnectConfirm(decnet_address_t *toAddress, uint16 srcAddr, u
 	payload.segSize = Uint16ToLittleEndian(segSize);
 	payload.dataCtl[0] = dataLen;
 	memcpy(&payload.dataCtl[1], data, dataLen);
-	ans = CreateLongDataMessage(&nodeInfo.address, toAddress, 6, 0, (byte *)&payload, sizeof(payload) - (16-dataLen));
+	ans = CreateLongDataMessage(&nodeInfo.address, toAddress, 6, 0, (byte *)&payload, sizeof(payload) - (sizeof(payload.dataCtl)-1-dataLen));
 
 	return ans;
 }
 
-packet_t *NspCreateDisconnectInitiate(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 reason)
+packet_t *NspCreateDisconnectInitiate(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 reason, byte dataLen, byte* data)
 {
 	packet_t *ans;
 	nsp_disconnect_initiate_t payload;
+
 	payload.msgFlg = 0x38;
 	payload.srcAddr = Uint16ToLittleEndian(srcAddr);
 	payload.dstAddr = Uint16ToLittleEndian(dstAddr);
 	payload.reason = Uint16ToLittleEndian(reason);
-	ans = CreateLongDataMessage(&nodeInfo.address, toAddress, 6, 0, (byte *)&payload, sizeof(payload));
+	payload.dataCtl[0] = dataLen;
+	memcpy(&payload.dataCtl[1], data, dataLen);
+	ans = CreateLongDataMessage(&nodeInfo.address, toAddress, 6, 0, (byte *)&payload, sizeof(payload) - (sizeof(payload.dataCtl) - 1 - dataLen));
 
 	return ans;
 }

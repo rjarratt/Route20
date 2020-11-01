@@ -49,7 +49,8 @@ typedef struct
 	byte   services;
 	byte   info;
 	uint16 segSize;
-	byte   dataCtl[];
+	byte   dataCtl[64]; /* length is actually unknown */
+	int    dataCtlLength; /* not part of the wire format */
 } nsp_connect_initiate_t;
 
 typedef struct
@@ -76,7 +77,7 @@ typedef struct
 	uint16 dstAddr;
 	uint16 srcAddr;
 	uint16 reason;
-	byte   dataCtl[];
+	byte   dataCtl[17];
 } nsp_disconnect_initiate_t;
 
 typedef struct
@@ -127,7 +128,7 @@ nsp_data_acknowledgement_t *ParseDataAcknowledgement(byte *nspPayload, int nspPa
 
 packet_t *NspCreateConnectAcknowledgement(decnet_address_t *toAddress, uint16 dstAddr);
 packet_t *NspCreateConnectConfirm(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, byte services, byte info, uint16 segSize, byte dataLen, byte *data);
-packet_t *NspCreateDisconnectInitiate(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 reason);
+packet_t *NspCreateDisconnectInitiate(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 reason, byte dataLen, byte* data);
 packet_t *NspCreateDisconnectConfirm(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 reason);
 packet_t *NspCreateOtherDataAcknowledgement(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number);
 packet_t *NspCreateDataMessage(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength);

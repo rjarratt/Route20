@@ -65,7 +65,7 @@ typedef struct
     transmit_queue_t  transmit_queue;
 
 	void (*closeCallback)(uint16 locAddr);
-	void (*connectCallback)(uint16 locAddr);
+	void (*connectCallback)(decnet_address_t* remNode, uint16 locAddr, uint16 remAddr, byte *data, int dataLength);
 	void (*dataCallback)(uint16 locAddr, byte *data, int dataLength);
 } session_control_port_t;
 
