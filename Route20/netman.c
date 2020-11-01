@@ -37,6 +37,8 @@
 #include "netman.h"
 #include "nsp.h"
 
+  // TODO: Check object type and reject objects not supported in connect callback
+
 int numCircuits;
 
 typedef struct
@@ -89,6 +91,7 @@ void OpenPort(void)
 void CloseCallback(uint16 locAddr)
 {
 	Log(LogNetMan, LogVerbose, "NSP port %hu closed\n", locAddr);
+	NspClose(locAddr);
 	OpenPort();
 }
 

@@ -35,11 +35,9 @@ in this Software without prior written authorization from the author.
 #include "route20.h"
 #include "forwarding.h" // TODO: remove when do proper layering
 
-#define INFO_V40 2
+// TODO: On demand NspOpen?
 
-#define NO_RESOURCES 1
-#define DISCONNECT_COMPLETE 42
-#define NO_LINK_TERMINATE 41
+#define INFO_V40 2
 
 typedef struct
 {
@@ -50,8 +48,8 @@ typedef struct
 
 static void ProcessLinkConnectionCompletion(decnet_address_t *from, nsp_header_t *);
 static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_t *connectInitiate);
-static void ProcessDisconnectInitiate(decnet_address_t *from, nsp_disconnect_initiate_t *disconnectInitiate);
-/* TODO: must add ProcessDisconnectConfirm */
+static void ProcessDisconnectInitiate(decnet_address_t* from, nsp_disconnect_initiate_t* disconnectInitiate);
+static void ProcessDisconnectConfirm(decnet_address_t* from, nsp_disconnect_confirm_t* disconnectConfirm);
 static void ProcessDataAcknowledgement(decnet_address_t *from, nsp_data_acknowledgement_t *dataAcknowledgement);
 static void ProcessDataMessage(decnet_address_t *from, nsp_header_t *header, byte *data, int dataLength);
 
@@ -99,6 +97,23 @@ int NspOpen(void (*closeCallback)(uint16 srcAddr), void (*connectCallback)(decne
 	}
 
 	return ans;
+}
+
+void NspClose(uint16 locAddr)
+{
+	session_control_port_t* port = NspFindScpDatabaseEntryByLocalAddress(locAddr);
+
+	if (port != NULL)
+	{
+		Log(LogNsp, LogInfo, "Closed NSP connection from ");
+		LogDecnetAddress(LogNsp, LogInfo, &port->node);
+		Log(LogNsp, LogInfo, " on port %d\n", port->addrLoc);
+
+		SetPortState(port, NspPortStateClosed);
+		port->addrRem = 0;
+		memset(&port->node, 0, sizeof(port->node));
+		TerminateTransmitQueue(&port->transmit_queue);
+	}
 }
 
 int NspAccept(uint16 srcAddr, byte services, byte dataLen, byte* data)
@@ -179,6 +194,7 @@ void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength)
 	}
 	else if (IsDisconnectConfirmMessage(data))
 	{
+		ProcessDisconnectConfirm(from, ParseDisconnectConfirm(data, dataLength));
 	}
 	else if (IsNspDataMessage(data))
 	{
@@ -229,6 +245,10 @@ static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_
 
 	   Bullet 4 not implemented, where ConnectInitiate has been returned, because the router does not initiate connections */
 
+	//Log(LogNsp, LogVerbose, "Connect Initiate data is ");
+	//LogBytes(LogNsp, LogVerbose, connectInitiate->dataCtl, connectInitiate->dataCtlLength);
+	//Log(LogNsp, LogVerbose, "\n");
+
 	if (connectInitiate->dstAddr == 0)
 	{
 		session_control_port_t *port;
@@ -267,7 +287,7 @@ static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_
 		}
 		else
 		{
-			SendDisconnectConfirm(from, connectInitiate->dstAddr, connectInitiate->srcAddr, NO_RESOURCES);
+			SendDisconnectConfirm(from, connectInitiate->dstAddr, connectInitiate->srcAddr, REASON_NO_RESOURCES);
 		}
 	}
 
@@ -318,15 +338,97 @@ static void ProcessDisconnectInitiate(decnet_address_t *from, nsp_disconnect_ini
             }
 		}
 
-		Log(LogNsp, LogInfo, "Closed NSP connection from ");
-		LogDecnetAddress(LogNsp, LogInfo, &port->node);
-		Log(LogNsp, LogInfo, " on port %d\n", port->addrLoc);
-
-		SetPortState(port, NspPortStateClosed);
-		port->addrRem = 0;
-		memset(&port->node, 0, sizeof(port->node));
 		port->closeCallback(port->addrLoc);
-		TerminateTransmitQueue(&port->transmit_queue);
+	}
+}
+
+static void ProcessDisconnectConfirm(decnet_address_t* from, nsp_disconnect_confirm_t* disconnectConfirm)
+{
+	session_control_port_t* port;
+	port = FindScpEntryForRemoteNodeConnection(from, disconnectConfirm->dstAddr, disconnectConfirm->srcAddr);
+
+	if (port != NULL)
+	{
+		if (IsDisconnectNoResourcesMessage(disconnectConfirm))
+		{
+			switch (port->state)
+			{
+				case NspPortStateConnectInitiate:
+				{
+					SetPortState(port, NspPortStateNoResources);
+					// TODO: Section 6.4.1 says we must do UPDATE-DELAY
+					break;
+				}
+				default:
+				{
+					break;
+				}
+			}
+		}
+		else if (IsDisconnectCompleteMessage(disconnectConfirm))
+		{
+			// TODO: Section 6.4.1 says we should stop TIMERcon and others 
+			switch (port->state)
+			{
+				case NspPortStateDisconnectReject:
+				{
+					SetPortState(port, NspPortStateDisconnectRejectComplete);
+					break;
+				}
+				case NspPortStateDisconnectInitiate:
+				{
+					SetPortState(port, NspPortStateDisconnectComplete);
+					break;
+				}
+				default:
+				{
+					break;
+				}
+			}
+		}
+		else if (IsDisconnectNoLinkMessage(disconnectConfirm))
+		{
+			switch (port->state)
+			{
+				case NspPortStateConnectConfirm:
+				case NspPortStateRunning:
+				case NspPortStateDisconnectReject:
+				case NspPortStateDisconnectInitiate:
+				{
+					SetPortState(port, NspPortStateClosedNotification);
+					break;
+				}
+				default:
+				{
+					break;
+				}
+			}
+		}
+		else if (IsDisconnectDisconnectConfirmMessage(disconnectConfirm))
+		{
+			switch (port->state)
+			{
+				case NspPortStateConnectInitiate:
+				{
+					SetPortState(port, NspPortStateRejected);
+					// TODO: Section 6.4.1 says we must do UPDATE-DELAY
+					break;
+				}
+				case NspPortStateConnectConfirm:
+				case NspPortStateRunning:
+				{
+					SetPortState(port, NspPortStateClosedNotification);
+					// TODO: Section 6.4.1 says we must do stop some timers
+					break;
+				}
+				default:
+				{
+					break;
+				}
+			}
+		}
+
+		port->closeCallback(port->addrLoc);
 	}
 }
 
@@ -410,15 +512,15 @@ static void SendDisconnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 d
 {
 	packet_t *confirmPacket;
 
-	if (reason == NO_RESOURCES)
+	if (reason == REASON_NO_RESOURCES)
 	{
 		Log(LogNspMessages, LogVerbose, "Sending NoResources\n");
 	}
-	else if (reason == DISCONNECT_COMPLETE)
+	else if (reason == REASON_DISCONNECT_COMPLETE)
 	{
 		Log(LogNspMessages, LogVerbose, "Sending DisconnectComplete\n");
 	}
-	else if (reason == NO_LINK_TERMINATE)
+	else if (reason == REASON_NO_LINK_TERMINATE)
 	{
 		Log(LogNspMessages, LogVerbose, "Sending NoLink\n");
 	}

@@ -120,11 +120,16 @@ int IsInterruptMessage(byte *nspPayload);
 int IsLinkServiceMessage(byte *nspPayload);
 int IsOtherDataAcknowledgementMessage(byte *nspPayload);
 int IsNoOperationMessage(byte *nspPayload);
+int IsDisconnectCompleteMessage(nsp_disconnect_confirm_t* disconnectConfirm);
+int IsDisconnectNoResourcesMessage(nsp_disconnect_confirm_t* disconnectConfirm);
+int IsDisconnectNoLinkMessage(nsp_disconnect_confirm_t* disconnectConfirm);
+int IsDisconnectDisconnectConfirmMessage(nsp_disconnect_confirm_t* disconnectConfirm);
 
 nsp_header_t *ParseNspHeader(byte *nspPayload, int nspPayloadLength);
 nsp_connect_initiate_t *ParseConnectInitiate(byte *nspPayload, int nspPayloadLength);
 nsp_disconnect_initiate_t *ParseDisconnectInitiate(byte *nspPayload, int nspPayloadLength);
-nsp_data_acknowledgement_t *ParseDataAcknowledgement(byte *nspPayload, int nspPayloadLength);
+nsp_disconnect_confirm_t* ParseDisconnectConfirm(byte* nspPayload, int nspPayloadLength);
+nsp_data_acknowledgement_t* ParseDataAcknowledgement(byte* nspPayload, int nspPayloadLength);
 
 packet_t *NspCreateConnectAcknowledgement(decnet_address_t *toAddress, uint16 dstAddr);
 packet_t *NspCreateConnectConfirm(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, byte services, byte info, uint16 segSize, byte dataLen, byte *data);

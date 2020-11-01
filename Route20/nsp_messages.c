@@ -30,6 +30,7 @@
 #include "basictypes.h"
 #include "packet.h"
 #include "messages.h"
+#include "nsp.h"
 #include "nsp_messages.h"
 
 static byte NspMessageFlags(byte *nspPayload);
@@ -92,6 +93,27 @@ int IsNoOperationMessage(byte *nspPayload)
 	return NspMessageFlags(nspPayload) == 0x08;
 }
 
+int IsDisconnectCompleteMessage(nsp_disconnect_confirm_t* disconnectConfirm)
+{
+	return disconnectConfirm->reason == REASON_DISCONNECT_COMPLETE;
+}
+
+int IsDisconnectNoResourcesMessage(nsp_disconnect_confirm_t* disconnectConfirm)
+{
+	return disconnectConfirm->reason == REASON_NO_RESOURCES;
+}
+
+int IsDisconnectNoLinkMessage(nsp_disconnect_confirm_t* disconnectConfirm)
+{
+	return disconnectConfirm->reason == REASON_NO_LINK_TERMINATE;
+}
+
+int IsDisconnectDisconnectConfirmMessage(nsp_disconnect_confirm_t* disconnectConfirm)
+{
+	return disconnectConfirm->reason != REASON_DISCONNECT_COMPLETE && disconnectConfirm->reason != REASON_NO_RESOURCES && disconnectConfirm->reason != REASON_NO_LINK_TERMINATE;
+}
+
+
 nsp_header_t *ParseNspHeader(byte *nspPayload, int nspPayloadLength)
 {
 	nsp_header_t *header = (nsp_header_t *)nspPayload;
@@ -115,10 +137,18 @@ nsp_connect_initiate_t *ParseConnectInitiate(byte *nspPayload, int nspPayloadLen
 	return payload;
 }
 
-nsp_disconnect_initiate_t *ParseDisconnectInitiate(byte *nspPayload, int nspPayloadLength)
+nsp_disconnect_initiate_t* ParseDisconnectInitiate(byte* nspPayload, int nspPayloadLength)
 {
-	nsp_disconnect_initiate_t *payload = (nsp_disconnect_initiate_t *)nspPayload;
-	payload->reason = LittleEndianBytesToUint16((byte *)&payload->reason);
+	nsp_disconnect_initiate_t* payload = (nsp_disconnect_initiate_t*)nspPayload;
+	payload->reason = LittleEndianBytesToUint16((byte*)&payload->reason);
+
+	return payload;
+}
+
+nsp_disconnect_confirm_t* ParseDisconnectConfirm(byte* nspPayload, int nspPayloadLength)
+{
+	nsp_disconnect_confirm_t* payload = (nsp_disconnect_confirm_t*)nspPayload;
+	payload->reason = LittleEndianBytesToUint16((byte*)&payload->reason);
 
 	return payload;
 }
