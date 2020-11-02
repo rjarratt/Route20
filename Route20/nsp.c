@@ -209,7 +209,10 @@ void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength)
 	}
 	else
 	{
-		Log(LogNsp, LogWarning, "Discarding unrecognised NSP message\n");
+		// TODO: Link Service Message (8.3.3)
+		// TODO: Interrupt Message
+		// TODO: All other messages.
+		Log(LogNsp, LogWarning, "Discarding unrecognised NSP message, msgflg=%02X\n", data[0]);
 //
 //		// Data Acknowledgement, Interrupt, Link Service, Other Data Ack && CC Set to RUN
 //		// 117 msgflg layout lINK SERVICE, iNTERRUPT, Data Ack, Other-dATAT-ACK
@@ -475,6 +478,7 @@ static void ProcessDataMessage(decnet_address_t *from, nsp_header_t *header, byt
 	port = FindScpEntryForRemoteNodeConnection(from, header->dstAddr, header->srcAddr);
 	if (port != NULL)
 	{
+		// TODO: Must process BOM and EOM flags, see 8.3.1.
 		port->dataCallback(port->addrLoc, data + 9, dataLength - 9);
 	}
 }
@@ -601,12 +605,20 @@ static void LogMessage(decnet_address_t *from, void *message)
 	char *messageName;
 	switch (header->msgFlg) // TODO: Centralise translation of message flags with an enum etc
 	{
-	case 0x18:
+		case 0x00:
+		case 0x20:
+		case 0x40:
+		case 0x60:
+		{
+			messageName = "Data Segment";
+			break;
+		}
+		case 0x18:
 		{
 			messageName = "Connect Initiate";
 			break;
 		}
-	case 0x68:
+		case 0x68:
 		{
 			messageName = "Retransmitted Connect Initiate";
 			break;
@@ -648,7 +660,7 @@ static void LogMessage(decnet_address_t *from, void *message)
 		}
 	}
 
-	Log(LogNspMessages, LogVerbose, "%s from ", messageName);
+	Log(LogNspMessages, LogVerbose, "%s(0x%02x) from ", messageName, header->msgFlg);
 	LogDecnetAddress(LogNspMessages, LogVerbose, from);
 	Log(LogNspMessages, LogVerbose, " src=%hu dst=%hu\n", header->srcAddr, header->dstAddr);
 }

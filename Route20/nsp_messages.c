@@ -42,7 +42,7 @@ static byte NspMessageFlags(byte *nspPayload)
 
 int IsNspDataMessage(byte *nspPayload)
 {
-	return (NspMessageFlags(nspPayload) & 0x0C) == 0;
+	return (NspMessageFlags(nspPayload) & 0x9F) == 0;
 }
 
 int IsConnectInitiateMessage(byte *nspPayload)
