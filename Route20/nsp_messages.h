@@ -34,6 +34,13 @@
 #pragma pack(push)
 #pragma pack(1)
 
+typedef enum
+{
+	NoAck,
+	Ack,
+	Nak
+} AckType;
+
 typedef struct
 {
 	byte   msgFlg;
@@ -99,12 +106,26 @@ typedef struct
 
 typedef struct
 {
-	byte   msgFlg;
-	uint16 dstAddr;
-	uint16 srcAddr;
-	uint16 ackNum;
-	uint16 segNum;
-	byte   data[4096];
+	nsp_header_t header;
+	AckType      ackNumType;
+	uint16       ackNum;
+	uint16       ackDat;
+	AckType      ackDatType;
+	uint16       segNum;
+	byte         lsFlags;
+	byte         fcVal;
+} nsp_link_service_t;
+
+typedef struct
+{
+	nsp_header_t header;
+	AckType      ackNumType;
+	uint16       ackNum;
+	uint16       ackOth;
+	AckType      ackOthType;
+	uint16       segNum;
+	int          dataLength;
+	byte         data[4096];
 } nsp_data_segment_t;
 
 #pragma pack(pop)
@@ -129,13 +150,16 @@ nsp_header_t *ParseNspHeader(byte *nspPayload, int nspPayloadLength);
 nsp_connect_initiate_t *ParseConnectInitiate(byte *nspPayload, int nspPayloadLength);
 nsp_disconnect_initiate_t *ParseDisconnectInitiate(byte *nspPayload, int nspPayloadLength);
 nsp_disconnect_confirm_t* ParseDisconnectConfirm(byte* nspPayload, int nspPayloadLength);
+nsp_data_segment_t* ParseDataSegment(byte* nspPayload, int nspPayloadLength);
+nsp_link_service_t* ParseLinkService(byte* nspPayload, int nspPayloadLength);
 nsp_data_acknowledgement_t* ParseDataAcknowledgement(byte* nspPayload, int nspPayloadLength);
 
 packet_t *NspCreateConnectAcknowledgement(decnet_address_t *toAddress, uint16 dstAddr);
 packet_t *NspCreateConnectConfirm(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, byte services, byte info, uint16 segSize, byte dataLen, byte *data);
 packet_t *NspCreateDisconnectInitiate(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 reason, byte dataLen, byte* data);
 packet_t *NspCreateDisconnectConfirm(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 reason);
-packet_t *NspCreateOtherDataAcknowledgement(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number);
+packet_t *NspCreateDataAcknowledgement(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 ackNumber);
+packet_t *NspCreateOtherDataAcknowledgement(decnet_address_t* toAddress, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number);
 packet_t *NspCreateDataMessage(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength);
 
 

@@ -127,7 +127,7 @@ void ConnectCallback(decnet_address_t *remNode, uint16 locAddr, uint16 remAddr, 
 
 void DataCallback(uint16 locAddr, byte *data, int dataLength)
 {
-	Log(LogNetMan, LogVerbose, "Data callback, data=", dataLength);
+	Log(LogNetMan, LogVerbose, "Data callback, data=");
 	LogBytes(LogNetMan, LogVerbose, data, dataLength);
 
 	if (IsNetmanReadInformationMessage(data))

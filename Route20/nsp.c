@@ -51,7 +51,8 @@ static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_
 static void ProcessDisconnectInitiate(decnet_address_t* from, nsp_disconnect_initiate_t* disconnectInitiate);
 static void ProcessDisconnectConfirm(decnet_address_t* from, nsp_disconnect_confirm_t* disconnectConfirm);
 static void ProcessDataAcknowledgement(decnet_address_t *from, nsp_data_acknowledgement_t *dataAcknowledgement);
-static void ProcessDataMessage(decnet_address_t *from, nsp_header_t *header, byte *data, int dataLength);
+static void ProcessDataSegment(decnet_address_t* from, nsp_header_t* header, nsp_data_segment_t* dataSegment);
+static void ProcessLinkService(decnet_address_t* from, nsp_link_service_t* linkService);
 
 static void TransmitQueuedMessages(session_control_port_t *port);
 
@@ -59,7 +60,8 @@ static void SendConnectAcknowledgement(decnet_address_t *to, uint16 dstAddr);
 static void SendDisconnectInitiate(decnet_address_t* to, uint16 srcAddr, uint16 dstAddr, uint16 reason, byte dataLen, byte* data);
 static void SendDisconnectConfirm(decnet_address_t* to, uint16 srcAddr, uint16 dstAddr, uint16 reason);
 static void SendConnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, byte services, byte dataLen, byte* data);
-static void SendOtherDataAcknowledgement(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number);
+static void SendDataAcknowledgement(decnet_address_t* to, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number);
+static void SendOtherDataAcknowledgement(decnet_address_t* to, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number);
 static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength);
 
 static session_control_port_t *FindScpEntryForRemoteNodeConnection(decnet_address_t *node, uint16 locAddr, uint16 remAddr);
@@ -180,6 +182,7 @@ void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength)
 
 	nsp_header_t *header = ParseNspHeader(data, dataLength);
 
+	// TODO: Make logging better so that all message details are logged in one place
 	LogMessage(from, header);
 
 	ProcessLinkConnectionCompletion(from, header);
@@ -198,7 +201,12 @@ void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength)
 	}
 	else if (IsNspDataMessage(data))
 	{
-		ProcessDataMessage(from, header, data, dataLength);
+		ProcessDataSegment(from, header, ParseDataSegment(data, dataLength));
+	}
+	else if (IsLinkServiceMessage(data))
+	{
+		// TODO: Actually process the Link Service Message (8.3.3)
+		ProcessLinkService(from, ParseLinkService(data, dataLength));
 	}
 	else if (IsDataAcknowledgementMessage(data))
 	{
@@ -209,7 +217,6 @@ void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength)
 	}
 	else
 	{
-		// TODO: Link Service Message (8.3.3)
 		// TODO: Interrupt Message
 		// TODO: All other messages.
 		Log(LogNsp, LogWarning, "Discarding unrecognised NSP message, msgflg=%02X\n", data[0]);
@@ -471,18 +478,32 @@ static void ProcessDataAcknowledgement(decnet_address_t *from, nsp_data_acknowle
 	}
 }
 
-static void ProcessDataMessage(decnet_address_t *from, nsp_header_t *header, byte *data, int dataLength)
+static void ProcessDataSegment(decnet_address_t *from, nsp_header_t *header, nsp_data_segment_t* dataSegment)
 {
 	session_control_port_t *port;
 
+	// TODO: Missing check for state of connection
 	port = FindScpEntryForRemoteNodeConnection(from, header->dstAddr, header->srcAddr);
 	if (port != NULL)
 	{
+		// TODO: Keep actual record of segment numbers in the port details and process acks properly including the delayed ack
+		SendDataAcknowledgement(from, port->addrLoc, port->addrRem, 1, dataSegment->segNum);
 		// TODO: Must process BOM and EOM flags, see 8.3.1.
-		port->dataCallback(port->addrLoc, data + 9, dataLength - 9);
+		port->dataCallback(port->addrLoc, dataSegment->data, dataSegment->dataLength);
 	}
 }
 
+static void ProcessLinkService(decnet_address_t* from, nsp_link_service_t* linkService)
+{
+	session_control_port_t* port;
+
+	// TODO: Missing check for state of connection
+	port = FindScpEntryForRemoteNodeConnection(from, linkService->header.dstAddr, linkService->header.srcAddr);
+	if (port != NULL)
+	{
+		SendOtherDataAcknowledgement(from, port->addrLoc, port->addrRem, 1, linkService->segNum);
+	}
+}
 static void TransmitQueuedMessages(session_control_port_t *port)
 {
 	// TODO: NAK and retransmit after timeout
@@ -545,10 +566,20 @@ static void SendConnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstA
 	SendPacket(NULL, to, confirmPacket);
 }
 
-static void SendOtherDataAcknowledgement(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number)
+static void SendDataAcknowledgement(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number)
 {
 	packet_t *confirmPacket;
-	Log(LogNspMessages, LogVerbose, "Sending OtherDataAcknowledgement\n");
+	// TODO: Drive this from port object, including other ack if needed
+	Log(LogNspMessages, LogVerbose, "Sending DataAcknowledgement with %s of segment %d\n", (isAck)? "Ack": "Nak", number & 0xFFF);
+	confirmPacket = NspCreateDataAcknowledgement(to, srcAddr, dstAddr, isAck, number);
+	SendPacket(NULL, to, confirmPacket);
+}
+
+static void SendOtherDataAcknowledgement(decnet_address_t* to, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number)
+{
+	packet_t* confirmPacket;
+	// TODO: Drive this from port object, including other ack if needed
+	Log(LogNspMessages, LogVerbose, "Sending OtherDataAcknowledgement with %s of segment %d\n", (isAck) ? "Ack" : "Nak", number & 0xFFF);
 	confirmPacket = NspCreateOtherDataAcknowledgement(to, srcAddr, dstAddr, isAck, number);
 	SendPacket(NULL, to, confirmPacket);
 }
@@ -556,7 +587,7 @@ static void SendOtherDataAcknowledgement(decnet_address_t *to, uint16 srcAddr, u
 static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength)
 {
 	packet_t *confirmPacket;
-	Log(LogNspMessages, LogVerbose, "Sending DataSegment\n");
+	Log(LogNspMessages, LogVerbose, "Sending DataSegment number %d\n", seqNo);
     confirmPacket = NspCreateDataMessage(to, srcAddr, dstAddr, seqNo, data, dataLength);
 	SendPacket(NULL, to, confirmPacket);
 }

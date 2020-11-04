@@ -34,10 +34,38 @@
 #include "nsp_messages.h"
 
 static byte NspMessageFlags(byte *nspPayload);
+static AckType ParseAckNum(uint16 value, uint16* ackNum);
+static AckType ParseAckOth(uint16 value, uint16* ackOth);
 
 static byte NspMessageFlags(byte *nspPayload)
 {
 	return *nspPayload;
+}
+
+static AckType ParseAckNum(uint16 value, uint16* ackNum)
+{
+	AckType result = NoAck;
+	byte qual = (value >> 12) & 7;
+	if (value & 0x8000 && (qual == 0 || qual == 1))
+	{
+		*ackNum = value & 0xFFF;
+		result = (qual == 0) ? Ack : Nak;
+	}
+
+	return result;
+}
+
+static AckType ParseAckOth(uint16 value, uint16* ackOth)
+{
+	AckType result = NoAck;
+	byte qual = (value >> 12) & 7;
+	if (value & 0x8000 && (qual == 2 || qual == 3))
+	{
+		*ackOth = value & 0xFFF;
+		result = (qual == 2) ? Ack : Nak;
+	}
+
+	return result;
 }
 
 int IsNspDataMessage(byte *nspPayload)
@@ -153,6 +181,67 @@ nsp_disconnect_confirm_t* ParseDisconnectConfirm(byte* nspPayload, int nspPayloa
 	return payload;
 }
 
+nsp_data_segment_t* ParseDataSegment(byte* nspPayload, int nspPayloadLength)
+{
+    // TODO: Implement a proper buffer pool, particularly for out of order messages
+	static nsp_data_segment_t payload;
+	uint16 nextValue;
+	byte* ptr = nspPayload + sizeof(payload.header);
+	memcpy(&payload, nspPayload, sizeof(payload.header));
+
+	nextValue = LittleEndianBytesToUint16(ptr);
+	ptr += sizeof(uint16);
+	payload.ackNumType = ParseAckNum(nextValue, &payload.ackNum);
+	if (payload.ackNumType != NoAck)
+	{
+		nextValue = LittleEndianBytesToUint16(ptr);
+		ptr += sizeof(uint16);
+	}
+
+	payload.ackOthType = ParseAckNum(nextValue, &payload.ackOth);
+	if (payload.ackOthType != NoAck)
+	{
+		nextValue = LittleEndianBytesToUint16(ptr);
+		ptr += sizeof(uint16);
+	}
+
+	payload.segNum = nextValue;
+	payload.dataLength = nspPayloadLength - (ptr - nspPayload);
+	memcpy(payload.data, ptr, payload.dataLength);
+
+	return &payload;
+}
+
+
+nsp_link_service_t* ParseLinkService(byte* nspPayload, int nspPayloadLength)
+{
+	static nsp_link_service_t payload;
+	uint16 nextValue;
+	byte* ptr = nspPayload + sizeof(payload.header);
+	memcpy(&payload, nspPayload, sizeof(payload.header));
+
+	nextValue = LittleEndianBytesToUint16(ptr);
+	ptr += sizeof(uint16);
+	payload.ackNumType = ParseAckNum(nextValue, &payload.ackNum);
+	if (payload.ackNum != NoAck)
+	{
+		nextValue = LittleEndianBytesToUint16(ptr);
+		ptr += sizeof(uint16);
+	}
+
+	payload.ackDatType = ParseAckNum(nextValue, &payload.ackDat);
+	if (payload.ackDat != NoAck)
+	{
+		nextValue = LittleEndianBytesToUint16(ptr);
+		ptr += sizeof(uint16);
+	}
+
+	payload.segNum = nextValue;
+	payload.lsFlags = *ptr++;
+	payload.fcVal = (*ptr++) & 0xF;
+
+	return &payload;
+}
 nsp_data_acknowledgement_t *ParseDataAcknowledgement(byte *nspPayload, int nspPayloadLength)
 {
 	nsp_data_acknowledgement_t * payload = (nsp_data_acknowledgement_t *)nspPayload;
@@ -219,16 +308,30 @@ packet_t *NspCreateDisconnectConfirm(decnet_address_t *toAddress, uint16 srcAddr
 	return ans;
 }
 
-packet_t *NspCreateOtherDataAcknowledgement(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number)
+packet_t *NspCreateDataAcknowledgement(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 ackNumber)
 {
 	packet_t *ans;
+	nsp_data_acknowledgement_t payload;
+	payload.msgFlg = 0x04;
+	payload.srcAddr = Uint16ToLittleEndian(srcAddr);
+	payload.dstAddr = Uint16ToLittleEndian(dstAddr);
+	payload.ackNum = Uint16ToLittleEndian(0x8000 | (isAck ? 0 : 0x1000) | (ackNumber & 0x0FFF));
+	payload.ackDatOth = Uint16ToLittleEndian(0x0000);
+	ans = CreateLongDataMessage(&nodeInfo.address, toAddress, 6, 0, (byte *)&payload, sizeof(payload) - sizeof(payload.ackDatOth));
+
+	return ans;
+}
+
+packet_t* NspCreateOtherDataAcknowledgement(decnet_address_t* toAddress, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number)
+{
+	packet_t* ans;
 	nsp_data_acknowledgement_t payload;
 	payload.msgFlg = 0x14;
 	payload.srcAddr = Uint16ToLittleEndian(srcAddr);
 	payload.dstAddr = Uint16ToLittleEndian(dstAddr);
-	payload.ackNum = Uint16ToLittleEndian(0x8000 | isAck ? 0 : 0x1000 | (number & 0x0FFF));
+	payload.ackNum = Uint16ToLittleEndian(0x8000 | (isAck ? 0 : 0x1000) | (number & 0x0FFF));
 	payload.ackDatOth = Uint16ToLittleEndian(0);
-	ans = CreateLongDataMessage(&nodeInfo.address, toAddress, 6, 0, (byte *)&payload, sizeof(payload));
+	ans = CreateLongDataMessage(&nodeInfo.address, toAddress, 6, 0, (byte*)&payload, sizeof(payload));
 
 	return ans;
 }
@@ -236,14 +339,24 @@ packet_t *NspCreateOtherDataAcknowledgement(decnet_address_t *toAddress, uint16 
 packet_t *NspCreateDataMessage(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength)
 {
 	packet_t *ans;
-	nsp_data_segment_t payload;
-	payload.msgFlg = 0x60;
-	payload.srcAddr = Uint16ToLittleEndian(srcAddr);
-	payload.dstAddr = Uint16ToLittleEndian(dstAddr);
-	payload.ackNum = Uint16ToLittleEndian(0x8001);
-	payload.segNum  = Uint16ToLittleEndian(seqNo);
-	memcpy(payload.data, data, dataLength);
-	ans = CreateLongDataMessage(&nodeInfo.address, toAddress, 6, 0, (byte *)&payload, sizeof(payload) - sizeof(payload.data) + dataLength);
+	nsp_data_segment_t dataSegment;
+	byte payload[sizeof(nsp_data_segment_t)];
+	byte* ptr = payload;
+
+	dataSegment.header.msgFlg = 0x60;
+	dataSegment.header.srcAddr = Uint16ToLittleEndian(srcAddr);
+	dataSegment.header.dstAddr = Uint16ToLittleEndian(dstAddr);
+	dataSegment.ackNumType = NoAck;
+	dataSegment.ackOthType = NoAck;
+	dataSegment.segNum  = Uint16ToLittleEndian(seqNo & 0xFFF);
+
+	memcpy(ptr, &dataSegment, sizeof(nsp_header_t));
+	ptr += sizeof(nsp_header_t);
+	memcpy(ptr, &dataSegment.segNum, sizeof(dataSegment.segNum));
+	ptr += sizeof(dataSegment.segNum);
+	memcpy(ptr, data, dataLength);
+
+	ans = CreateLongDataMessage(&nodeInfo.address, toAddress, 6, 0, (byte *)&payload, sizeof(nsp_header_t) + sizeof(dataSegment.segNum) + dataLength);
 
 	return ans;
 }
