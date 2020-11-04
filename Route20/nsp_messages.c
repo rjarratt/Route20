@@ -266,9 +266,9 @@ packet_t *NspCreateConnectConfirm(decnet_address_t *toAddress, uint16 srcAddr, u
 {
 	packet_t *ans;
 	nsp_connect_confirm_t payload;
-	payload.msgFlg = 0x28;
-	payload.srcAddr = Uint16ToLittleEndian(srcAddr);
-	payload.dstAddr = Uint16ToLittleEndian(dstAddr);
+	payload.header.msgFlg = 0x28;
+	payload.header.srcAddr = Uint16ToLittleEndian(srcAddr);
+	payload.header.dstAddr = Uint16ToLittleEndian(dstAddr);
 	payload.services = services;
 	payload.info = info;
 	payload.segSize = Uint16ToLittleEndian(segSize);
@@ -284,9 +284,9 @@ packet_t *NspCreateDisconnectInitiate(decnet_address_t *toAddress, uint16 srcAdd
 	packet_t *ans;
 	nsp_disconnect_initiate_t payload;
 
-	payload.msgFlg = 0x38;
-	payload.srcAddr = Uint16ToLittleEndian(srcAddr);
-	payload.dstAddr = Uint16ToLittleEndian(dstAddr);
+	payload.header.msgFlg = 0x38;
+	payload.header.srcAddr = Uint16ToLittleEndian(srcAddr);
+	payload.header.dstAddr = Uint16ToLittleEndian(dstAddr);
 	payload.reason = Uint16ToLittleEndian(reason);
 	payload.dataCtl[0] = dataLen;
 	memcpy(&payload.dataCtl[1], data, dataLen);
@@ -299,9 +299,9 @@ packet_t *NspCreateDisconnectConfirm(decnet_address_t *toAddress, uint16 srcAddr
 {
 	packet_t *ans;
 	nsp_disconnect_confirm_t payload;
-	payload.msgFlg = 0x48;
-	payload.srcAddr = Uint16ToLittleEndian(srcAddr);
-	payload.dstAddr = Uint16ToLittleEndian(dstAddr);
+	payload.header.msgFlg = 0x48;
+	payload.header.srcAddr = Uint16ToLittleEndian(srcAddr);
+	payload.header.dstAddr = Uint16ToLittleEndian(dstAddr);
 	payload.reason = Uint16ToLittleEndian(reason);
 	ans = CreateLongDataMessage(&nodeInfo.address, toAddress, 6, 0, (byte *)&payload, sizeof(payload));
 
@@ -312,9 +312,9 @@ packet_t *NspCreateDataAcknowledgement(decnet_address_t *toAddress, uint16 srcAd
 {
 	packet_t *ans;
 	nsp_data_acknowledgement_t payload;
-	payload.msgFlg = 0x04;
-	payload.srcAddr = Uint16ToLittleEndian(srcAddr);
-	payload.dstAddr = Uint16ToLittleEndian(dstAddr);
+	payload.header.msgFlg = 0x04;
+	payload.header.srcAddr = Uint16ToLittleEndian(srcAddr);
+	payload.header.dstAddr = Uint16ToLittleEndian(dstAddr);
 	payload.ackNum = Uint16ToLittleEndian(0x8000 | (isAck ? 0 : 0x1000) | (ackNumber & 0x0FFF));
 	payload.ackDatOth = Uint16ToLittleEndian(0x0000);
 	ans = CreateLongDataMessage(&nodeInfo.address, toAddress, 6, 0, (byte *)&payload, sizeof(payload) - sizeof(payload.ackDatOth));
@@ -326,9 +326,9 @@ packet_t* NspCreateOtherDataAcknowledgement(decnet_address_t* toAddress, uint16 
 {
 	packet_t* ans;
 	nsp_data_acknowledgement_t payload;
-	payload.msgFlg = 0x14;
-	payload.srcAddr = Uint16ToLittleEndian(srcAddr);
-	payload.dstAddr = Uint16ToLittleEndian(dstAddr);
+	payload.header.msgFlg = 0x14;
+	payload.header.srcAddr = Uint16ToLittleEndian(srcAddr);
+	payload.header.dstAddr = Uint16ToLittleEndian(dstAddr);
 	payload.ackNum = Uint16ToLittleEndian(0x8000 | (isAck ? 0 : 0x1000) | (number & 0x0FFF));
 	payload.ackDatOth = Uint16ToLittleEndian(0);
 	ans = CreateLongDataMessage(&nodeInfo.address, toAddress, 6, 0, (byte*)&payload, sizeof(payload));

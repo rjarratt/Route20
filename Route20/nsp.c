@@ -259,10 +259,10 @@ static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_
 	//LogBytes(LogNsp, LogVerbose, connectInitiate->dataCtl, connectInitiate->dataCtlLength);
 	//Log(LogNsp, LogVerbose, "\n");
 
-	if (connectInitiate->dstAddr == 0)
+	if (connectInitiate->header.dstAddr == 0)
 	{
 		session_control_port_t *port;
-		port = FindScpEntryForRemoteNode(from, connectInitiate->srcAddr);
+		port = FindScpEntryForRemoteNode(from, connectInitiate->header.srcAddr);
 		if (port == NULL)
 		{
 			port = NspFindOpenScpDatabaseEntry();
@@ -274,17 +274,17 @@ static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_
 			{
 				case NspPortStateOpen:
 				{
-					port->addrRem = connectInitiate->srcAddr;
+					port->addrRem = connectInitiate->header.srcAddr;
 					memcpy(&port->node, from, sizeof(decnet_address_t));
 					SetPortState(port, NspPortStateConnectReceived);
-					SendConnectAcknowledgement(from, connectInitiate->srcAddr);
+					SendConnectAcknowledgement(from, connectInitiate->header.srcAddr);
 					break;
 				}
 				case NspPortStateConnectReceived:
 				case NspPortStateConnectConfirm:
 				case NspPortStateDisconnectReject:
 				{
-					SendConnectAcknowledgement(from, connectInitiate->srcAddr);
+					SendConnectAcknowledgement(from, connectInitiate->header.srcAddr);
 					break;
 				}
 				default:
@@ -297,7 +297,7 @@ static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_
 		}
 		else
 		{
-			SendDisconnectConfirm(from, connectInitiate->dstAddr, connectInitiate->srcAddr, REASON_NO_RESOURCES);
+			SendDisconnectConfirm(from, connectInitiate->header.dstAddr, connectInitiate->header.srcAddr, REASON_NO_RESOURCES);
 		}
 	}
 
@@ -307,7 +307,7 @@ static void ProcessDisconnectInitiate(decnet_address_t *from, nsp_disconnect_ini
 {
 	session_control_port_t *port;
 
-	port = FindScpEntryForRemoteNodeConnection(from, disconnectInitiate->dstAddr, disconnectInitiate->srcAddr);
+	port = FindScpEntryForRemoteNodeConnection(from, disconnectInitiate->header.dstAddr, disconnectInitiate->header.srcAddr);
 	if (port != NULL)
 	{
 		switch (port->state)
@@ -315,31 +315,31 @@ static void ProcessDisconnectInitiate(decnet_address_t *from, nsp_disconnect_ini
 		case NspPortStateConnectInitiate:
 		case NspPortStateConnectDelivered:
 			{
-				SendDisconnectConfirm(from, disconnectInitiate->dstAddr, disconnectInitiate->srcAddr, disconnectInitiate->reason);
+				SendDisconnectConfirm(from, disconnectInitiate->header.dstAddr, disconnectInitiate->header.srcAddr, disconnectInitiate->reason);
 			    SetPortState(port, NspPortStateRejected);
 				break;
 			}
 		case NspPortStateRejected:
 			{
-				SendDisconnectConfirm(from, disconnectInitiate->dstAddr, disconnectInitiate->srcAddr, disconnectInitiate->reason);
+				SendDisconnectConfirm(from, disconnectInitiate->header.dstAddr, disconnectInitiate->header.srcAddr, disconnectInitiate->reason);
 				break;
 			}
 		case NspPortStateRunning:
 			{
-				SendDisconnectConfirm(from, disconnectInitiate->dstAddr, disconnectInitiate->srcAddr, disconnectInitiate->reason);
+				SendDisconnectConfirm(from, disconnectInitiate->header.dstAddr, disconnectInitiate->header.srcAddr, disconnectInitiate->reason);
 			    SetPortState(port, NspPortStateDisconnectNotification);
 				break;
 			}
 		case NspPortStateDisconnectInitiate:
 		case NspPortStateDisconnectComplete:
 			{
-				SendDisconnectConfirm(from, disconnectInitiate->dstAddr, disconnectInitiate->srcAddr, disconnectInitiate->reason);
+				SendDisconnectConfirm(from, disconnectInitiate->header.dstAddr, disconnectInitiate->header.srcAddr, disconnectInitiate->reason);
 			    SetPortState(port, NspPortStateDisconnectComplete);
 				break;
 			}
 		case NspPortStateDisconnectNotification:
 			{
-				SendDisconnectConfirm(from, disconnectInitiate->dstAddr, disconnectInitiate->srcAddr, disconnectInitiate->reason);
+				SendDisconnectConfirm(from, disconnectInitiate->header.dstAddr, disconnectInitiate->header.srcAddr, disconnectInitiate->reason);
 				break;
 			}
         default:
@@ -355,7 +355,7 @@ static void ProcessDisconnectInitiate(decnet_address_t *from, nsp_disconnect_ini
 static void ProcessDisconnectConfirm(decnet_address_t* from, nsp_disconnect_confirm_t* disconnectConfirm)
 {
 	session_control_port_t* port;
-	port = FindScpEntryForRemoteNodeConnection(from, disconnectConfirm->dstAddr, disconnectConfirm->srcAddr);
+	port = FindScpEntryForRemoteNodeConnection(from, disconnectConfirm->header.dstAddr, disconnectConfirm->header.srcAddr);
 
 	if (port != NULL)
 	{
@@ -446,14 +446,14 @@ static void ProcessDataAcknowledgement(decnet_address_t *from, nsp_data_acknowle
 {
 	session_control_port_t *port;
 
-	port = FindScpEntryForRemoteNode(from, dataAcknowledgement->srcAddr);
+	port = FindScpEntryForRemoteNode(from, dataAcknowledgement->header.srcAddr);
 	if (port != NULL)
 	{
 		uint16 ackDataField;
 		int isAck;
 		uint16 ackNum;
 
-		if (dataAcknowledgement->msgFlg == 4)
+		if (dataAcknowledgement->header.msgFlg == 4)
 		{
 			ackDataField = dataAcknowledgement->ackNum;
 		}

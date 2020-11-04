@@ -46,18 +46,16 @@ typedef struct
 	byte   msgFlg;
 	uint16 dstAddr;
 	uint16 srcAddr;
-} nsp_header_t; // TODO: replace header in all below relevant messages.
+} nsp_header_t;
 
 typedef struct
 {
-	byte   msgFlg;
-	uint16 dstAddr;
-	uint16 srcAddr;
-	byte   services;
-	byte   info;
-	uint16 segSize;
-	byte   dataCtl[64]; /* length is actually unknown */
-	int    dataCtlLength; /* not part of the wire format */
+	nsp_header_t header;
+	byte         services;
+	byte         info;
+	uint16       segSize;
+	byte         dataCtl[64]; /* length is actually unknown */
+	int          dataCtlLength; /* not part of the wire format */
 } nsp_connect_initiate_t;
 
 typedef struct
@@ -69,39 +67,31 @@ typedef struct
 
 typedef struct
 {
-	byte   msgFlg;
-	uint16 dstAddr;
-	uint16 srcAddr;
-	byte   services;
-	byte   info;
-	uint16 segSize;
-	byte   dataCtl[17]; /* I-16 field, so up to 17 bytes including the length byte */
+	nsp_header_t header;
+	byte         services;
+	byte         info;
+	uint16       segSize;
+	byte         dataCtl[17]; /* I-16 field, so up to 17 bytes including the length byte */
 } nsp_connect_confirm_t;
 
 typedef struct
 {
-	byte   msgFlg;
-	uint16 dstAddr;
-	uint16 srcAddr;
-	uint16 reason;
-	byte   dataCtl[17];
+	nsp_header_t header;
+	uint16       reason;
+	byte         dataCtl[17];
 } nsp_disconnect_initiate_t;
 
 typedef struct
 {
-	byte   msgFlg;
-	uint16 dstAddr;
-	uint16 srcAddr;
-	uint16 reason;
+	nsp_header_t header;
+	uint16       reason;
 } nsp_disconnect_confirm_t;
 
 typedef struct
 {
-	byte   msgFlg;
-	uint16 dstAddr;
-	uint16 srcAddr;
-	uint16 ackNum;
-	uint16 ackDatOth; /* depending on which data ack it is ackdat or ackoth */
+	nsp_header_t header;
+	uint16       ackNum;
+	uint16       ackDatOth; /* depending on which data ack it is ackdat or ackoth */
 } nsp_data_acknowledgement_t;
 
 typedef struct
