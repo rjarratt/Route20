@@ -169,8 +169,8 @@ void NspTransmit(uint16 srcAddr, byte *data, int dataLength)
 	port = NspFindScpDatabaseEntryByLocalAddress(srcAddr);
 	if (port != NULL)
 	{
-		port->transmitSegNum++;
-		EnqueueToTransmitQueue(&port->transmit_queue, port->transmitSegNum, data, dataLength);
+		port->numSent++;
+		EnqueueToTransmitQueue(&port->transmit_queue, port->numSent, data, dataLength);
         TransmitQueuedMessages(port);
 	}
 }
@@ -467,7 +467,7 @@ static void ProcessDataAcknowledgement(decnet_address_t *from, nsp_data_acknowle
 		if (isAck)
 		{
             Log(LogNspMessages, LogVerbose, "ACK of segment %d\n", ackNum);
-		    port->flowRem = ackNum;
+		    port->flowRemDat = ackNum;
 		    TransmitQueuedMessages(port);
 		}
 		else
@@ -511,7 +511,7 @@ static void TransmitQueuedMessages(session_control_port_t *port)
 	int dataLength;
 	uint16 transmitSegmentNumber;
 
-	while (DequeueFromTransmitQueue(&port->transmit_queue, port->flowRem + 1, &transmitSegmentNumber, data, sizeof(data), &dataLength))
+	while (DequeueFromTransmitQueue(&port->transmit_queue, port->flowRemDat + 1, &transmitSegmentNumber, data, sizeof(data), &dataLength))
 	{
         SendDataSegment(&port->node, port->addrLoc, port->addrRem, transmitSegmentNumber, data, dataLength);
 	}
