@@ -56,6 +56,7 @@ void DataCallback(uint16 locAddr, byte *data, int dataLength);
 static void ProcessReadInformationMessage(uint16 locAddr, netman_read_information_t *readInformation);
 static void ProcessShowKnownCircuits(uint16 locAddr);
 static void ProcessShowAdjacentNodes(uint16 locAddr);
+static void ProcessShowExecutorCharacteristics(uint16 locAddr);
 
 static void SendAcceptWithMultipleResponses(uint16 locAddr);
 static void SendDoneWithMultipleResponses(uint16 locAddr);
@@ -161,6 +162,10 @@ static void ProcessReadInformationMessage(uint16 locAddr, netman_read_informatio
 	{
 		ProcessShowAdjacentNodes(locAddr);
 	}
+	else if (isVolatile && infoType == NetmanCharacteristicsInfoTypeCode && entityType == NetmanNodeEntityTypeCode)
+	{
+		ProcessShowExecutorCharacteristics(locAddr);
+	}
 	else
 	{
 		SendError(locAddr);
@@ -254,6 +259,16 @@ static void ProcessShowAdjacentNodes(uint16 locAddr)
 			SendCircuitInfo(locAddr, circuit, NULL);
 		}
 	}
+
+	SendDoneWithMultipleResponses(locAddr);
+}
+
+static void ProcessShowExecutorCharacteristics(uint16 locAddr)
+{
+	Log(LogNetMan, LogInfo, "Processing SHOW EXECUTOR CHARACTERISTICS for port %hu\n", locAddr);
+
+	SendAcceptWithMultipleResponses(locAddr);
+
 
 	SendDoneWithMultipleResponses(locAddr);
 }
