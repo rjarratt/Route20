@@ -265,10 +265,22 @@ static void ProcessShowAdjacentNodes(uint16 locAddr)
 
 static void ProcessShowExecutorCharacteristics(uint16 locAddr)
 {
+	byte responseData[512];
+	int len = 0;
+
 	Log(LogNetMan, LogInfo, "Processing SHOW EXECUTOR CHARACTERISTICS for port %hu\n", locAddr);
 
 	SendAcceptWithMultipleResponses(locAddr);
 
+	len = 0;
+	memset(responseData, 0, sizeof(responseData));
+	responseData[len++] = 1; /* Success */
+	responseData[len++] = 0xFF;
+	responseData[len++] = 0xFF;
+	responseData[len++] = 0;
+	AddDecnetIdToResponse(responseData, &len, &nodeInfo.address);
+	AddStringToResponse(responseData, &len, nodeInfo.name);
+	NspTransmit(locAddr, responseData, len);
 
 	SendDoneWithMultipleResponses(locAddr);
 }
