@@ -39,6 +39,15 @@
 
 #define OBJECT_NML 19
 
+#define ENTITY_TYPE_C_IDENTIFICATION 100
+#define ENTITY_TYPE_C_MANAGEMENT_VERSION 101
+#define ENTITY_TYPE_C_TYPE 901
+
+#define DATA_TYPE_C(n) (0x80 | n)
+#define DATA_TYPE_AI 0x40
+#define DATA_TYPE_DU(n) (0x00 | n)
+#define DATA_TYPE_CM(n) (0xC0 | n)
+
 int numCircuits;
 
 typedef struct
@@ -66,7 +75,9 @@ static int AdjacentNodeCircuitCallback(adjacency_t *adjacency, void *context);
 static int AdjacentNodeCallback(adjacency_t *adjacency, void *context);
 static void SendCircuitInfo(uint16 srcPort, circuit_t *circuit, decnet_address_t *address);
 static void SendAdjacentNodeInfo(uint16 srcPort, circuit_t *circuit, decnet_address_t *address);
-static void AddDecnetIdToResponse(byte *data, int *pos, decnet_address_t *address);
+static void StartDataBlockResponse(byte* data, int* pos);
+static void AddDecnetIdToResponse(byte* data, int* pos, decnet_address_t* address);
+static void AddEntityTypeAndDataTypeToResponse(byte* data, int* pos, uint16 entityType, byte dataType);
 static void AddStringToResponse(byte *data, int *pos, char *s);
 
 void NetManInitialise(void)
@@ -266,20 +277,30 @@ static void ProcessShowAdjacentNodes(uint16 locAddr)
 static void ProcessShowExecutorCharacteristics(uint16 locAddr)
 {
 	byte responseData[512];
-	int len = 0;
+	int len;
 
 	Log(LogNetMan, LogInfo, "Processing SHOW EXECUTOR CHARACTERISTICS for port %hu\n", locAddr);
 
 	SendAcceptWithMultipleResponses(locAddr);
 
-	len = 0;
-	memset(responseData, 0, sizeof(responseData));
-	responseData[len++] = 1; /* Success */
-	responseData[len++] = 0xFF;
-	responseData[len++] = 0xFF;
-	responseData[len++] = 0;
+	StartDataBlockResponse(responseData, &len);
 	AddDecnetIdToResponse(responseData, &len, &nodeInfo.address);
 	AddStringToResponse(responseData, &len, nodeInfo.name);
+
+	AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_C_IDENTIFICATION, DATA_TYPE_AI);
+	AddStringToResponse(responseData, &len, "Route20 User Mode Router");
+
+	AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_C_MANAGEMENT_VERSION, DATA_TYPE_CM(3));
+	responseData[len++] = DATA_TYPE_DU(1);
+	responseData[len++] = NETMAN_VERSION;
+	responseData[len++] = DATA_TYPE_DU(1);
+	responseData[len++] = NETMAN_DEC_ECO;
+	responseData[len++] = DATA_TYPE_DU(1);
+	responseData[len++] = NETMAN_USER_ECO;
+
+	AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_C_TYPE, DATA_TYPE_C(1));
+	responseData[len++] = nodeInfo.level == 1 ? 4 : 3;
+
 	NspTransmit(locAddr, responseData, len);
 
 	SendDoneWithMultipleResponses(locAddr);
@@ -311,12 +332,8 @@ static int AdjacentNodeCallback(adjacency_t *adjacency, void *context)
 static void SendCircuitInfo(uint16 srcPort, circuit_t *circuit, decnet_address_t *address)
 {
 	byte responseData[512];
-	int len = 0;
-	memset(responseData, 0, sizeof(responseData));
-	responseData[len++] = 1; /* Success */
-	responseData[len++] = 0xFF;
-	responseData[len++] = 0xFF;
-	responseData[len++] = 0;
+	int len;
+	StartDataBlockResponse(responseData, &len);
 	AddStringToResponse(responseData, &len, circuit->name);
 
 	/* Circuit State */
@@ -327,7 +344,7 @@ static void SendCircuitInfo(uint16 srcPort, circuit_t *circuit, decnet_address_t
 
 	if (address != NULL)
 	{
-		responseData[len++] = 0x20;  /* DataId = Adjacent node */
+		responseData[len++] = 0x20;  /* DataId = Adjacent node */ // TODO: Use AddEntityType
 		responseData[len++] = 0x03;  /* DataId = Adjacent node */
 		responseData[len++] = 0xC1;  /* Data Type Coded Multiple Fields (1 fields) */
 		responseData[len++] = 0x02;  /* length of DECnet ID */
@@ -340,12 +357,8 @@ static void SendCircuitInfo(uint16 srcPort, circuit_t *circuit, decnet_address_t
 static void SendAdjacentNodeInfo(uint16 srcPort, circuit_t *circuit, decnet_address_t *address)
 {
 	byte responseData[512];
-	int len = 0;
-	memset(responseData, 0, sizeof(responseData));
-	responseData[len++] = 1; /* Success */
-	responseData[len++] = 0xFF;
-	responseData[len++] = 0xFF;
-	responseData[len++] = 0;
+	int len;
+	StartDataBlockResponse(responseData, &len);
 	AddDecnetIdToResponse(responseData, &len, address);
 	responseData[len++] = 0; /* length of name - not supplying it */
 
@@ -364,11 +377,27 @@ static void SendAdjacentNodeInfo(uint16 srcPort, circuit_t *circuit, decnet_addr
 	NspTransmit(srcPort, responseData, len);
 }
 
+static void StartDataBlockResponse(byte* data, int* pos)
+{
+	*pos = 0;
+	memset(data, 0, sizeof(data));
+	data[(*pos)++] = 1; /* Success */
+	data[(*pos)++] = 0xFF;
+	data[(*pos)++] = 0xFF;
+	data[(*pos)++] = 0;
+}
+
 static void AddDecnetIdToResponse(byte *data, int *pos, decnet_address_t *address)
 {
 		uint16 id = Uint16ToLittleEndian(GetDecnetId(*address));
 		memcpy(&data[*pos], &id, sizeof(uint16));
 		*pos = *pos + sizeof(uint16);
+}
+static void AddEntityTypeAndDataTypeToResponse(byte* data, int* pos, uint16 entityType, byte dataType)
+{
+	data[(*pos)++] = entityType & 0xFF;
+	data[(*pos)++] = (entityType >> 8) & 0xFF;
+	data[(*pos)++] = dataType;
 }
 
 static void AddStringToResponse(byte *data, int *pos, char *s)
