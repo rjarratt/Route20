@@ -235,7 +235,6 @@ int EthPcapLineWritePacket(line_t *line, packet_t *packet)
     u_char *data = packet->rawData;
     int len = packet->rawLen;
     int retries = 0;
-    char* pcapErr;
 
 #define PCAP_WARN_RETRY 10
 #define PCAP_ERROR_RETRY 50
@@ -250,12 +249,6 @@ int EthPcapLineWritePacket(line_t *line, packet_t *packet)
 
     while (pcap_sendpacket(pcapContext->pcap, (const u_char *)data, len) != 0 && retries <= PCAP_ERROR_RETRY)
     {
-        pcapErr = pcap_geterr(pcapContext->pcap);
-        if (strcpy(pcapErr, "Bad file descriptor") == 0)
-        {
-            retries = PCAP_ERROR_RETRY + 1;
-            break;
-        }
 
         if (retries != 0 && (retries % PCAP_WARN_RETRY) == 0)
         {

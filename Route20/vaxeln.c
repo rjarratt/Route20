@@ -117,13 +117,10 @@ static int ElnConfig(char *fileName, ConfigReadMode mode);
 static void ProcessEventsPort();
 static void ProcessEventsSock();
 static void show_arp_entries();
-static void LogProgramArguments();
 static void SetTimeFromOtherNode(char *dateTimeFile);
-static void EnsureDecnetRunning();
 
 route20()
 {
-    int i;
     int status;
     int arguments=eln$program_argument_count();
     VARYING_STRING(255) configFileName;
@@ -137,7 +134,6 @@ route20()
     }
 
     InitialiseLogging();
-    LogProgramArguments();
     /* If there is 1 arg then it is autostarted, if there are more than 3 then it will be started from the console.
     If started from the console it needs the CONSOLE args to be able to do console I/O.
     */
@@ -166,9 +162,8 @@ route20()
         dateTimeFileName.data[dateTimeFileName.count] = '\0';
         Log(LogGeneral, LogInfo, "Configuration file is %s\n", configFileName.data);
         Log(LogGeneral, LogInfo, "Date & time file is %s\n", dateTimeFileName.data);
-        EnsureDecnetRunning();
-        SetTimeFromOtherNode("100::\"task=datetime.com\"");
-        if (InitialiseConfig(ElnConfig, configFileName.data))
+        /*SetTimeFromOtherNode(dateTimeFileName.data);*/
+        if (InitialiseConfig(ReadConfig, configFileName.data))
         {
             /* As there is no obvious way to set the Ethernet physical address, we include DECnet in
             the image, so that it can set the physical address. Then we stop it, here, and take over
@@ -194,33 +189,10 @@ route20()
                 InitialiseSynchronisation();
                 MainLoop();
             }
-            else
-            {
-                Log(LogGeneral, LogFatal, "Exiting because failed to initiliase DECnet\n");
-            }
-        }
-        else
-        {
-            Log(LogGeneral, LogFatal, "Exiting because failed to initiliase configuration\n");
         }
     }
 
     Log(LogGeneral, LogInfo, "Exited");
-}
-
-void LogProgramArguments()
-{
-    int i;
-    int arguments = eln$program_argument_count();
-    VARYING_STRING(255) argument;
-
-    Log(LogGeneral, LogInfo, "Argument count is %d\n", arguments);
-    for (i = 0; i < arguments; i++)
-    {
-        eln$program_argument(&argument, i + 1);
-        argument.data[argument.count] = '\0';
-        Log(LogGeneral, LogInfo, "  Argument %d is %s\n", i + 1, argument);
-    }
 }
 
 void SetTimeFromOtherNode(char *dateTimeFile)
@@ -230,7 +202,7 @@ void SetTimeFromOtherNode(char *dateTimeFile)
     struct dsc$descriptor destinationName;
     VARYING_STRING(16) connectData;
     VARYING_STRING(16) acceptData;
-    $DESCRIPTOR(time_string, "01-JAN-2016 09:00:00");
+    struct dsc$descriptor time_string;
     LARGE_INTEGER tvalue;
 
     ker$create_port(&status, &srcPort, 4);
@@ -242,20 +214,19 @@ void SetTimeFromOtherNode(char *dateTimeFile)
     ker$connect_circuit(&status, &srcPort, NULL, &destinationName, NULL, &connectData, acceptData);
     if ((status % 2) == 0)
     {
-        Log(LogGeneral, LogError, "Cannot connect to node for time service: %s. Default time will be used.\n", GetMsg(status));
+        Log(LogGeneral, LogError, "Cannot connect to node for time service: %s\n", GetMsg(status));
     }
     else
     {
         Log(LogGeneral, LogInfo, "Time service response: %0.*s\n", acceptData.count, acceptData.data);
         time_string.dsc$a_pointer = acceptData.data;
         time_string.dsc$w_length = acceptData.count;
+        tvalue = eln$time_value(&time_string);
+        ker$set_time (NULL, &tvalue);
         ker$disconnect_circuit(NULL, &srcPort);
     }
+
     ker$delete(NULL, &srcPort);
-
-    tvalue = eln$time_value(&time_string);
-    ker$set_time (NULL, &tvalue);
-
     /*    int success = 0;
     char buf[80];
     struct dsc$descriptor time_string;
@@ -281,15 +252,6 @@ void SetTimeFromOtherNode(char *dateTimeFile)
     }
     }
     while (!success);*/
-}
-
-void EnsureDecnetRunning()
-{
-    int status;
-    /*eln$netman_start_network(status, specified_fields,
-                                               node_address, node_name,
-                                               line_name)*/
- 
 }
 
 int stricmp(char *str1, char *str2)
@@ -510,8 +472,7 @@ static int ElnConfig(char *fileName, ConfigReadMode mode)
     nodeInfo.priority = 65;
     strcpy(nodeInfo.name, "A5RTR2");
     CircuitCreateEthernetPcap(&Circuits[1 + numCircuits++],"eth0", 3, ProcessCircuitEvent);
-    /*CircuitCreateEthernetSocket(&Circuits[1 + numCircuits++], "130.238.19.25", 4711, 4711, 5, ProcessCircuitEvent);*/
-    CircuitCreateEthernetSocket(&Circuits[1 + numCircuits++], "192.168.0.20", 4711, 4711, 5, ProcessCircuitEvent);
+    CircuitCreateEthernetSocket(&Circuits[1 + numCircuits++], "130.238.19.25", 4711, 4711, 5, ProcessCircuitEvent);
     Log(LogGeneral, LogDetail, "Finished hard coded configuration.\n");
 
     return 1;

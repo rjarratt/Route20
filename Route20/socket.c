@@ -106,19 +106,7 @@ void InitialiseSocket(socket_t *sock, char *eventName)
 
 int OpenUdpSocket(socket_t *sock, uint16 receivePort)
 {
-	int ans = 0;
-    uint16 i = 0;
-    
-    while (!ans && i < 10)
-    {
-        if (i > 0)
-        {
-            Log(LogSock, LogError, "Trying next port %d for %s\n", receivePort + i, sock->eventName);
-        }
-
-        ans = OpenSocket(sock, sock->eventName, receivePort + i, SOCK_DGRAM, IPPROTO_UDP);
-        i++;
-    }
+	int ans = OpenSocket(sock, sock->eventName, receivePort, SOCK_DGRAM, IPPROTO_UDP);
 
 	return ans;
 }
@@ -170,9 +158,6 @@ int ReadFromDatagramSocket(socket_t *sock, packet_t *packet, sockaddr_t *receive
 	static byte buf[8192];
 	int ans;
 	socklen_t ilen;
-    int seq;
-    static int lastSeq;
-    int dropped;
 
 	ans = 1;
 	ilen = sizeof(*receivedFrom);
@@ -185,17 +170,6 @@ int ReadFromDatagramSocket(socket_t *sock, packet_t *packet, sockaddr_t *receive
 		    LogBytes(LogSock, LogVerbose, buf, packet->rawLen);
         }
 		packet->rawData = buf;
-        //memcpy(&seq, buf, 4);
-        //seq = ntohl(seq);
-        //packet->rawData += 4;
-        //packet->rawLen -= 4;
-        //if (seq != lastSeq + 1)
-        //{
-        //    dropped = seq - (lastSeq + 1);
-        //    Log(LogSock, LogWarning, "Dropped %d packet%s\n", dropped, (dropped > 1)? "s":"");
-        //}
-
-        //lastSeq = seq;
 	}
 	else
 	{
@@ -587,7 +561,6 @@ static void SetNonBlocking(socket_t *socket)
 static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int type, int protocol)
 {
 	sockaddr_in_t sa;
-    int enabledOption = 1;
 
     Log(LogSock, LogVerbose, "Opening %s socket for %s, receive port is %d, protocol is %d\n", (type==SOCK_DGRAM) ? "UDP": "TCP", eventName, receivePort, protocol);
     InitialiseSocket(sock, eventName);
@@ -608,10 +581,6 @@ static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int t
 		else
 		{
 			SetNonBlocking(sock);
-            if (setsockopt(sock->socket, SOL_SOCKET, SO_REUSEADDR, (char *)&enabledOption, sizeof(enabledOption)) != 0)
-            {
-                Log(LogSock, LogError, "Failed to set reuseaddr for %s, error is %d\n", eventName, errno);
-            }
 			sa.sin_family = AF_INET;
 			sa.sin_port = htons(receivePort);
 			sa.sin_addr.s_addr = INADDR_ANY; /* TODO: use specific interface? */
