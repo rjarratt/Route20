@@ -259,7 +259,6 @@ int EthPcapLineWritePacket(line_t *line, packet_t *packet)
 
         if (retries != 0 && (retries % PCAP_WARN_RETRY) == 0)
         {
-            // TODO: Orderly shutdown hangs if this happens
             Log(LogEthPcapLine, LogWarning, "Experiencing problems writing to %s using pcap, retrying: %s\n", line->name, pcapErr);
         }
 
