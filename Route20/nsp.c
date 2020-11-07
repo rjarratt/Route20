@@ -46,15 +46,17 @@ typedef struct
 	uint16            remAddr;
 } PortSearchContext;
 
-static void ProcessLinkConnectionCompletion(decnet_address_t *from, nsp_header_t *);
-static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_t *connectInitiate);
-static void ProcessDisconnectInitiate(decnet_address_t* from, nsp_disconnect_initiate_t* disconnectInitiate);
-static void ProcessDisconnectConfirm(decnet_address_t* from, nsp_disconnect_confirm_t* disconnectConfirm);
-static void ProcessDataAcknowledgement(decnet_address_t *from, nsp_data_acknowledgement_t *dataAcknowledgement);
-static void ProcessDataSegment(decnet_address_t* from, nsp_header_t* header, nsp_data_segment_t* dataSegment);
-static void ProcessLinkService(decnet_address_t* from, nsp_link_service_t* linkService);
+static void ProcessLinkConnectionCompletionMessage(decnet_address_t *from, nsp_header_t *);
+static void ProcessConnectInitiateMessage(decnet_address_t *from, nsp_connect_initiate_t *connectInitiate);
+static void ProcessDisconnectInitiateMessage(decnet_address_t* from, nsp_disconnect_initiate_t* disconnectInitiate);
+static void ProcessDisconnectConfirmMessage(decnet_address_t* from, nsp_disconnect_confirm_t* disconnectConfirm);
+static void ProcessDataAcknowledgementMessage(decnet_address_t *from, nsp_data_acknowledgement_t *dataAcknowledgement);
+static void ProcessDataSegmentMessage(decnet_address_t* from, nsp_header_t* header, nsp_data_segment_t* dataSegment);
+static void ProcessLinkServiceMessage(decnet_address_t* from, nsp_link_service_t* linkService);
 
 static void TransmitQueuedMessages(session_control_port_t *port);
+
+static void ProcessDataAck(session_control_port_t* port, AckType ackNumType, uint16 ackNum);
 
 static void SendConnectAcknowledgement(decnet_address_t *to, uint16 dstAddr); 
 static void SendDisconnectInitiate(decnet_address_t* to, uint16 srcAddr, uint16 dstAddr, uint16 reason, byte dataLen, byte* data);
@@ -185,32 +187,32 @@ void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength)
 	// TODO: Make logging better so that all message details are logged in one place
 	LogMessage(from, header);
 
-	ProcessLinkConnectionCompletion(from, header);
+	ProcessLinkConnectionCompletionMessage(from, header);
 
 	if (IsConnectInitiateMessage(data) || IsRetransmittedConnectInitiateMessage(data))
 	{
-		ProcessConnectInitiate(from, ParseConnectInitiate(data, dataLength));
+		ProcessConnectInitiateMessage(from, ParseConnectInitiate(data, dataLength));
 	}
 	else if (IsDisconnectInitiateMessage(data))
 	{
-		ProcessDisconnectInitiate(from, ParseDisconnectInitiate(data, dataLength));
+		ProcessDisconnectInitiateMessage(from, ParseDisconnectInitiate(data, dataLength));
 	}
 	else if (IsDisconnectConfirmMessage(data))
 	{
-		ProcessDisconnectConfirm(from, ParseDisconnectConfirm(data, dataLength));
+		ProcessDisconnectConfirmMessage(from, ParseDisconnectConfirm(data, dataLength));
 	}
 	else if (IsNspDataMessage(data))
 	{
-		ProcessDataSegment(from, header, ParseDataSegment(data, dataLength));
+		ProcessDataSegmentMessage(from, header, ParseDataSegment(data, dataLength));
 	}
 	else if (IsLinkServiceMessage(data))
 	{
 		// TODO: Actually process the Link Service Message (8.3.3)
-		ProcessLinkService(from, ParseLinkService(data, dataLength));
+		ProcessLinkServiceMessage(from, ParseLinkService(data, dataLength));
 	}
 	else if (IsDataAcknowledgementMessage(data))
 	{
-		ProcessDataAcknowledgement(from, ParseDataAcknowledgement(data, dataLength));
+		ProcessDataAcknowledgementMessage(from, ParseDataAcknowledgement(data, dataLength));
 	}
 	else if (IsNoOperationMessage(data))
 	{
@@ -232,7 +234,7 @@ void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength)
 	}
 }
 
-static void ProcessLinkConnectionCompletion(decnet_address_t *from, nsp_header_t *header)
+static void ProcessLinkConnectionCompletionMessage(decnet_address_t *from, nsp_header_t *header)
 {
 	if (IsDataAcknowledgementMessage((byte *)header) || IsInterruptMessage((byte *)header) || IsLinkServiceMessage((byte *)header) || IsOtherDataAcknowledgementMessage((byte *)header))
 	{
@@ -249,7 +251,7 @@ static void ProcessLinkConnectionCompletion(decnet_address_t *from, nsp_header_t
 	}
 }
 
-static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_t *connectInitiate)
+static void ProcessConnectInitiateMessage(decnet_address_t *from, nsp_connect_initiate_t *connectInitiate)
 {
 	/* Section 6.2 of NSP spec 
 
@@ -303,7 +305,7 @@ static void ProcessConnectInitiate(decnet_address_t *from, nsp_connect_initiate_
 
 }
 
-static void ProcessDisconnectInitiate(decnet_address_t *from, nsp_disconnect_initiate_t *disconnectInitiate)
+static void ProcessDisconnectInitiateMessage(decnet_address_t *from, nsp_disconnect_initiate_t *disconnectInitiate)
 {
 	session_control_port_t *port;
 
@@ -352,7 +354,7 @@ static void ProcessDisconnectInitiate(decnet_address_t *from, nsp_disconnect_ini
 	}
 }
 
-static void ProcessDisconnectConfirm(decnet_address_t* from, nsp_disconnect_confirm_t* disconnectConfirm)
+static void ProcessDisconnectConfirmMessage(decnet_address_t* from, nsp_disconnect_confirm_t* disconnectConfirm)
 {
 	session_control_port_t* port;
 	port = FindScpEntryForRemoteNodeConnection(from, disconnectConfirm->header.dstAddr, disconnectConfirm->header.srcAddr);
@@ -442,7 +444,7 @@ static void ProcessDisconnectConfirm(decnet_address_t* from, nsp_disconnect_conf
 	}
 }
 
-static void ProcessDataAcknowledgement(decnet_address_t *from, nsp_data_acknowledgement_t *dataAcknowledgement)
+static void ProcessDataAcknowledgementMessage(decnet_address_t *from, nsp_data_acknowledgement_t *dataAcknowledgement)
 {
 	session_control_port_t *port;
 
@@ -466,9 +468,7 @@ static void ProcessDataAcknowledgement(decnet_address_t *from, nsp_data_acknowle
 		ackNum = ackDataField & 0xFFF;
 		if (isAck)
 		{
-            Log(LogNspMessages, LogVerbose, "ACK of segment %d\n", ackNum);
-		    port->flowRemDat = ackNum;
-		    TransmitQueuedMessages(port);
+			ProcessDataAck(port, Ack, ackNum);
 		}
 		else
 		{
@@ -478,7 +478,7 @@ static void ProcessDataAcknowledgement(decnet_address_t *from, nsp_data_acknowle
 	}
 }
 
-static void ProcessDataSegment(decnet_address_t *from, nsp_header_t *header, nsp_data_segment_t* dataSegment)
+static void ProcessDataSegmentMessage(decnet_address_t *from, nsp_header_t *header, nsp_data_segment_t* dataSegment)
 {
 	session_control_port_t *port;
 
@@ -486,6 +486,11 @@ static void ProcessDataSegment(decnet_address_t *from, nsp_header_t *header, nsp
 	port = FindScpEntryForRemoteNodeConnection(from, header->dstAddr, header->srcAddr);
 	if (port != NULL)
 	{
+		if (dataSegment->ackNumType == Ack)
+		{
+			ProcessDataAck(port, dataSegment->ackNumType, dataSegment->ackNum);
+		}
+
 		// TODO: Keep actual record of segment numbers in the port details and process acks properly including the delayed ack
 		SendDataAcknowledgement(from, port->addrLoc, port->addrRem, 1, dataSegment->segNum);
 		// TODO: Must process BOM and EOM flags, see 8.3.1.
@@ -493,7 +498,7 @@ static void ProcessDataSegment(decnet_address_t *from, nsp_header_t *header, nsp
 	}
 }
 
-static void ProcessLinkService(decnet_address_t* from, nsp_link_service_t* linkService)
+static void ProcessLinkServiceMessage(decnet_address_t* from, nsp_link_service_t* linkService)
 {
 	session_control_port_t* port;
 
@@ -514,6 +519,16 @@ static void TransmitQueuedMessages(session_control_port_t *port)
 	while (DequeueFromTransmitQueue(&port->transmit_queue, port->flowRemDat + 1, &transmitSegmentNumber, data, sizeof(data), &dataLength))
 	{
         SendDataSegment(&port->node, port->addrLoc, port->addrRem, transmitSegmentNumber, data, dataLength);
+	}
+}
+
+static void ProcessDataAck(session_control_port_t* port, AckType ackNumType, uint16 ackNum)
+{
+	if (ackNumType == Ack)
+	{
+		Log(LogNspMessages, LogVerbose, "ACK of segment %hu\n", ackNum);
+		port->flowRemDat = ackNum;
+		TransmitQueuedMessages(port);
 	}
 }
 
