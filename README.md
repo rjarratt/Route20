@@ -7,6 +7,7 @@ found here: http://linux-decnet.sourceforge.net/docs/route20.txt
 Minor changes:
 1. Improved management of NSP connections.
 1. Added support for the SHOW EXECUTOR CHARACTERISTICS network management command.
+1. Added support for the SHOW KNOWN CIRCUIT STATUS network management command.
 1. Improved internal representation of adjacencies to minimise searching.
 1. On Unix flavours it now creates a PID file in /var/run.
 1. On Unix flavours it now re-reads parts of the configuration on receiving a kill -s HUP.

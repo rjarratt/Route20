@@ -39,9 +39,13 @@
 
 #define OBJECT_NML 19
 
-#define ENTITY_TYPE_C_IDENTIFICATION 100
-#define ENTITY_TYPE_C_MANAGEMENT_VERSION 101
-#define ENTITY_TYPE_C_TYPE 901
+#define ENTITY_TYPE_NODE_C_IDENTIFICATION 100
+#define ENTITY_TYPE_NODE_C_MANAGEMENT_VERSION 101
+#define ENTITY_TYPE_NODE_C_TYPE 901
+#define ENTITY_TYPE_NODE_S_CIRCUIT 822
+
+#define ENTITY_TYPE_CIRCUIT_S_ADJACENT_NODE 800
+#define ENTITY_TYPE_CIRCUIT_S_BLOCK_SIZE 810
 
 #define DATA_TYPE_C(n) (0x80 | n)
 #define DATA_TYPE_AI 0x40
@@ -165,7 +169,7 @@ static void ProcessReadInformationMessage(uint16 locAddr, netman_read_informatio
 
 	Log(LogNetMan, LogVerbose, "Read Information. Volatile = %d, Info Type = %d, EntityType = %d, Is Known = %d(0x%02X)\n", isVolatile, infoType, entityType, isKnown, readInformation->entity);
 
-	if (isVolatile && infoType == NetmanSummaryInfoTypeCode && entityType == NetmanCircuitEntityTypeCode && isKnown)
+	if (isVolatile && (infoType == NetmanSummaryInfoTypeCode || infoType == NetmanStatusInfoTypeCode) && entityType == NetmanCircuitEntityTypeCode && isKnown)
 	{
 		ProcessShowKnownCircuits(locAddr);
 	}
@@ -283,14 +287,15 @@ static void ProcessShowExecutorCharacteristics(uint16 locAddr)
 
 	SendAcceptWithMultipleResponses(locAddr);
 
+	memset(responseData, 0, sizeof(responseData));
 	StartDataBlockResponse(responseData, &len);
 	AddDecnetIdToResponse(responseData, &len, &nodeInfo.address);
 	AddStringToResponse(responseData, &len, nodeInfo.name);
 
-	AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_C_IDENTIFICATION, DATA_TYPE_AI);
+	AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_NODE_C_IDENTIFICATION, DATA_TYPE_AI);
 	AddStringToResponse(responseData, &len, "Route20 User Mode Router");
 
-	AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_C_MANAGEMENT_VERSION, DATA_TYPE_CM(3));
+	AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_NODE_C_MANAGEMENT_VERSION, DATA_TYPE_CM(3));
 	responseData[len++] = DATA_TYPE_DU(1);
 	responseData[len++] = NETMAN_VERSION;
 	responseData[len++] = DATA_TYPE_DU(1);
@@ -298,7 +303,7 @@ static void ProcessShowExecutorCharacteristics(uint16 locAddr)
 	responseData[len++] = DATA_TYPE_DU(1);
 	responseData[len++] = NETMAN_USER_ECO;
 
-	AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_C_TYPE, DATA_TYPE_C(1));
+	AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_NODE_C_TYPE, DATA_TYPE_C(1));
 	responseData[len++] = nodeInfo.level == 1 ? 4 : 3;
 
 	NspTransmit(locAddr, responseData, len);
@@ -333,6 +338,8 @@ static void SendCircuitInfo(uint16 srcPort, circuit_t *circuit, decnet_address_t
 {
 	byte responseData[512];
 	int len;
+
+	memset(responseData, 0, sizeof(responseData));
 	StartDataBlockResponse(responseData, &len);
 	AddStringToResponse(responseData, &len, circuit->name);
 
@@ -344,9 +351,7 @@ static void SendCircuitInfo(uint16 srcPort, circuit_t *circuit, decnet_address_t
 
 	if (address != NULL)
 	{
-		responseData[len++] = 0x20;  /* DataId = Adjacent node */ // TODO: Use AddEntityType
-		responseData[len++] = 0x03;  /* DataId = Adjacent node */
-		responseData[len++] = 0xC1;  /* Data Type Coded Multiple Fields (1 fields) */
+		AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_CIRCUIT_S_ADJACENT_NODE, DATA_TYPE_CM(1));
 		responseData[len++] = 0x02;  /* length of DECnet ID */
 		AddDecnetIdToResponse(responseData, &len, address);
 	}
@@ -358,6 +363,8 @@ static void SendAdjacentNodeInfo(uint16 srcPort, circuit_t *circuit, decnet_addr
 {
 	byte responseData[512];
 	int len;
+
+	memset(responseData, 0, sizeof(responseData));
 	StartDataBlockResponse(responseData, &len);
 	AddDecnetIdToResponse(responseData, &len, address);
 	responseData[len++] = 0; /* length of name - not supplying it */
@@ -369,9 +376,7 @@ static void SendAdjacentNodeInfo(uint16 srcPort, circuit_t *circuit, decnet_addr
 	responseData[len++] = IsReachable(address) ? 4 : 5;
 
 	/* Circuit */
-	responseData[len++] = 0x36; /* DataId = Circuit */
-	responseData[len++] = 0x03; /* DataId = Circuit */
-	responseData[len++] = 0x40;
+	AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_NODE_S_CIRCUIT, DATA_TYPE_AI);
 	AddStringToResponse(responseData, &len, circuit->name);
 
 	NspTransmit(srcPort, responseData, len);
@@ -380,7 +385,6 @@ static void SendAdjacentNodeInfo(uint16 srcPort, circuit_t *circuit, decnet_addr
 static void StartDataBlockResponse(byte* data, int* pos)
 {
 	*pos = 0;
-	memset(data, 0, sizeof(data));
 	data[(*pos)++] = 1; /* Success */
 	data[(*pos)++] = 0xFF;
 	data[(*pos)++] = 0xFF;
