@@ -54,6 +54,16 @@
 
 int numCircuits;
 
+typedef enum
+{
+	SignificantNodes = 0xFB,
+	AdjacentNodes = 0xFC,
+	LoopNodes = 0xFD,
+	ActiveNodes = 0xFE,
+	KnownNodes = 0xFF,
+	NodeAddress = 0
+} NodeFormat;
+
 typedef struct
 {
 	uint16     srcPort;
@@ -158,22 +168,31 @@ static void ProcessReadInformationMessage(uint16 locAddr, netman_read_informatio
 	int isVolatile;
 	NetmanInfoTypeCode infoType;
 	NetmanEntityTypeCode entityType;
-	int isKnown;
-	int isAdjacent;
+	NodeFormat nodeFormat;
+	char* nodeFormatStr;
 
 	isVolatile = (readInformation->option >> 7) == 0;
 	infoType = (NetmanInfoTypeCode)((readInformation->option & 0x70) >> 4);
 	entityType = (NetmanEntityTypeCode)(readInformation->option & 0x07);
-	isKnown = readInformation->entity == 0xFF;
-	isAdjacent = readInformation->entity == 0xFC;
+	nodeFormat = readInformation->entity;
 
-	Log(LogNetMan, LogVerbose, "Read Information. Volatile = %d, Info Type = %d, EntityType = %d, Is Known = %d(0x%02X)\n", isVolatile, infoType, entityType, isKnown, readInformation->entity);
+	switch (nodeFormat)
+	{
+		case SignificantNodes: { nodeFormatStr = "Significant Nodes"; break; }
+		case AdjacentNodes: { nodeFormatStr = "Adjacent Nodes"; break; }
+		case LoopNodes: { nodeFormatStr = "Loop Nodes"; break; }
+		case ActiveNodes: { nodeFormatStr = "Active Nodes"; break; }
+		case KnownNodes: { nodeFormatStr = "Known Nodes"; break; }
+		case NodeAddress: { nodeFormatStr = "Node Address"; break; }
+		default: { nodeFormatStr = "Length of node name"; break; }
+	}
+	Log(LogNetMan, LogVerbose, "Read Information. Volatile = %d, Info Type = %d, EntityType = %d, Node Format = %s(0x%02X)\n", isVolatile, infoType, entityType, nodeFormatStr, readInformation->entity);
 
-	if (isVolatile && (infoType == NetmanSummaryInfoTypeCode || infoType == NetmanStatusInfoTypeCode) && entityType == NetmanCircuitEntityTypeCode && isKnown)
+	if (isVolatile && (infoType == NetmanSummaryInfoTypeCode || infoType == NetmanStatusInfoTypeCode) && entityType == NetmanCircuitEntityTypeCode && nodeFormat == KnownNodes)
 	{
 		ProcessShowKnownCircuits(locAddr);
 	}
-	else if (isVolatile && infoType == NetmanSummaryInfoTypeCode && entityType == NetmanNodeEntityTypeCode && isAdjacent)
+	else if (isVolatile && (infoType == NetmanSummaryInfoTypeCode || infoType == NetmanStatusInfoTypeCode) && entityType == NetmanNodeEntityTypeCode && (nodeFormat == AdjacentNodes || nodeFormat == ActiveNodes))
 	{
 		ProcessShowAdjacentNodes(locAddr);
 	}
