@@ -360,3 +360,31 @@ packet_t *NspCreateDataMessage(decnet_address_t *toAddress, uint16 srcAddr, uint
 
 	return ans;
 }
+
+packet_t *NspCreateLinkServiceMessage(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte lsFlags, byte fcVal)
+{
+	packet_t *ans;
+	nsp_link_service_t linkService;
+	byte payload[sizeof(nsp_data_segment_t)];
+	byte *ptr = payload;
+
+	linkService.header.msgFlg = 0x60;
+	linkService.header.srcAddr = Uint16ToLittleEndian(srcAddr);
+	linkService.header.dstAddr = Uint16ToLittleEndian(dstAddr);
+	linkService.ackNumType = NoAck;
+	linkService.ackDatType = NoAck;
+	linkService.segNum = Uint16ToLittleEndian(seqNo & 0xFFF);
+	linkService.lsFlags = lsFlags;
+	linkService.fcVal = fcVal;
+
+	memcpy(ptr, &linkService, sizeof(nsp_header_t));
+	ptr += sizeof(nsp_header_t);
+	memcpy(ptr, &linkService.segNum, sizeof(linkService.segNum));
+	ptr += sizeof(linkService.segNum);
+	*ptr++ = lsFlags;
+	*ptr++ = fcVal;
+
+	ans = CreateLongDataMessage(&nodeInfo.address, toAddress, 6, 0, (byte *)&payload, sizeof(nsp_header_t) + sizeof(linkService.segNum) + sizeof(linkService.lsFlags) + sizeof(linkService.fcVal));
+
+	return ans;
+}

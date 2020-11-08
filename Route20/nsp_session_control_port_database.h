@@ -60,6 +60,7 @@ typedef struct
 	decnet_address_t  node;
 	uint16            addrLoc;
 	uint16            addrRem;
+	uint16            numDat;
 	uint16            numOth;
 	uint16            numHigh;
 	uint16            numSent;

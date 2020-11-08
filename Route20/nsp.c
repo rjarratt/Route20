@@ -67,6 +67,7 @@ static void SendConnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstA
 static void SendDataAcknowledgement(decnet_address_t* to, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number);
 static void SendOtherDataAcknowledgement(decnet_address_t* to, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number);
 static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength);
+static void SendLinkService(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte lsFlags, byte fcVal);
 
 static session_control_port_t *FindScpEntryForRemoteNodeConnection(decnet_address_t *node, uint16 locAddr, uint16 remAddr);
 static int ScpEntryMatchesRemoteNodeConnection(session_control_port_t *entry, void *context);
@@ -560,6 +561,7 @@ static void HandleInactivityTimer(rtimer_t *timer, char *name, void *context)
 	Log(LogNsp, LogWarning, "No activity detected on port for ");
 	LogDecnetAddress(LogNsp, LogWarning, &port->node);
 	Log(LogNsp, LogWarning, "\n");
+	SendLinkService(&port->node, port->addrLoc, port->addrRem, port->numDat++, 0, 1);
 }
 
 static void ProcessDataAck(session_control_port_t* port, AckType ackNumType, uint16 ackNum)
@@ -645,6 +647,14 @@ static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr
 	Log(LogNspMessages, LogVerbose, "Sending DataSegment number %d\n", seqNo);
     confirmPacket = NspCreateDataMessage(to, srcAddr, dstAddr, seqNo, data, dataLength);
 	SendPacket(NULL, to, confirmPacket);
+}
+
+static void SendLinkService(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte lsFlags, byte fcVal)
+{
+	packet_t *packet;
+	Log(LogNspMessages, LogVerbose, "Sending LinkService number %d\n", seqNo);
+	packet = NspCreateLinkServiceMessage(to, srcAddr, dstAddr, seqNo, lsFlags, fcVal);
+	SendPacket(NULL, to, packet);
 }
 
 static session_control_port_t *FindScpEntryForRemoteNodeConnection(decnet_address_t *node, uint16 locAddr, uint16 remAddr)

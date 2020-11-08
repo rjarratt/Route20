@@ -151,6 +151,7 @@ packet_t *NspCreateDisconnectConfirm(decnet_address_t *toAddress, uint16 srcAddr
 packet_t *NspCreateDataAcknowledgement(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 ackNumber);
 packet_t *NspCreateOtherDataAcknowledgement(decnet_address_t* toAddress, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number);
 packet_t *NspCreateDataMessage(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength);
+packet_t *NspCreateLinkServiceMessage(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte lsFlags, byte fcVal);
 
 
 //int IsValidRouterHelloMessage(packet_t *packet);
