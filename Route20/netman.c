@@ -147,7 +147,7 @@ void ConnectCallback(decnet_address_t *remNode, uint16 locAddr, uint16 remAddr, 
 	}
 	else
 	{
-		NspReject(remNode, locAddr, remAddr, 0, 0, NULL);
+		NspReject(remNode, locAddr, remAddr, 4, 0, NULL);
 	}
 }
 
