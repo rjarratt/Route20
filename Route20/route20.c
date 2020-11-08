@@ -48,6 +48,7 @@ in this Software without prior written authorization from the author.
 #include "decision.h"
 #include "forwarding.h"
 #include "update.h"
+#include "nsp.h"
 #include "dns.h"
 #include "node.h"
 #include "socket.h"
@@ -68,6 +69,7 @@ static char *ReadSocketConfig(FILE *f, ConfigReadMode mode, int *ans);
 static char *ReadEthernetConfig(FILE *f, ConfigReadMode mode, int *ans);
 static char *ReadBridgeConfig(FILE *f, ConfigReadMode mode, int *ans);
 static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans);
+static char *ReadNspConfig(FILE *f, ConfigReadMode mode, int *ans);
 static char *ReadDnsConfig(FILE *f, ConfigReadMode mode, int *ans);
 static char *ReadStatsConfig(FILE *f, ConfigReadMode mode, int *ans);
 static int SplitString(char *string, char splitBy, char **left, char **right);
@@ -122,6 +124,7 @@ void InitialiseLogging(void)
 int InitialiseConfig(int (*ConfigReader)(char *fileName, ConfigReadMode mode), char *configFileName)
 {
 	int ans;
+	NspInitialiseConfig();
 	DnsConfig.dnsConfigured = 0;
 
 	ans = ConfigReader(configFileName, ConfigReadModeFull);
@@ -316,6 +319,10 @@ int ReadConfig(char *fileName, ConfigReadMode mode)
 			{
 				line = ReadDdcmpConfig(f, mode, &ans);
 				ddcmpPresent = 1;
+			}
+			else if (stricmp(line, "[nsp]") == 0)
+			{
+				line = ReadNspConfig(f, mode, &ans);
 			}
 			else if (stricmp(line, "[dns]") == 0)
 			{
@@ -802,6 +809,38 @@ static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans)
 
 				CircuitCreateDdcmpSocket(&Circuits[1 + numCircuits++], hostName, port, cost, connectPoll, ProcessCircuitEvent);
 				dnsNeeded = 1;
+			}
+		}
+	}
+	else
+	{
+		line = ReadConfigToNextSection(f);
+	}
+
+	return line;
+}
+
+static char *ReadNspConfig(FILE *f, ConfigReadMode mode, int *ans)
+{
+	char *line;
+	char *name;
+	char *value;
+
+	if (mode == ConfigReadModeFull)
+	{
+		while ((line = ReadConfigLine(f)))
+		{
+			if (*line == '[')
+			{
+				break;
+			}
+
+			if (SplitString(line, '=', &name, &value))
+			{
+				if (stricmp(name, "InactivityTimer") == 0)
+				{
+					NspConfig.NSPInactTim = atoi(value);
+				}
 			}
 		}
 	}

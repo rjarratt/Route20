@@ -71,6 +71,7 @@ typedef struct
 	uint16            flowRemDat;
 	uint16            flowRemInt;
 	transmit_queue_t  transmit_queue;
+	rtimer_t         *inactivityTimer;
 
 	void (*closeCallback)(uint16 locAddr);
 	void (*connectCallback)(decnet_address_t* remNode, uint16 locAddr, uint16 remAddr, byte *data, int dataLength);

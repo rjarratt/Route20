@@ -38,7 +38,15 @@
 #define REASON_DISCONNECT_COMPLETE 42
 #define REASON_NO_LINK_TERMINATE 41
 
+typedef struct
+{
+	int  NSPInactTim; /* inactivity timer in seconds */
+} nsp_config_t;
+
+nsp_config_t NspConfig;
+
 void NspInitialise(void);
+void NspInitialiseConfig(void);
 // TODO: Add context parameter to support multiple sessions
 int NspOpen(void (*closeCallback)(uint16 locAddr), void (*connectCallback)(decnet_address_t* remNode, uint16 locAddr, uint16 remAddr, byte* data, int dataLength), void (*dataCallback)(uint16 locAddr, byte* data, int dataLength));
 void NspClose(uint16 locAddr);

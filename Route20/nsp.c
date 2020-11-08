@@ -46,6 +46,7 @@ typedef struct
 	uint16            remAddr;
 } PortSearchContext;
 
+static void ProcessLinkActivity(decnet_address_t *from, nsp_header_t *);
 static void ProcessLinkConnectionCompletionMessage(decnet_address_t *from, nsp_header_t *);
 static void ProcessConnectInitiateMessage(decnet_address_t *from, nsp_connect_initiate_t *connectInitiate);
 static void ProcessDisconnectInitiateMessage(decnet_address_t* from, nsp_disconnect_initiate_t* disconnectInitiate);
@@ -55,6 +56,7 @@ static void ProcessDataSegmentMessage(decnet_address_t* from, nsp_header_t* head
 static void ProcessLinkServiceMessage(decnet_address_t* from, nsp_link_service_t* linkService);
 
 static void TransmitQueuedMessages(session_control_port_t *port);
+static void HandleInactivityTimer(rtimer_t *timer, char *name, void *context);
 
 static void ProcessDataAck(session_control_port_t* port, AckType ackNumType, uint16 ackNum);
 
@@ -81,6 +83,11 @@ void NspInitialise(void)
 {
 	NspInitialiseScpDatabase();
 	RoutingSetCallback(NspProcessPacket);
+}
+
+void NspInitialiseConfig(void)
+{
+	NspConfig.NSPInactTim = 30;
 }
 
 int NspOpen(void (*closeCallback)(uint16 srcAddr), void (*connectCallback)(decnet_address_t* remNode, uint16 locAddr, uint16 remAddr, byte* data, int dataLength), void (*dataCallback)(uint16 locAddr, byte *data, int dataLength))
@@ -117,6 +124,11 @@ void NspClose(uint16 locAddr)
 		port->addrRem = 0;
 		memset(&port->node, 0, sizeof(port->node));
 		TerminateTransmitQueue(&port->transmit_queue);
+
+		if (port->inactivityTimer != NULL)
+		{
+			StopTimer(port->inactivityTimer);
+		}
 	}
 }
 
@@ -187,6 +199,7 @@ void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength)
 	// TODO: Make logging better so that all message details are logged in one place
 	LogMessage(from, header);
 
+	ProcessLinkActivity(from, header);
 	ProcessLinkConnectionCompletionMessage(from, header);
 
 	if (IsConnectInitiateMessage(data) || IsRetransmittedConnectInitiateMessage(data))
@@ -234,8 +247,25 @@ void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength)
 	}
 }
 
+static void ProcessLinkActivity(decnet_address_t *from, nsp_header_t *header)
+{
+
+		session_control_port_t *port;
+
+		port = FindScpEntryForRemoteNode(from, header->srcAddr);
+		if (port != NULL)
+		{
+			if (port->inactivityTimer != NULL)
+			{
+				ResetTimer(port->inactivityTimer);
+			}
+		}
+}
+
 static void ProcessLinkConnectionCompletionMessage(decnet_address_t *from, nsp_header_t *header)
 {
+	time_t now;
+
 	if (IsDataAcknowledgementMessage((byte *)header) || IsInterruptMessage((byte *)header) || IsLinkServiceMessage((byte *)header) || IsOtherDataAcknowledgementMessage((byte *)header))
 	{
 		session_control_port_t *port;
@@ -246,6 +276,8 @@ static void ProcessLinkConnectionCompletionMessage(decnet_address_t *from, nsp_h
 			if (port->state == NspPortStateConnectConfirm)
 			{
 				SetPortState(port, NspPortStateRunning);
+				time(&now);
+				port->inactivityTimer = CreateTimer("NSP Inactivity Timer", now + NspConfig.NSPInactTim, 0, port, HandleInactivityTimer);
 			}
 		}
 	}
@@ -520,6 +552,14 @@ static void TransmitQueuedMessages(session_control_port_t *port)
 	{
         SendDataSegment(&port->node, port->addrLoc, port->addrRem, transmitSegmentNumber, data, dataLength);
 	}
+}
+
+static void HandleInactivityTimer(rtimer_t *timer, char *name, void *context)
+{
+	session_control_port_t *port = context;
+	Log(LogNsp, LogWarning, "No activity detected on port for ");
+	LogDecnetAddress(LogNsp, LogWarning, &port->node);
+	Log(LogNsp, LogWarning, "\n");
 }
 
 static void ProcessDataAck(session_control_port_t* port, AckType ackNumType, uint16 ackNum)
