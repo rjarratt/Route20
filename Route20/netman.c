@@ -35,7 +35,7 @@
 #include "platform.h"
 #include "netman_messages.h"
 #include "netman.h"
-#include "nsp.h"
+#include "session.h"
 
 #define OBJECT_NML 19
 
@@ -66,29 +66,37 @@ typedef enum
 
 typedef struct
 {
-	uint16     srcPort;
-	circuit_t *circuit;
-	int        adjacentRoutersCount;
+	decnet_address_t  remNode;
+	void             *session;
+} nice_session_t;
+
+typedef struct
+{
+	nice_session_t *niceSession;
+	circuit_t      *circuit;
+	int             adjacentRoutersCount;
 } AdjacentNodeCallbackData;
 
+static nice_session_t NiceSessions; // TODO: allow more than one concurrent NICE session
+
 void OpenPort(void);
-void CloseCallback(uint16 locAddr);
-void ConnectCallback(decnet_address_t* remNode, uint16 locAddr, uint16 remAddr, byte* data, int dataLength);
-void DataCallback(uint16 locAddr, byte *data, int dataLength);
+int ConnectCallback(void *session, decnet_address_t *remNode, byte *data, byte dataLength, uint16 *reason, byte **acceptData, byte *acceptDataLength);
+void DataCallback(void *session, byte *data, uint16 dataLength);
+void CloseCallback(void *session);
 
-static void ProcessReadInformationMessage(uint16 locAddr, netman_read_information_t *readInformation);
-static void ProcessShowKnownCircuits(uint16 locAddr);
-static void ProcessShowAdjacentNodes(uint16 locAddr);
-static void ProcessShowExecutorCharacteristics(uint16 locAddr);
+static void ProcessReadInformationMessage(nice_session_t *niceSession, netman_read_information_t *readInformation);
+static void ProcessShowKnownCircuits(nice_session_t *niceSession);
+static void ProcessShowAdjacentNodes(nice_session_t *niceSession);
+static void ProcessShowExecutorCharacteristics(nice_session_t *niceSession);
 
-static void SendAcceptWithMultipleResponses(uint16 locAddr);
-static void SendDoneWithMultipleResponses(uint16 locAddr);
-static void SendError(uint16 locAddr);
+static void SendAcceptWithMultipleResponses(nice_session_t *niceSession);
+static void SendDoneWithMultipleResponses(nice_session_t *niceSession);
+static void SendError(nice_session_t *niceSession);
 
 static int AdjacentNodeCircuitCallback(adjacency_t *adjacency, void *context);
 static int AdjacentNodeCallback(adjacency_t *adjacency, void *context);
-static void SendCircuitInfo(uint16 srcPort, circuit_t *circuit, decnet_address_t *address);
-static void SendAdjacentNodeInfo(uint16 srcPort, circuit_t *circuit, decnet_address_t *address);
+static void SendCircuitInfo(nice_session_t *niceSession, circuit_t *circuit, decnet_address_t *address);
+static void SendAdjacentNodeInfo(nice_session_t *niceSession, circuit_t *circuit, decnet_address_t *address);
 static void StartDataBlockResponse(byte* data, int* pos);
 static void AddDecnetIdToResponse(byte* data, int* pos, decnet_address_t* address);
 static void AddEntityTypeAndDataTypeToResponse(byte* data, int* pos, uint16 entityType, byte dataType);
@@ -96,74 +104,54 @@ static void AddStringToResponse(byte *data, int *pos, char *s);
 
 void NetManInitialise(void)
 {
-	OpenPort();
+	SessionRegisterObjectType(OBJECT_NML, ConnectCallback, CloseCallback, DataCallback);
 }
 
-void OpenPort(void)
+int ConnectCallback(void *session, decnet_address_t *remNode, byte *data, byte dataLength, uint16 *reason, byte **acceptData, byte *acceptDataLength)
 {
-    uint16 nspPort;
-	int port = NspOpen(CloseCallback, ConnectCallback, DataCallback);
-	if (port <= 0)
-	{
-		Log(LogNetMan, LogError, "Network Management could not open NSP port.\n");
-	}
-	else
-	{
-		nspPort = (uint16)port;
-		Log(LogNetMan, LogVerbose, "Opened NSP port %hu\n", nspPort);
-	}
+	static byte niceAcceptData[] = { NETMAN_VERSION, NETMAN_DEC_ECO, NETMAN_USER_ECO };
+	nice_session_t *niceSession = &NiceSessions;
+	int result = 1;
+
+	Log(LogNetMan, LogVerbose, "Accepting session from ");
+	LogDecnetAddress(LogNetMan, LogVerbose, remNode);
+	Log(LogNetMan, LogVerbose, "\n");
+
+	memcpy(&niceSession->remNode, remNode, sizeof(decnet_address_t));
+	niceSession->session = session;
+
+	*acceptData = niceAcceptData;
+	*acceptDataLength = sizeof(niceAcceptData);
+
+	return result;
 }
 
-void CloseCallback(uint16 locAddr)
+void DataCallback(void *handle, byte *data, uint16 dataLength)
 {
-	Log(LogNetMan, LogVerbose, "NSP port %hu closed\n", locAddr);
-	NspClose(locAddr);
-	OpenPort();
-}
+	nice_session_t *niceSession = &NiceSessions;
 
-void ConnectCallback(decnet_address_t *remNode, uint16 locAddr, uint16 remAddr, byte* data, int dataLength)
-{
-	int reject = 0;
-
-	byte acceptData[] = { NETMAN_VERSION, NETMAN_DEC_ECO, NETMAN_USER_ECO };
-
-	Log(LogNetMan, LogVerbose, "Accepting on NSP port %hu\n", locAddr);
-	if (dataLength < 2)
-	{
-		reject = 1;
-	}
-	else
-	{
-		uint16 objectType = BigEndianBytesToUint16(data);
-		if (objectType != OBJECT_NML)
-		{
-			reject = 1;
-		}
-	}
-
-	if (!reject)
-	{
-		NspAccept(locAddr, SERVICES_NONE, sizeof(acceptData), acceptData);
-	}
-	else
-	{
-		NspReject(remNode, locAddr, remAddr, 4, 0, NULL);
-	}
-}
-
-void DataCallback(uint16 locAddr, byte *data, int dataLength)
-{
-	Log(LogNetMan, LogVerbose, "Data callback, data=");
+	Log(LogNetMan, LogVerbose, "Received data from ");
+	LogDecnetAddress(LogNetMan, LogVerbose, &niceSession->remNode);
+	Log(LogNetMan, LogVerbose, ", data = ");
 	LogBytes(LogNetMan, LogVerbose, data, dataLength);
 
 	if (IsNetmanReadInformationMessage(data))
 	{
-		ProcessReadInformationMessage(locAddr, ParseNetmanReadInformation(data, dataLength));
+		ProcessReadInformationMessage(niceSession, ParseNetmanReadInformation(data, dataLength));
 	}
-
 }
 
-static void ProcessReadInformationMessage(uint16 locAddr, netman_read_information_t *readInformation)
+void CloseCallback(void *session)
+{
+	nice_session_t *niceSession = &NiceSessions;
+
+	Log(LogNetMan, LogVerbose, "Session with ");
+	LogDecnetAddress(LogNetMan, LogVerbose, &niceSession->remNode);
+	Log(LogNetMan, LogVerbose, " closed\n");
+	SessionClose(session);
+}
+
+static void ProcessReadInformationMessage(nice_session_t *niceSession, netman_read_information_t *readInformation)
 {
 	int isVolatile;
 	NetmanInfoTypeCode infoType;
@@ -190,23 +178,23 @@ static void ProcessReadInformationMessage(uint16 locAddr, netman_read_informatio
 
 	if (isVolatile && (infoType == NetmanSummaryInfoTypeCode || infoType == NetmanStatusInfoTypeCode) && entityType == NetmanCircuitEntityTypeCode && nodeFormat == KnownNodes)
 	{
-		ProcessShowKnownCircuits(locAddr);
+		ProcessShowKnownCircuits(niceSession);
 	}
 	else if (isVolatile && (infoType == NetmanSummaryInfoTypeCode || infoType == NetmanStatusInfoTypeCode) && entityType == NetmanNodeEntityTypeCode && (nodeFormat == AdjacentNodes || nodeFormat == ActiveNodes))
 	{
-		ProcessShowAdjacentNodes(locAddr);
+		ProcessShowAdjacentNodes(niceSession);
 	}
 	else if (isVolatile && infoType == NetmanCharacteristicsInfoTypeCode && entityType == NetmanNodeEntityTypeCode)
 	{
-		ProcessShowExecutorCharacteristics(locAddr);
+		ProcessShowExecutorCharacteristics(niceSession);
 	}
 	else
 	{
-		SendError(locAddr);
+		SendError(niceSession);
 	}
 }
 
-static void SendAcceptWithMultipleResponses(uint16 locAddr)
+static void SendAcceptWithMultipleResponses(nice_session_t *niceSession)
 {
 	byte responseData[256];
 
@@ -214,19 +202,19 @@ static void SendAcceptWithMultipleResponses(uint16 locAddr)
 	responseData[0] = 2; /* Accept with multiple responses */
 	responseData[1] = 0xFF;
 	responseData[2] = 0xFF;
-	NspTransmit(locAddr, responseData, 4);
+	SessionDataTransmit(niceSession->session, responseData, 4);
 }
 
-static void SendDoneWithMultipleResponses(uint16 locAddr)
+static void SendDoneWithMultipleResponses(nice_session_t *niceSession)
 {
 	byte responseData[256];
 
 	memset(responseData, 0, 13);
 	responseData[0] = 0x80; /* Done with multiple responses */
-	NspTransmit(locAddr, responseData, 4);
+	SessionDataTransmit(niceSession->session, responseData, 4);
 }
 
-static void SendError(uint16 locAddr)
+static void SendError(nice_session_t *niceSession)
 {
 	byte responseData[256];
 
@@ -234,17 +222,19 @@ static void SendError(uint16 locAddr)
 	responseData[0] = 0xFF; /* Unrecognized function or option */
 	responseData[1] = 0xFF;
 	responseData[2] = 0xFF;
-	NspTransmit(locAddr, responseData, 4);
+	SessionDataTransmit(niceSession->session, responseData, 4);
 }
 
-static void ProcessShowKnownCircuits(uint16 locAddr)
+static void ProcessShowKnownCircuits(nice_session_t *niceSession)
 {
     // TODO: Reports eth0 multiple times if more than one adjacency is up on eth0
 	int i;
 
-	Log(LogNetMan, LogInfo, "Processing SHOW KNOWN CIRCUITS for port %hu\n", locAddr);
+	Log(LogNetMan, LogInfo, "Processing SHOW KNOWN CIRCUITS from ");
+	LogDecnetAddress(LogNetMan, LogInfo, &niceSession->remNode);
+	Log(LogNetMan, LogInfo, "\n");
 
-	SendAcceptWithMultipleResponses(locAddr);
+	SendAcceptWithMultipleResponses(niceSession);
 
 	for(i = 1; i <= numCircuits; i++)
 	{
@@ -252,31 +242,33 @@ static void ProcessShowKnownCircuits(uint16 locAddr)
 		if (circuit->state == CircuitStateUp)
 		{
 			AdjacentNodeCallbackData context;
-			context.srcPort = locAddr;
+			context.niceSession = niceSession;
 			context.circuit = circuit;
 			context.adjacentRoutersCount = 0;
 			ProcessRouterAdjacencies(AdjacentNodeCircuitCallback, &context);
 			if (context.adjacentRoutersCount <= 0)
 			{
-				SendCircuitInfo(locAddr, circuit, NULL);
+				SendCircuitInfo(niceSession, circuit, NULL);
 			}
 		}
 		else
 		{
-			SendCircuitInfo(locAddr, circuit, NULL);
+			SendCircuitInfo(niceSession, circuit, NULL);
 		}
 	}
 
-	SendDoneWithMultipleResponses(locAddr);
+	SendDoneWithMultipleResponses(niceSession);
 }
 
-static void ProcessShowAdjacentNodes(uint16 locAddr)
+static void ProcessShowAdjacentNodes(nice_session_t *niceSession)
 {
 	int i;
 
-	Log(LogNetMan, LogInfo, "Processing SHOW ADJACENT NODES for port %hu\n", locAddr);
+	Log(LogNetMan, LogInfo, "Processing SHOW ADJACENT NODES from ");
+	LogDecnetAddress(LogNetMan, LogInfo, &niceSession->remNode);
+	Log(LogNetMan, LogInfo, "\n");
 
-	SendAcceptWithMultipleResponses(locAddr);
+	SendAcceptWithMultipleResponses(niceSession);
 
 	for(i = 1; i <= numCircuits; i++)
 	{
@@ -284,27 +276,29 @@ static void ProcessShowAdjacentNodes(uint16 locAddr)
 		if (circuit->state == CircuitStateUp)
 		{
 			AdjacentNodeCallbackData context;
-			context.srcPort = locAddr;
+			context.niceSession = niceSession;
 			context.circuit = circuit;
 			ProcessRouterAdjacencies(AdjacentNodeCallback, &context);
 		}
 		else
 		{
-			SendCircuitInfo(locAddr, circuit, NULL);
+			SendCircuitInfo(niceSession, circuit, NULL);
 		}
 	}
 
-	SendDoneWithMultipleResponses(locAddr);
+	SendDoneWithMultipleResponses(niceSession);
 }
 
-static void ProcessShowExecutorCharacteristics(uint16 locAddr)
+static void ProcessShowExecutorCharacteristics(nice_session_t *niceSession)
 {
 	byte responseData[512];
 	int len;
 
-	Log(LogNetMan, LogInfo, "Processing SHOW EXECUTOR CHARACTERISTICS for port %hu\n", locAddr);
+	Log(LogNetMan, LogInfo, "Processing SHOW EXECUTOR CHARACTERISTICS from ");
+	LogDecnetAddress(LogNetMan, LogInfo, &niceSession->remNode);
+	Log(LogNetMan, LogInfo, "\n");
 
-	SendAcceptWithMultipleResponses(locAddr);
+	SendAcceptWithMultipleResponses(niceSession);
 
 	memset(responseData, 0, sizeof(responseData));
 	StartDataBlockResponse(responseData, &len);
@@ -325,9 +319,9 @@ static void ProcessShowExecutorCharacteristics(uint16 locAddr)
 	AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_NODE_C_TYPE, DATA_TYPE_C(1));
 	responseData[len++] = nodeInfo.level == 1 ? 4 : 3;
 
-	NspTransmit(locAddr, responseData, len);
+	SessionDataTransmit(niceSession->session, responseData, len);
 
-	SendDoneWithMultipleResponses(locAddr);
+	SendDoneWithMultipleResponses(niceSession);
 }
 
 static int AdjacentNodeCircuitCallback(adjacency_t *adjacency, void *context)
@@ -336,7 +330,7 @@ static int AdjacentNodeCircuitCallback(adjacency_t *adjacency, void *context)
 	if (callbackData->circuit == adjacency->circuit)
 	{
 		callbackData->adjacentRoutersCount++;
-		SendCircuitInfo(callbackData->srcPort, callbackData->circuit, &adjacency->id);
+		SendCircuitInfo(callbackData->niceSession, callbackData->circuit, &adjacency->id);
 	}
 
 	return 1;
@@ -347,13 +341,13 @@ static int AdjacentNodeCallback(adjacency_t *adjacency, void *context)
 	AdjacentNodeCallbackData *callbackData = (AdjacentNodeCallbackData *)context;
 	if (callbackData->circuit == adjacency->circuit)
 	{
-		SendAdjacentNodeInfo(callbackData->srcPort, callbackData->circuit, &adjacency->id);
+		SendAdjacentNodeInfo(callbackData->niceSession, callbackData->circuit, &adjacency->id);
 	}
 
 	return 1;
 }
 
-static void SendCircuitInfo(uint16 srcPort, circuit_t *circuit, decnet_address_t *address)
+static void SendCircuitInfo(nice_session_t *niceSession, circuit_t *circuit, decnet_address_t *address)
 {
 	byte responseData[512];
 	int len;
@@ -375,10 +369,10 @@ static void SendCircuitInfo(uint16 srcPort, circuit_t *circuit, decnet_address_t
 		AddDecnetIdToResponse(responseData, &len, address);
 	}
 
-	NspTransmit(srcPort, responseData, len);
+	SessionDataTransmit(niceSession->session, responseData, len);
 }
 
-static void SendAdjacentNodeInfo(uint16 srcPort, circuit_t *circuit, decnet_address_t *address)
+static void SendAdjacentNodeInfo(nice_session_t *niceSession, circuit_t *circuit, decnet_address_t *address)
 {
 	byte responseData[512];
 	int len;
@@ -398,7 +392,7 @@ static void SendAdjacentNodeInfo(uint16 srcPort, circuit_t *circuit, decnet_addr
 	AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_NODE_S_CIRCUIT, DATA_TYPE_AI);
 	AddStringToResponse(responseData, &len, circuit->name);
 
-	NspTransmit(srcPort, responseData, len);
+	SessionDataTransmit(niceSession->session, responseData, len);
 }
 
 static void StartDataBlockResponse(byte* data, int* pos)
@@ -416,6 +410,7 @@ static void AddDecnetIdToResponse(byte *data, int *pos, decnet_address_t *addres
 		memcpy(&data[*pos], &id, sizeof(uint16));
 		*pos = *pos + sizeof(uint16);
 }
+
 static void AddEntityTypeAndDataTypeToResponse(byte* data, int* pos, uint16 entityType, byte dataType)
 {
 	data[(*pos)++] = entityType & 0xFF;

@@ -46,6 +46,7 @@
 #include "timer.h"
 #include "route20.h"
 #include "nsp.h"
+#include "session.h"
 #include "netman.h"
 #include "dns.h"
 
@@ -145,6 +146,7 @@ int main(int argc, char *argv[])
         if (DecnetInitialise())
         {
 		    NspInitialise();
+			SessionInitialise();
 		    NetManInitialise();
             MainLoop();
         }

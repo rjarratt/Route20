@@ -42,6 +42,7 @@ in this Software without prior written authorization from the author.
 #include "timer.h"
 #include "route20.h"
 #include "nsp.h"
+#include "session.h"
 #include "netman.h"
 #include "dns.h"
 #include "socket.h"
@@ -137,8 +138,9 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
                     if (DecnetInitialise())
                     {
 					    NspInitialise();
-					    NetManInitialise();
-					    MainLoop();
+						SessionInitialise();
+						NetManInitialise();
+						MainLoop();
                     }
 					else
 					{
@@ -492,7 +494,8 @@ static VOID SvcInit( DWORD dwArgc, LPTSTR *lpszArgv)
             if (DecnetInitialise())
             {
 			    NspInitialise();
-			    NetManInitialise();
+				SessionInitialise();
+				NetManInitialise();
 			    MainLoop();
             }
 			else

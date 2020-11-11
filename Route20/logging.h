@@ -50,6 +50,7 @@ typedef enum
 	LogNsp,
 	LogNspMessages,
 	LogNetMan,
+	LogSession,
 	LogEndMarker
 } LogSource;
 

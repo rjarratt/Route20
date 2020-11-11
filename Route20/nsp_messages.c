@@ -142,7 +142,7 @@ int IsDisconnectDisconnectConfirmMessage(nsp_disconnect_confirm_t* disconnectCon
 }
 
 
-nsp_header_t *ParseNspHeader(byte *nspPayload, int nspPayloadLength)
+nsp_header_t *ParseNspHeader(byte *nspPayload, uint16 nspPayloadLength)
 {
 	nsp_header_t *header = (nsp_header_t *)nspPayload;
 	header->srcAddr = LittleEndianBytesToUint16((byte *)&header->srcAddr);
@@ -151,11 +151,11 @@ nsp_header_t *ParseNspHeader(byte *nspPayload, int nspPayloadLength)
 	return header;
 }
 
-nsp_connect_initiate_t *ParseConnectInitiate(byte *nspPayload, int nspPayloadLength)
+nsp_connect_initiate_t *ParseConnectInitiate(byte *nspPayload, uint16 nspPayloadLength)
 {
 	nsp_connect_initiate_t *payload = (nsp_connect_initiate_t *)nspPayload;
 	payload->segSize = LittleEndianBytesToUint16((byte *)&payload->segSize);
-	payload->dataCtlLength = nspPayloadLength - sizeof(nsp_connect_initiate_t) + sizeof(payload->dataCtl);
+	payload->dataCtlLength = (byte)(nspPayloadLength - sizeof(nsp_connect_initiate_t) + sizeof(payload->dataCtl));
 	if (payload->dataCtlLength > sizeof(payload->dataCtl))
 	{
 		Log(LogNspMessages, LogWarning, "Connect Initiate data truncated, max length is %d, received %d\n", sizeof(payload->dataCtl), payload->dataCtlLength);
@@ -165,7 +165,7 @@ nsp_connect_initiate_t *ParseConnectInitiate(byte *nspPayload, int nspPayloadLen
 	return payload;
 }
 
-nsp_disconnect_initiate_t* ParseDisconnectInitiate(byte* nspPayload, int nspPayloadLength)
+nsp_disconnect_initiate_t* ParseDisconnectInitiate(byte* nspPayload, uint16 nspPayloadLength)
 {
 	nsp_disconnect_initiate_t* payload = (nsp_disconnect_initiate_t*)nspPayload;
 	payload->reason = LittleEndianBytesToUint16((byte*)&payload->reason);
@@ -173,7 +173,7 @@ nsp_disconnect_initiate_t* ParseDisconnectInitiate(byte* nspPayload, int nspPayl
 	return payload;
 }
 
-nsp_disconnect_confirm_t* ParseDisconnectConfirm(byte* nspPayload, int nspPayloadLength)
+nsp_disconnect_confirm_t* ParseDisconnectConfirm(byte* nspPayload, uint16 nspPayloadLength)
 {
 	nsp_disconnect_confirm_t* payload = (nsp_disconnect_confirm_t*)nspPayload;
 	payload->reason = LittleEndianBytesToUint16((byte*)&payload->reason);
@@ -181,7 +181,7 @@ nsp_disconnect_confirm_t* ParseDisconnectConfirm(byte* nspPayload, int nspPayloa
 	return payload;
 }
 
-nsp_data_segment_t* ParseDataSegment(byte* nspPayload, int nspPayloadLength)
+nsp_data_segment_t* ParseDataSegment(byte* nspPayload, uint16 nspPayloadLength)
 {
     // TODO: Implement a proper buffer pool, particularly for out of order messages
 	static nsp_data_segment_t payload;
@@ -206,14 +206,14 @@ nsp_data_segment_t* ParseDataSegment(byte* nspPayload, int nspPayloadLength)
 	}
 
 	payload.segNum = nextValue;
-	payload.dataLength = nspPayloadLength - (ptr - nspPayload);
+	payload.dataLength = (uint16)(nspPayloadLength - (ptr - nspPayload));
 	memcpy(payload.data, ptr, payload.dataLength);
 
 	return &payload;
 }
 
 
-nsp_link_service_t* ParseLinkService(byte* nspPayload, int nspPayloadLength)
+nsp_link_service_t* ParseLinkService(byte* nspPayload, uint16 nspPayloadLength)
 {
 	static nsp_link_service_t payload;
 	uint16 nextValue;
@@ -242,7 +242,7 @@ nsp_link_service_t* ParseLinkService(byte* nspPayload, int nspPayloadLength)
 
 	return &payload;
 }
-nsp_data_acknowledgement_t *ParseDataAcknowledgement(byte *nspPayload, int nspPayloadLength)
+nsp_data_acknowledgement_t *ParseDataAcknowledgement(byte *nspPayload, uint16 nspPayloadLength)
 {
 	nsp_data_acknowledgement_t * payload = (nsp_data_acknowledgement_t *)nspPayload;
 	payload->ackNum = LittleEndianBytesToUint16((byte *)&payload->ackNum);
@@ -336,7 +336,7 @@ packet_t* NspCreateOtherDataAcknowledgement(decnet_address_t* toAddress, uint16 
 	return ans;
 }
 
-packet_t *NspCreateDataMessage(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength)
+packet_t *NspCreateDataMessage(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, uint16 dataLength)
 {
 	packet_t *ans;
 	nsp_data_segment_t dataSegment;

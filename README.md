@@ -6,6 +6,7 @@ found here: http://linux-decnet.sourceforge.net/docs/route20.txt
 
 Minor changes:
 1. Improved management of NSP connections.
+1. Added a proper session layer.
 1. Added support for the SHOW EXECUTOR CHARACTERISTICS network management command.
 1. Added support for the SHOW KNOWN CIRCUIT STATUS network management command.
 1. Added support for the SHOW ACTIVE NODES STATUS network management command.

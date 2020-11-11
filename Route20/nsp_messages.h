@@ -55,7 +55,7 @@ typedef struct
 	byte         info;
 	uint16       segSize;
 	byte         dataCtl[64]; /* length is actually unknown */
-	int          dataCtlLength; /* not part of the wire format */
+	byte         dataCtlLength; /* not part of the wire format */
 } nsp_connect_initiate_t;
 
 typedef struct
@@ -114,7 +114,7 @@ typedef struct
 	uint16       ackOth;
 	AckType      ackOthType;
 	uint16       segNum;
-	int          dataLength;
+	uint16       dataLength;
 	byte         data[4096];
 } nsp_data_segment_t;
 
@@ -136,13 +136,13 @@ int IsDisconnectNoResourcesMessage(nsp_disconnect_confirm_t* disconnectConfirm);
 int IsDisconnectNoLinkMessage(nsp_disconnect_confirm_t* disconnectConfirm);
 int IsDisconnectDisconnectConfirmMessage(nsp_disconnect_confirm_t* disconnectConfirm);
 
-nsp_header_t *ParseNspHeader(byte *nspPayload, int nspPayloadLength);
-nsp_connect_initiate_t *ParseConnectInitiate(byte *nspPayload, int nspPayloadLength);
-nsp_disconnect_initiate_t *ParseDisconnectInitiate(byte *nspPayload, int nspPayloadLength);
-nsp_disconnect_confirm_t* ParseDisconnectConfirm(byte* nspPayload, int nspPayloadLength);
-nsp_data_segment_t* ParseDataSegment(byte* nspPayload, int nspPayloadLength);
-nsp_link_service_t* ParseLinkService(byte* nspPayload, int nspPayloadLength);
-nsp_data_acknowledgement_t* ParseDataAcknowledgement(byte* nspPayload, int nspPayloadLength);
+nsp_header_t *ParseNspHeader(byte *nspPayload, uint16 nspPayloadLength);
+nsp_connect_initiate_t *ParseConnectInitiate(byte *nspPayload, uint16 nspPayloadLength);
+nsp_disconnect_initiate_t *ParseDisconnectInitiate(byte *nspPayload, uint16 nspPayloadLength);
+nsp_disconnect_confirm_t* ParseDisconnectConfirm(byte* nspPayload, uint16 nspPayloadLength);
+nsp_data_segment_t* ParseDataSegment(byte* nspPayload, uint16 nspPayloadLength);
+nsp_link_service_t* ParseLinkService(byte* nspPayload, uint16 nspPayloadLength);
+nsp_data_acknowledgement_t* ParseDataAcknowledgement(byte* nspPayload, uint16 nspPayloadLength);
 
 packet_t *NspCreateConnectAcknowledgement(decnet_address_t *toAddress, uint16 dstAddr);
 packet_t *NspCreateConnectConfirm(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, byte services, byte info, uint16 segSize, byte dataLen, byte *data);
@@ -150,7 +150,7 @@ packet_t *NspCreateDisconnectInitiate(decnet_address_t *toAddress, uint16 srcAdd
 packet_t *NspCreateDisconnectConfirm(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 reason);
 packet_t *NspCreateDataAcknowledgement(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 ackNumber);
 packet_t *NspCreateOtherDataAcknowledgement(decnet_address_t* toAddress, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number);
-packet_t *NspCreateDataMessage(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength);
+packet_t *NspCreateDataMessage(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, uint16 dataLength);
 packet_t *NspCreateLinkServiceMessage(decnet_address_t *toAddress, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte lsFlags, byte fcVal);
 
 

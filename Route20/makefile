@@ -35,6 +35,7 @@ ROUTE20 = adjacency.c \
           nsp_messages.c \
 		  nsp_session_control_port_database.c \
 		  nsp_transmit_queue.c \
+		  session.c \
           packet.c \
           route20.c \
           routing_database.c \

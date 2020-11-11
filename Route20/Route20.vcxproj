@@ -130,6 +130,7 @@
     <ClCompile Include="packet.c" />
     <ClCompile Include="route20.c" />
     <ClCompile Include="routing_database.c" />
+    <ClCompile Include="session.c" />
     <ClCompile Include="socket.c" />
     <ClCompile Include="timer.c" />
     <ClCompile Include="update.c" />
@@ -181,6 +182,7 @@
     <ClInclude Include="platform.h" />
     <ClInclude Include="route20.h" />
     <ClInclude Include="routing_database.h" />
+    <ClInclude Include="session.h" />
     <ClInclude Include="socket.h" />
     <ClInclude Include="timer.h" />
     <ClInclude Include="update.h" />

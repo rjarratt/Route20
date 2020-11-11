@@ -91,7 +91,7 @@ void NspInitialiseConfig(void)
 	NspConfig.NSPInactTim = 30;
 }
 
-int NspOpen(void (*closeCallback)(uint16 srcAddr), void (*connectCallback)(decnet_address_t* remNode, uint16 locAddr, uint16 remAddr, byte* data, int dataLength), void (*dataCallback)(uint16 locAddr, byte *data, int dataLength))
+int NspOpen(void (*closeCallback)(uint16 srcAddr), void (*connectCallback)(decnet_address_t* remNode, uint16 locAddr, uint16 remAddr, byte* data, byte dataLength), void (*dataCallback)(uint16 locAddr, byte *data, uint16 dataLength))
 {
 	int ans = 0;
 	session_control_port_t *port = NspFindFreeScpDatabaseEntry();
