@@ -38,7 +38,7 @@ typedef struct transmit_queue_entry
 {
 	uint16  transmitSegmentNumber;
 	char   *data[NSP_SEGMENT_SIZE];
-	int     dataLength;
+	uint16    dataLength;
 	transmit_queue_entry_ptr next; /* pints to the next entry towards the tail */
 	
 } transmit_queue_entry_t;
@@ -51,8 +51,8 @@ typedef struct
 
 void InitialiseTransmitQueue(transmit_queue_t *queue);
 void TerminateTransmitQueue(transmit_queue_t *queue);
-void EnqueueToTransmitQueue(transmit_queue_t *queue, uint16 transmitSegmentNumber, byte *data, int dataLength);
-int DequeueFromTransmitQueue(transmit_queue_t *queue, uint16 maxTransmitSegmentNumber, uint16 *nextTransmitSegmentNumber, byte *data, int dataLength, int *actualDataLength);
+void EnqueueToTransmitQueue(transmit_queue_t *queue, uint16 transmitSegmentNumber, byte *data, uint16 dataLength);
+int DequeueFromTransmitQueue(transmit_queue_t *queue, uint16 maxTransmitSegmentNumber, uint16 *nextTransmitSegmentNumber, byte *data, uint16 dataLength, uint16 *actualDataLength);
 
 #define NSP_TRANSMIT_QUEUE_H
 #endif

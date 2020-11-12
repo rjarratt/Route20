@@ -49,6 +49,7 @@ in this Software without prior written authorization from the author.
 #include "forwarding.h"
 #include "update.h"
 #include "nsp.h"
+#include "session.h"
 #include "dns.h"
 #include "node.h"
 #include "socket.h"
@@ -57,7 +58,7 @@ static int dnsNeeded = 0;
 int numCircuits = 0;
 static init_layer_t *ethernetInitLayer;
 static init_layer_t *ddcmpInitLayer;
-static void (*processHigherLevelProtocolPacket)(decnet_address_t *from, byte *data, int dataLength) = NULL;
+static void (*processHigherLevelProtocolPacket)(decnet_address_t *from, byte *data, uint16 dataLength) = NULL;
 static rtimer_t *statsTimer = NULL;
 
 // TODO: Add Phase III support
@@ -70,6 +71,7 @@ static char *ReadEthernetConfig(FILE *f, ConfigReadMode mode, int *ans);
 static char *ReadBridgeConfig(FILE *f, ConfigReadMode mode, int *ans);
 static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans);
 static char *ReadNspConfig(FILE *f, ConfigReadMode mode, int *ans);
+static char *ReadSessionConfig(FILE *f, ConfigReadMode mode, int *ans);
 static char *ReadDnsConfig(FILE *f, ConfigReadMode mode, int *ans);
 static char *ReadStatsConfig(FILE *f, ConfigReadMode mode, int *ans);
 static int SplitString(char *string, char splitBy, char **left, char **right);
@@ -126,6 +128,7 @@ int InitialiseConfig(int (*ConfigReader)(char *fileName, ConfigReadMode mode), c
 {
 	int ans;
 	NspInitialiseConfig();
+	SessionInitialiseConfig();
 	DnsConfig.dnsConfigured = 0;
 
 	ans = ConfigReader(configFileName, ConfigReadModeFull);
@@ -173,7 +176,7 @@ int DecnetInitialise(void)
     return ans;
 }
 
-void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, int dataLength))
+void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, uint16 dataLength))
 {
 	processHigherLevelProtocolPacket = callback;
 }
@@ -324,6 +327,10 @@ int ReadConfig(char *fileName, ConfigReadMode mode)
 			else if (stricmp(line, "[nsp]") == 0)
 			{
 				line = ReadNspConfig(f, mode, &ans);
+			}
+			else if (stricmp(line, "[session]") == 0)
+			{
+				line = ReadSessionConfig(f, mode, &ans);
 			}
 			else if (stricmp(line, "[dns]") == 0)
 			{
@@ -857,6 +864,38 @@ static char *ReadNspConfig(FILE *f, ConfigReadMode mode, int *ans)
 	return line;
 }
 
+static char *ReadSessionConfig(FILE *f, ConfigReadMode mode, int *ans)
+{
+	char *line;
+	char *name;
+	char *value;
+
+	if (mode == ConfigReadModeFull)
+	{
+		while ((line = ReadConfigLine(f)))
+		{
+			if (*line == '[')
+			{
+				break;
+			}
+
+			if (SplitString(line, '=', &name, &value))
+			{
+				if (stricmp(name, "InactivityTimer") == 0)
+				{
+					SessionConfig.sessionInactivityTimeout = atoi(value);
+				}
+			}
+		}
+	}
+	else
+	{
+		line = ReadConfigToNextSection(f);
+	}
+
+	return line;
+}
+
 static char *ReadDnsConfig(FILE *f, ConfigReadMode mode, int *ans)
 {
 	char *line;
@@ -1339,7 +1378,7 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
                 byte flags;
                 int visits;
                 byte *data;
-                int dataLength;
+                uint16 dataLength;
 
                 ExtractDataPacketData(packet, &srcNode, &dstNode, &flags, &visits, &data, &dataLength);
                 CheckCircuitAdjacency(&packet->from, circuit);

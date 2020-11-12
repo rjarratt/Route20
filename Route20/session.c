@@ -30,10 +30,12 @@ in this Software without prior written authorization from the author.
 #include <memory.h>
 #include "session.h"
 #include "nsp.h"
+#include "timer.h"
 
 #define MAX_SESSIONS 5
 #define MAX_OBJECTS 3
 
+#define REASON_DISCONNECT_BY_OBJECT 0
 #define REASON_NETWORK_RESOURCES 1
 #define REASON_UNRECOGNIZED_OBJECT 4
 
@@ -49,8 +51,10 @@ typedef struct
 typedef struct
 {
     int inUse;
-    uint16 locAddr;
-    uint16 remaddr;
+    uint16                 locAddr;
+    uint16                 remaddr;
+    decnet_address_t       remNode;
+    rtimer_t              *inactivityTimer; // TODO: Inactivity should be based on Confidence status from NSP rather than just this timer, this timer should be after confidence is low
     object_registration_t *objectRegistration;
 } session_t;
 
@@ -59,6 +63,7 @@ static object_registration_t ObjectRegistrationTable[MAX_OBJECTS];
 
 static void OpenPort(void);
 static session_t *FindSession(uint16 locAddr);
+static void HandleSessionInactivityTimer(rtimer_t *timer, char *name, void *context);
 
 static void CloseCallback(uint16 locAddr);
 static void ConnectCallback(decnet_address_t *remNode, uint16 locAddr, uint16 remAddr, byte *data, byte dataLength);
@@ -78,6 +83,11 @@ void SessionInitialise(void)
     }
 
     OpenPort();
+}
+
+void SessionInitialiseConfig(void)
+{
+    SessionConfig.sessionInactivityTimeout = 60;
 }
 
 int SessionRegisterObjectType(byte objectType, int (*connectCallback)(void *session, decnet_address_t *remNode, byte *data, byte dataLength, uint16 *reason, byte **acceptData, byte *acceptDataLength), void (*closeCallback)(void *session), void (*dataCallback)(void *session, byte *data, uint16 dataLength))
@@ -115,9 +125,10 @@ void SessionClose(void *session)
     OpenPort();
 }
 
-void SessionDataTransmit(void *session, byte *data, int dataLength)
+void SessionDataTransmit(void *session, byte *data, uint16 dataLength)
 {
     session_t *s = session;
+    ResetTimer(s->inactivityTimer);
     NspTransmit(s->locAddr, data, dataLength);
 }
 
@@ -136,6 +147,20 @@ static session_t *FindSession(uint16 locAddr)
     }
 
     return result;
+}
+
+static void HandleSessionInactivityTimer(rtimer_t *timer, char *name, void *context)
+{
+    session_t *session = context;
+    StopTimer(timer);
+    if (session->inUse)
+    {
+        Log(LogSession, LogInfo, "Disconnecting session with ");
+        LogDecnetAddress(LogSession, LogInfo, &session->remNode);
+        Log(LogSession, LogInfo, " due to inactivity\n");
+        NspDisconnect(session->locAddr, REASON_DISCONNECT_BY_OBJECT);
+        // TODO: TimerCon in NSP to ensure we disconnect?
+    }
 }
 
 static void ConnectCallback(decnet_address_t *remNode, uint16 locAddr, uint16 remAddr, byte *data, byte dataLength)
@@ -184,14 +209,20 @@ static void ConnectCallback(decnet_address_t *remNode, uint16 locAddr, uint16 re
             uint16 reason;
             byte *acceptData;
             byte acceptDataLength;
+            time_t now;
             if (registration->connectCallback((void *)session, remNode, NULL, 0, &reason, &acceptData, &acceptDataLength)) // TODO: probably should remove the object type and pass remaining data?
             {
+                time(&now);
                 session->inUse = 1;
                 session->locAddr = locAddr;
                 session->remaddr = remAddr;
+                memcpy(&session->remNode, remNode, sizeof(decnet_address_t));
                 session->objectRegistration = registration;
+                session->inactivityTimer = CreateTimer("Session Inactivity Timer", now + SessionConfig.sessionInactivityTimeout, SessionConfig.sessionInactivityTimeout, session, HandleSessionInactivityTimer);
                 NspAccept(locAddr, SERVICES_NONE, acceptDataLength, acceptData);
-                Log(LogSession, LogInfo, "Starting session for object type %d\n", registration->objectType);
+                Log(LogSession, LogInfo, "Starting session with ");
+                LogDecnetAddress(LogSession, LogInfo, remNode);
+                Log(LogSession, LogInfo, " for object type %d\n", registration->objectType);
             }
             else
             {
@@ -207,6 +238,7 @@ static void CloseCallback(uint16 locAddr)
     session_t *session = FindSession(locAddr);
     if (session != NULL)
     {
+        StopTimer(session->inactivityTimer);
         session->objectRegistration->closeCallback(session);
         memset(session, 0, sizeof(session_t));
     }
@@ -217,6 +249,7 @@ static void DataCallback(uint16 locAddr, byte *data, uint16 dataLength)
     session_t *session = FindSession(locAddr);
     if (session != NULL)
     {
+        ResetTimer(session->inactivityTimer);
         session->objectRegistration->dataCallback(session, data, dataLength);
     }
 }

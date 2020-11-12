@@ -65,7 +65,7 @@ void ForwardPacket(circuit_t *srcCircuit, packet_t *packet)
 	byte flags;
 	int visits;
 	byte *data;
-	int dataLength;
+	uint16 dataLength;
 	int forward = 1;
 	int rejectingForward = 0;
 

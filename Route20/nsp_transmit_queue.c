@@ -48,7 +48,7 @@ void TerminateTransmitQueue(transmit_queue_t *queue)
 	}
 }
 
-void EnqueueToTransmitQueue(transmit_queue_t *queue, uint16 transmitSegmentNumber, byte *data, int dataLength)
+void EnqueueToTransmitQueue(transmit_queue_t *queue, uint16 transmitSegmentNumber, byte *data, uint16 dataLength)
 {
 	transmit_queue_entry_t *entry = (transmit_queue_entry_t *)malloc(sizeof(transmit_queue_entry_t));
 	memcpy(entry->data, data, dataLength > sizeof(entry->data) ? sizeof(entry->data) : dataLength);
@@ -69,7 +69,7 @@ void EnqueueToTransmitQueue(transmit_queue_t *queue, uint16 transmitSegmentNumbe
 	}
 }
 
-int DequeueFromTransmitQueue(transmit_queue_t *queue, uint16 maxTransmitSegmentNumber, uint16 *nextTransmitSegmentNumber, byte *data, int dataLength, int *actualDataLength)
+int DequeueFromTransmitQueue(transmit_queue_t *queue, uint16 maxTransmitSegmentNumber, uint16 *nextTransmitSegmentNumber, byte *data, uint16 dataLength, uint16 *actualDataLength)
 {
 	int ans = 0;
 	transmit_queue_entry_t *entry = queue->head;

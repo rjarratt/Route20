@@ -97,10 +97,10 @@ static int AdjacentNodeCircuitCallback(adjacency_t *adjacency, void *context);
 static int AdjacentNodeCallback(adjacency_t *adjacency, void *context);
 static void SendCircuitInfo(nice_session_t *niceSession, circuit_t *circuit, decnet_address_t *address);
 static void SendAdjacentNodeInfo(nice_session_t *niceSession, circuit_t *circuit, decnet_address_t *address);
-static void StartDataBlockResponse(byte* data, int* pos);
-static void AddDecnetIdToResponse(byte* data, int* pos, decnet_address_t* address);
-static void AddEntityTypeAndDataTypeToResponse(byte* data, int* pos, uint16 entityType, byte dataType);
-static void AddStringToResponse(byte *data, int *pos, char *s);
+static void StartDataBlockResponse(byte* data, uint16* pos);
+static void AddDecnetIdToResponse(byte* data, uint16 * pos, decnet_address_t* address);
+static void AddEntityTypeAndDataTypeToResponse(byte* data, uint16 * pos, uint16 entityType, byte dataType);
+static void AddStringToResponse(byte *data, uint16 *pos, char *s);
 
 void NetManInitialise(void)
 {
@@ -292,7 +292,7 @@ static void ProcessShowAdjacentNodes(nice_session_t *niceSession)
 static void ProcessShowExecutorCharacteristics(nice_session_t *niceSession)
 {
 	byte responseData[512];
-	int len;
+	uint16 len;
 
 	Log(LogNetMan, LogInfo, "Processing SHOW EXECUTOR CHARACTERISTICS from ");
 	LogDecnetAddress(LogNetMan, LogInfo, &niceSession->remNode);
@@ -350,7 +350,7 @@ static int AdjacentNodeCallback(adjacency_t *adjacency, void *context)
 static void SendCircuitInfo(nice_session_t *niceSession, circuit_t *circuit, decnet_address_t *address)
 {
 	byte responseData[512];
-	int len;
+	uint16 len;
 
 	memset(responseData, 0, sizeof(responseData));
 	StartDataBlockResponse(responseData, &len);
@@ -375,7 +375,7 @@ static void SendCircuitInfo(nice_session_t *niceSession, circuit_t *circuit, dec
 static void SendAdjacentNodeInfo(nice_session_t *niceSession, circuit_t *circuit, decnet_address_t *address)
 {
 	byte responseData[512];
-	int len;
+	uint16 len;
 
 	memset(responseData, 0, sizeof(responseData));
 	StartDataBlockResponse(responseData, &len);
@@ -395,7 +395,7 @@ static void SendAdjacentNodeInfo(nice_session_t *niceSession, circuit_t *circuit
 	SessionDataTransmit(niceSession->session, responseData, len);
 }
 
-static void StartDataBlockResponse(byte* data, int* pos)
+static void StartDataBlockResponse(byte* data, uint16 * pos)
 {
 	*pos = 0;
 	data[(*pos)++] = 1; /* Success */
@@ -404,23 +404,23 @@ static void StartDataBlockResponse(byte* data, int* pos)
 	data[(*pos)++] = 0;
 }
 
-static void AddDecnetIdToResponse(byte *data, int *pos, decnet_address_t *address)
+static void AddDecnetIdToResponse(byte *data, uint16 *pos, decnet_address_t *address)
 {
 		uint16 id = Uint16ToLittleEndian(GetDecnetId(*address));
 		memcpy(&data[*pos], &id, sizeof(uint16));
 		*pos = *pos + sizeof(uint16);
 }
 
-static void AddEntityTypeAndDataTypeToResponse(byte* data, int* pos, uint16 entityType, byte dataType)
+static void AddEntityTypeAndDataTypeToResponse(byte* data, uint16 * pos, uint16 entityType, byte dataType)
 {
 	data[(*pos)++] = entityType & 0xFF;
 	data[(*pos)++] = (entityType >> 8) & 0xFF;
 	data[(*pos)++] = dataType;
 }
 
-static void AddStringToResponse(byte *data, int *pos, char *s)
+static void AddStringToResponse(byte *data, uint16 *pos, char *s)
 {
-	int len = (int)strlen(s);
+	uint16 len = (uint16)strlen(s);
 	data[(*pos)++] = (byte)len;
 	strcpy((char *)(&data[*pos]), s);
 	*pos = *pos +len;

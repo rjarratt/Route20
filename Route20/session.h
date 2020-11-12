@@ -31,10 +31,18 @@
 #include "basictypes.h"
 #include "decnet.h"
 
+typedef struct
+{
+	int  sessionInactivityTimeout; /* inactivity timer in seconds */
+} session_config_t;
+
+session_config_t SessionConfig;
+
 void SessionInitialise(void);
+void SessionInitialiseConfig(void);
 int SessionRegisterObjectType(byte objectType, int (*connectCallback)(void *session, decnet_address_t *remNode, byte *data, byte dataLength, uint16 *reason, byte **acceptData, byte *acceptDataLength), void (*closeCallback)(void *session), void (*dataCallback)(void *session, byte *data, uint16 dataLength));
 void SessionClose(void *session);
-void SessionDataTransmit(void *session, byte *data, int dataLength);
+void SessionDataTransmit(void *session, byte *data, uint16 dataLength);
 
 #define SESSION_H
 #endif

@@ -35,7 +35,7 @@ in this Software without prior written authorization from the author.
 #include "route20.h"
 #include "forwarding.h" // TODO: remove when do proper layering
 
-// TODO: On demand NspOpen?
+// TODO: Implement timercon from NSP spec
 
 #define INFO_V40 2
 
@@ -66,7 +66,7 @@ static void SendDisconnectConfirm(decnet_address_t* to, uint16 srcAddr, uint16 d
 static void SendConnectConfirm(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, byte services, byte dataLen, byte* data);
 static void SendDataAcknowledgement(decnet_address_t* to, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number);
 static void SendOtherDataAcknowledgement(decnet_address_t* to, uint16 srcAddr, uint16 dstAddr, int isAck, uint16 number);
-static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength);
+static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, uint16 dataLength);
 static void SendLinkService(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte lsFlags, byte fcVal);
 
 static session_control_port_t *FindScpEntryForRemoteNodeConnection(decnet_address_t *node, uint16 locAddr, uint16 remAddr);
@@ -113,11 +113,11 @@ int NspOpen(void (*closeCallback)(uint16 srcAddr), void (*connectCallback)(decne
 
 void NspClose(uint16 locAddr)
 {
-	session_control_port_t* port = NspFindScpDatabaseEntryByLocalAddress(locAddr);
+	session_control_port_t *port = NspFindScpDatabaseEntryByLocalAddress(locAddr);
 
 	if (port != NULL)
 	{
-		Log(LogNsp, LogInfo, "Closed NSP connection from ");
+		Log(LogNsp, LogInfo, "Closed NSP connection to ");
 		LogDecnetAddress(LogNsp, LogInfo, &port->node);
 		Log(LogNsp, LogInfo, " on port %d\n", port->addrLoc);
 
@@ -129,6 +129,24 @@ void NspClose(uint16 locAddr)
 		if (port->inactivityTimer != NULL)
 		{
 			StopTimer(port->inactivityTimer);
+		}
+	}
+}
+
+void NspDisconnect(uint16 locAddr, uint16 reason)
+{
+	session_control_port_t *port = NspFindScpDatabaseEntryByLocalAddress(locAddr);
+
+	if (port != NULL)
+	{
+		if (port->state == NspPortStateRunning)
+		{
+			Log(LogNsp, LogInfo, "Disconnecting NSP connection to ");
+			LogDecnetAddress(LogNsp, LogInfo, &port->node);
+			Log(LogNsp, LogInfo, " on port %d, reason=%hu\n", port->addrLoc, reason);
+
+			SetPortState(port, NspPortStateDisconnectInitiate);
+			SendDisconnectInitiate(&port->node, port->addrLoc, port->addrRem, reason, 0, NULL);
 		}
 	}
 }
@@ -177,7 +195,7 @@ int NspReject(decnet_address_t* dstNode, uint16 srcAddr, uint16 dstAddr, uint16 
 	return ans;
 }
 
-void NspTransmit(uint16 srcAddr, byte *data, int dataLength)
+void NspTransmit(uint16 srcAddr, byte *data, uint16 dataLength)
 {
 	session_control_port_t *port;
 
@@ -190,7 +208,7 @@ void NspTransmit(uint16 srcAddr, byte *data, int dataLength)
 	}
 }
 
-void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength)
+void NspProcessPacket(decnet_address_t *from, byte *data, uint16 dataLength)
 {
 	// TODO: validate NSP messages, see latter half of section 6.2
 	// TODO: process "return to sender" messages, NSP spec p79
@@ -546,7 +564,7 @@ static void TransmitQueuedMessages(session_control_port_t *port)
 {
 	// TODO: NAK and retransmit after timeout
 	byte data[NSP_SEGMENT_SIZE];
-	int dataLength;
+	uint16 dataLength;
 	uint16 transmitSegmentNumber;
 
 	while (DequeueFromTransmitQueue(&port->transmit_queue, port->flowRemDat + 1, &transmitSegmentNumber, data, sizeof(data), &dataLength))
@@ -641,7 +659,7 @@ static void SendOtherDataAcknowledgement(decnet_address_t* to, uint16 srcAddr, u
 	SendPacket(NULL, to, confirmPacket);
 }
 
-static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, int dataLength)
+static void SendDataSegment(decnet_address_t *to, uint16 srcAddr, uint16 dstAddr, uint16 seqNo, byte *data, uint16 dataLength)
 {
 	packet_t *confirmPacket;
 	Log(LogNspMessages, LogVerbose, "Sending DataSegment number %d\n", seqNo);

@@ -811,7 +811,7 @@ void ClearIntraEthernet(packet_t *packet)
 	SetMessageFlags(packet, MessageFlags(packet) & ~0x20);
 }
 
-void ExtractDataPacketData(packet_t *packet, decnet_address_t *srcNode, decnet_address_t *dstNode, byte *flags, int *visits, byte **data, int *dataLength)
+void ExtractDataPacketData(packet_t *packet, decnet_address_t *srcNode, decnet_address_t *dstNode, byte *flags, int *visits, byte **data, uint16 *dataLength)
 {
 	if (IsShortDataPacket(packet))
 	{
@@ -821,7 +821,7 @@ void ExtractDataPacketData(packet_t *packet, decnet_address_t *srcNode, decnet_a
 		*flags = shortData->header.flags;
 		*visits = shortData->header.forward & 0x3F;
 		*data = (byte *)shortData->body;
-		*dataLength = packet->payloadLen - sizeof(short_data_packet_hdr_t);
+		*dataLength = (uint16)(packet->payloadLen - sizeof(short_data_packet_hdr_t));
 	}
 	else
 	{
@@ -831,7 +831,7 @@ void ExtractDataPacketData(packet_t *packet, decnet_address_t *srcNode, decnet_a
 		*flags = longData->header.flags;
 		*visits = longData->header.visit_ct;
 		*data = (byte *)longData->body;
-		*dataLength = packet->payloadLen - sizeof(long_data_packet_hdr_t);
+		*dataLength = (uint16)(packet->payloadLen - sizeof(long_data_packet_hdr_t));
 	}
 }
 
