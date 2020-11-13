@@ -31,6 +31,8 @@
 
 #if !defined(DECNET_H)
 
+#define MAX_NODE_NAME_LENGTH 6
+
 typedef enum
 {
 	Node,

@@ -41,7 +41,7 @@ typedef struct
 {
 	int level;
 	decnet_address_t address;
-	char name[7];
+	char name[MAX_NODE_NAME_LENGTH + 1];
 	byte priority;
 	NodeState state;
 } node_t;

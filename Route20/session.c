@@ -120,14 +120,14 @@ int SessionRegisterObjectType(byte objectType, int (*connectCallback)(void *sess
 
 void SessionClose(void *session)
 {
-    session_t *s = session;
+    session_t *s = (session_t * )session;
     NspClose(s->locAddr);
     OpenPort();
 }
 
 void SessionDataTransmit(void *session, byte *data, uint16 dataLength)
 {
-    session_t *s = session;
+    session_t *s = (session_t *)session;
     ResetTimer(s->inactivityTimer);
     NspTransmit(s->locAddr, data, dataLength);
 }
@@ -151,7 +151,7 @@ static session_t *FindSession(uint16 locAddr)
 
 static void HandleSessionInactivityTimer(rtimer_t *timer, char *name, void *context)
 {
-    session_t *session = context;
+    session_t *session = (session_t *)context;
     StopTimer(timer);
     if (session->inUse)
     {

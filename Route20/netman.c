@@ -100,7 +100,7 @@ static void SendAdjacentNodeInfo(nice_session_t *niceSession, circuit_t *circuit
 static void StartDataBlockResponse(byte* data, uint16* pos);
 static void AddDecnetIdToResponse(byte* data, uint16 * pos, decnet_address_t* address);
 static void AddEntityTypeAndDataTypeToResponse(byte* data, uint16 * pos, uint16 entityType, byte dataType);
-static void AddStringToResponse(byte *data, uint16 *pos, char *s);
+static void AddStringToResponse(byte *data, uint16 *pos, char *s, int maxLength);
 
 void NetManInitialise(void)
 {
@@ -303,10 +303,10 @@ static void ProcessShowExecutorCharacteristics(nice_session_t *niceSession)
 	memset(responseData, 0, sizeof(responseData));
 	StartDataBlockResponse(responseData, &len);
 	AddDecnetIdToResponse(responseData, &len, &nodeInfo.address);
-	AddStringToResponse(responseData, &len, nodeInfo.name);
+	AddStringToResponse(responseData, &len, nodeInfo.name, MAX_NODE_NAME_LENGTH);
 
 	AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_NODE_C_IDENTIFICATION, DATA_TYPE_AI);
-	AddStringToResponse(responseData, &len, "Route20 User Mode Router");
+	AddStringToResponse(responseData, &len, "Route20 User Mode Router", 32);
 
 	AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_NODE_C_MANAGEMENT_VERSION, DATA_TYPE_CM(3));
 	responseData[len++] = DATA_TYPE_DU(1);
@@ -354,7 +354,8 @@ static void SendCircuitInfo(nice_session_t *niceSession, circuit_t *circuit, dec
 
 	memset(responseData, 0, sizeof(responseData));
 	StartDataBlockResponse(responseData, &len);
-	AddStringToResponse(responseData, &len, circuit->name);
+	
+	AddStringToResponse(responseData, &len, circuit->name, 16);
 
 	/* Circuit State */
 	responseData[len++] = 0;
@@ -390,7 +391,7 @@ static void SendAdjacentNodeInfo(nice_session_t *niceSession, circuit_t *circuit
 
 	/* Circuit */
 	AddEntityTypeAndDataTypeToResponse(responseData, &len, ENTITY_TYPE_NODE_S_CIRCUIT, DATA_TYPE_AI);
-	AddStringToResponse(responseData, &len, circuit->name);
+	AddStringToResponse(responseData, &len, circuit->name, 16);
 
 	SessionDataTransmit(niceSession->session, responseData, len);
 }
@@ -418,9 +419,10 @@ static void AddEntityTypeAndDataTypeToResponse(byte* data, uint16 * pos, uint16 
 	data[(*pos)++] = dataType;
 }
 
-static void AddStringToResponse(byte *data, uint16 *pos, char *s)
+static void AddStringToResponse(byte *data, uint16 *pos, char *s, int maxLength)
 {
-	uint16 len = (uint16)strlen(s);
+	uint16 slen = (uint16)strlen(s);
+	uint16 len = (slen > maxLength) ? maxLength : slen;
 	data[(*pos)++] = (byte)len;
 	strcpy((char *)(&data[*pos]), s);
 	*pos = *pos +len;
