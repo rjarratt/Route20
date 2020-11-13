@@ -355,7 +355,7 @@ static void SendCircuitInfo(nice_session_t *niceSession, circuit_t *circuit, dec
 	memset(responseData, 0, sizeof(responseData));
 	StartDataBlockResponse(responseData, &len);
 	
-	AddStringToResponse(responseData, &len, circuit->name, 16);
+	AddStringToResponse(responseData, &len, circuit->name, -1);
 
 	/* Circuit State */
 	responseData[len++] = 0;
@@ -422,7 +422,7 @@ static void AddEntityTypeAndDataTypeToResponse(byte* data, uint16 * pos, uint16 
 static void AddStringToResponse(byte *data, uint16 *pos, char *s, int maxLength)
 {
 	uint16 slen = (uint16)strlen(s);
-	uint16 len = (slen > maxLength) ? maxLength : slen;
+	uint16 len = (slen > maxLength && maxLength > 0) ? maxLength : slen;
 	data[(*pos)++] = (byte)len;
 	strcpy((char *)(&data[*pos]), s);
 	*pos = *pos +len;
