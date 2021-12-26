@@ -44,14 +44,6 @@ static void ProcessCircuitLevel2Update(circuit_t* circuit);
 static int Level1UpdateRequired(int slot, int from, int count);
 static int Level2UpdateRequired(int slot);
 
-typedef struct
-{
-    circuit_t* circuit;
-    int nextLevel1Node;
-} Level1UpdateBatch;
-
-static Level1UpdateBatch Level1UpdateBatches[(NN + 1) / LEVEL1_BATCH_SIZE];
-
 void InitialiseUpdateProcess(void)
 {
     time_t now;
@@ -87,44 +79,37 @@ static void ProcessUpdateTimer(rtimer_t* timer, char* name, void* context)
     }
 }
 
-static void SendLevel1UpdateBatch(rtimer_t* timer, char* name, void* context)
+static void SendLevel1UpdateBatch(circuit_t *circuit, int nextLevel1Node)
 {
     packet_t* packet;
-    Level1UpdateBatch* batch = (Level1UpdateBatch*)context;
-    if (Level1UpdateRequired(batch->circuit->slot, batch->nextLevel1Node, LEVEL1_BATCH_SIZE))
+    if (Level1UpdateRequired(circuit->slot, nextLevel1Node, LEVEL1_BATCH_SIZE))
     {
-        Log(LogUpdate, LogVerbose, "Sending level 1 routing to %s for node range %d-%d\n", batch->circuit->name, batch->nextLevel1Node, batch->nextLevel1Node + LEVEL1_BATCH_SIZE - 1);
-        packet = CreateLevel1RoutingMessage(batch->nextLevel1Node, LEVEL1_BATCH_SIZE);
-        if (IsBroadcastCircuit(batch->circuit))
+        Log(LogUpdate, LogVerbose, "Sending level 1 routing to %s for node range %d-%d\n", circuit->name, nextLevel1Node, nextLevel1Node + LEVEL1_BATCH_SIZE - 1);
+        packet = CreateLevel1RoutingMessage(nextLevel1Node, LEVEL1_BATCH_SIZE);
+        if (IsBroadcastCircuit(circuit))
         {
-            batch->circuit->WritePacket(batch->circuit, &nodeInfo.address, &AllRoutersAddress, packet, 0);
+            circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet, 0);
         }
         else
         {
-            batch->circuit->WritePacket(batch->circuit, NULL, NULL, packet, 0);
+            circuit->WritePacket(circuit, NULL, NULL, packet, 0);
         }
     }
 }
 
 static void ProcessCircuitLevel1Update(circuit_t* circuit)
 {
-    int startNode = circuit->nextLevel1Node;
-    time_t now;
-    int i = 0;
-    time(&now);
+    int startNode = circuit->startLevel1Node;
+    int nextLevel1Node = startNode;
 
     do
     {
-        Level1UpdateBatch* batch = &Level1UpdateBatches[i];
-        batch->circuit = circuit;
-        batch->nextLevel1Node = circuit->nextLevel1Node;
-        CreateTimer("Level1Update", now + i, 0, batch, SendLevel1UpdateBatch); // Send each batch at 1-second intervals so there is less chance of a loss of packets if we send a whole load at once
-        circuit->nextLevel1Node = (circuit->nextLevel1Node + LEVEL1_BATCH_SIZE) % (NN + 1);
-        i++;
-    } while (circuit->nextLevel1Node != startNode);
+        SendLevel1UpdateBatch(circuit, nextLevel1Node);
+        nextLevel1Node = (nextLevel1Node + LEVEL1_BATCH_SIZE) % (NN + 1);
+    } while (nextLevel1Node != startNode);
 
     /* ensure next time round we start from a different point in the table, satisfies 4.8.1 requirement to mitigate packet loss */
-    circuit->nextLevel1Node = (circuit->nextLevel1Node + LEVEL1_BATCH_SIZE) % (NN + 1);
+    circuit->startLevel1Node = (circuit->startLevel1Node + LEVEL1_BATCH_SIZE) % (NN + 1);
 }
 
 static void ProcessCircuitLevel2Update(circuit_t* circuit)
