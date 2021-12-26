@@ -1277,10 +1277,10 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 	}
 	else if (IsLevel1RoutingMessage(packet))
 	{
+		LogMessage(circuit, packet, "Level 1 Routing");
 		if ((nodeInfo.level == 1 || nodeInfo.level == 2))
 		{
 			routing_msg_t *msg;
-			LogMessage(circuit, packet, "Level 1 Routing");
 			msg = ParseRoutingMessage(packet);
 			if (msg != NULL)
 			{
@@ -1300,10 +1300,10 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 	}
 	else if (IsLevel2RoutingMessage(packet))
 	{
+		LogMessage(circuit, packet, "Level 2 Routing");
 		if (nodeInfo.level == 2)
 		{
 			routing_msg_t *msg;
-			LogMessage(circuit, packet, "Level 2 Routing");
 			msg = ParseRoutingMessage(packet);
 			if (msg != NULL)
 			{
@@ -1368,9 +1368,9 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 	}
 	else if (IsDataMessage(packet))
 	{
+		LogMessage(circuit, packet, "Data message");
         if (circuit->state == CircuitStateUp)
         {
-		    LogMessage(circuit, packet, "Data message");
             if (IsValidDataPacket(packet))
             {
                 decnet_address_t srcNode;
