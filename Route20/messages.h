@@ -242,7 +242,7 @@ int IsReturnToSender(byte flags);
 int IsReturnToSenderRequest(byte flags);
 void SetIntraEthernet(packet_t *packet);
 void ClearIntraEthernet(packet_t *packet);
-void ExtractDataPacketData(packet_t *packet, decnet_address_t *srcNode, decnet_address_t *dstNode, byte *flags, int *visits, byte **data, int *dataLength);
+void ExtractDataPacketData(packet_t *packet, decnet_address_t *srcNode, decnet_address_t *dstNode, byte *flags, int *visits, byte **data, uint16 *dataLength);
 packet_t *CreateLongDataMessage(decnet_address_t *srcNode, decnet_address_t *dstNode, byte flags, int visits, byte *data, int dataLength);
 
 #define MESSAGES_H

@@ -64,22 +64,22 @@ struct eth_list {
 };
 
 struct bpf_insn filterInstructions[] = {
-    BPF_STMT(BPF_LD+BPF_H+BPF_ABS, 12),
-    BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_LOOPBACK, 5, 0),
-    BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_MOPRC, 4, 0),
-    BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_MOPDL, 3, 0),
-    BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_LAT, 2, 0),
-    BPF_JUMP(BPF_JMP+BPF_JEQ+BPF_K, ETHERTYPE_DECnet, 1, 0),
-    BPF_STMT(BPF_RET+BPF_K, 0),
-    BPF_STMT(BPF_RET+BPF_K, 1518),
+    BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 12),
+    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_LOOPBACK, 5, 0),
+    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_MOPRC, 4, 0),
+    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_MOPDL, 3, 0),
+    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_LAT, 2, 0),
+    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_DECnet, 1, 0),
+    BPF_STMT(BPF_RET + BPF_K, 0),
+    BPF_STMT(BPF_RET + BPF_K, 1518),
 };
 
-static int eth_translate(char *name, char *translated_name);
+static int eth_translate(char* name, char* translated_name);
 
-int EthPcapLineStart(line_t *line)
+int EthPcapLineStart(line_t* line)
 {
     int ans = 0;
-    eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
+    eth_pcap_t* pcapContext = (eth_pcap_t*)line->lineContext;
     char devname[1024];
     char ebuf[PCAP_ERRBUF_SIZE];
 
@@ -123,7 +123,7 @@ int EthPcapLineStart(line_t *line)
             else
             {
                 struct bpf_program pgm;
-                pgm.bf_len = sizeof(filterInstructions)/sizeof(struct bpf_insn);
+                pgm.bf_len = sizeof(filterInstructions) / sizeof(struct bpf_insn);
                 pgm.bf_insns = filterInstructions;
                 if (pcap_setfilter(pcapContext->pcap, &pgm) == -1) // TODO: change filter not to pass LAT.
                 {
@@ -131,7 +131,7 @@ int EthPcapLineStart(line_t *line)
                 }
                 else
                 {
-                    QueueImmediate(line, (void (*)(void *))(line->LineUp));
+                    QueueImmediate(line, (void (*)(void*))(line->LineUp));
                     ans = 1;
                 }
             }
@@ -152,21 +152,21 @@ int EthPcapLineStart(line_t *line)
     return ans;
 }
 
-void EthPcapLineStop(line_t *line)
+void EthPcapLineStop(line_t* line)
 {
-    eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
+    eth_pcap_t* pcapContext = (eth_pcap_t*)line->lineContext;
 
     pcap_close(pcapContext->pcap);
 }
 
-packet_t *EthPcapLineReadPacket(line_t *line)
+packet_t* EthPcapLineReadPacket(line_t* line)
 {
-    eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
+    eth_pcap_t* pcapContext = (eth_pcap_t*)line->lineContext;
 
     static int hadErrorLastTime = 0;
     static packet_t packet;
-    packet_t * ans;
-    struct pcap_pkthdr *h;
+    packet_t* ans;
+    struct pcap_pkthdr* h;
     int pcapRes;
 
     do
@@ -178,7 +178,7 @@ packet_t *EthPcapLineReadPacket(line_t *line)
 
         ans = &packet;
         ans->IsDecnet = EthPcapIsDecnet;
-        pcapRes = pcap_next_ex(pcapContext->pcap, &h, (const u_char **)&packet.rawData); 
+        pcapRes = pcap_next_ex(pcapContext->pcap, &h, (const u_char**)&packet.rawData);
         if (hadErrorLastTime)
         {
             Log(LogEthPcapLine, LogError, "Completed reading again after error last time around\n");
@@ -192,9 +192,9 @@ packet_t *EthPcapLineReadPacket(line_t *line)
             {
                 if (packet.IsDecnet(&packet))
                 {
-                    GetDecnetAddress((decnet_eth_address_t *)&packet.rawData[0], &packet.to);
-                    GetDecnetAddress((decnet_eth_address_t *)&packet.rawData[6], &packet.from);
-                    Log(LogEthPcapLine, LogVerbose, "Packet from : ");LogDecnetAddress(LogEthPcapLine, LogVerbose, &packet.from);Log(LogEthPcapLine, LogVerbose, " received on line %s\n", line->name);
+                    GetDecnetAddress((decnet_eth_address_t*)&packet.rawData[0], &packet.to);
+                    GetDecnetAddress((decnet_eth_address_t*)&packet.rawData[6], &packet.from);
+                    Log(LogEthPcapLine, LogVerbose, "Packet from : "); LogDecnetAddress(LogEthPcapLine, LogVerbose, &packet.from); Log(LogEthPcapLine, LogVerbose, " received on line %s\n", line->name);
                     line->stats.validPacketsReceived++;
                     EthSetPayload(&packet);
                 }
@@ -222,19 +222,19 @@ packet_t *EthPcapLineReadPacket(line_t *line)
             ans = NULL;
             hadErrorLastTime = 1;
         }
-    }
-    while (pcapRes == 1 && ans == NULL); /* keep reading packets if we have discarded a loopback packet */
+    } while (pcapRes == 1 && ans == NULL); /* keep reading packets if we have discarded a loopback packet */
 
     return ans;
 }
 
-int EthPcapLineWritePacket(line_t *line, packet_t *packet)
+int EthPcapLineWritePacket(line_t* line, packet_t* packet)
 {
-    eth_pcap_t *pcapContext = (eth_pcap_t *)line->lineContext;
+    eth_pcap_t* pcapContext = (eth_pcap_t*)line->lineContext;
     u_char smallBuf[MIN_PACKET_SIZE];
-    u_char *data = packet->rawData;
+    u_char* data = packet->rawData;
     int len = packet->rawLen;
     int retries = 0;
+    char* pcapErr;
 
 #define PCAP_WARN_RETRY 10
 #define PCAP_ERROR_RETRY 50
@@ -247,12 +247,19 @@ int EthPcapLineWritePacket(line_t *line, packet_t *packet)
         len = MIN_PACKET_SIZE;
     }
 
-    while (pcap_sendpacket(pcapContext->pcap, (const u_char *)data, len) != 0 && retries <= PCAP_ERROR_RETRY)
+    while (pcap_sendpacket(pcapContext->pcap, (const u_char*)data, len) != 0 && retries <= PCAP_ERROR_RETRY)
     {
+        pcapErr = pcap_geterr(pcapContext->pcap);
+        if (strcpy(pcapErr, "Bad file descriptor") == 0)
+        {
+            retries = PCAP_ERROR_RETRY + 1;
+            break;
+        }
 
         if (retries != 0 && (retries % PCAP_WARN_RETRY) == 0)
         {
-            Log(LogEthPcapLine, LogWarning, "Experiencing problems writing to %s using pcap, retrying: %s\n", line->name, pcap_geterr(pcapContext->pcap));
+            // TODO: Orderly shutdown hangs if this happens
+            Log(LogEthPcapLine, LogWarning, "Experiencing problems writing to %s using pcap, retrying: %s\n", line->name, pcapErr);
         }
 
         Sleep(1);
@@ -269,8 +276,8 @@ int EthPcapLineWritePacket(line_t *line, packet_t *packet)
 }
 
 /*
-The libpcap provided API pcap_findalldevs() on most platforms, will 
-leverage the getifaddrs() API if it is available in preference to 
+The libpcap provided API pcap_findalldevs() on most platforms, will
+leverage the getifaddrs() API if it is available in preference to
 alternate platform specific methods of determining the interface list.
 
 A limitation of getifaddrs() is that it returns only interfaces which
@@ -278,11 +285,11 @@ have associated addresses.  This may not include all of the interesting
 interfaces that we are interested in since a host may have dedicated
 interfaces for a simulator, which is otherwise unused by the host.
 
-One could hand craft the the build of libpcap to specifically use 
-alternate methods to implement pcap_findalldevs().  However, this can 
+One could hand craft the the build of libpcap to specifically use
+alternate methods to implement pcap_findalldevs().  However, this can
 get tricky, and would then result in a sort of deviant libpcap.
 
-This routine exists to allow platform specific code to validate and/or 
+This routine exists to allow platform specific code to validate and/or
 extend the set of available interfaces to include any that are not
 returned by pcap_findalldevs.
 
@@ -367,10 +374,10 @@ static int eth_devices(int max, struct eth_list* list)
     else
     {
         /* copy device list into the passed structure */
-        for (i=0, dev=alldevs; dev; dev=dev->next)
+        for (i = 0, dev = alldevs; dev; dev = dev->next)
         {
             //struct pcap_addr *addr = dev->addresses;
-            Log(LogEthPcapLine, LogInfo, "Device list entry %d. Name %s. Description %s.\n", i, dev->name, (dev->description == NULL)? "n/a" : dev->description);
+            Log(LogEthPcapLine, LogInfo, "Device list entry %d. Name %s. Description %s.\n", i, dev->name, (dev->description == NULL) ? "n/a" : dev->description);
             //while (addr != NULL)
             //{
             //	Log(LogInfo, "Address family %d: %d %d %d %d %d %d\n", addr->addr->sa_family, addr->addr->sa_data[0] & 0xFF, addr->addr->sa_data[1] & 0xFF, addr->addr->sa_data[2] & 0xFF, addr->addr->sa_data[3] & 0xFF, addr->addr->sa_data[4] & 0xFF, addr->addr->sa_data[5] & 0xFF);
@@ -407,7 +414,7 @@ static int eth_devices(int max, struct eth_list* list)
     return i;
 }
 
-static int eth_getname(int number, char* name, struct eth_list *list, int count)
+static int eth_getname(int number, char* name, struct eth_list* list, int count)
 {
     int result = 0;
     if (count > number)
@@ -419,7 +426,7 @@ static int eth_getname(int number, char* name, struct eth_list *list, int count)
     return result;
 }
 
-static int eth_checkname(char* name, struct eth_list *list, int count)
+static int eth_checkname(char* name, struct eth_list* list, int count)
 {
     int found = 0;
     int i;
@@ -434,7 +441,7 @@ static int eth_checkname(char* name, struct eth_list *list, int count)
     return found;
 }
 
-static int eth_translate(char *name, char *translated_name)
+static int eth_translate(char* name, char* translated_name)
 {
     int result = 0;
     struct eth_list list[ETH_MAX_DEVICE];
@@ -447,7 +454,7 @@ static int eth_translate(char *name, char *translated_name)
     }
     else
     {
-        char *numberPtr = name;
+        char* numberPtr = name;
         while (!isdigit(*numberPtr) && *numberPtr != '\0')
         {
             numberPtr++;

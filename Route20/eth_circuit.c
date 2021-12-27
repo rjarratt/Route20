@@ -40,7 +40,8 @@
 #include "node.h"
 
 static void HandleLineNotifyData(line_t *line);
-static void HandleHelloTimer(rtimer_t *timer, char *name, void *context);
+static void HandleHelloTimer(rtimer_t* timer, char* name, void* context);
+static void HandleLevel2HelloTimer(rtimer_t* timer, char* name, void* context);
 static int IsAddressedToThisNode(packet_t * packet);
 
 eth_circuit_t *EthCircuitCreatePcap(circuit_t *circuit)
@@ -78,11 +79,21 @@ void EthCircuitUp(circuit_t *circuit)
 	time_t now;
 	time(&now);
 	circuit->helloTimer = CreateTimer("AllRoutersHello", now, T3, circuit, HandleHelloTimer);
+
+	if (nodeInfo.level == 2)
+	{
+		circuit->level2HelloTimer = CreateTimer("AllLevel2RoutersHello", now, T3, circuit, HandleLevel2HelloTimer);
+	}
 }
 
 void EthCircuitDown(circuit_ptr circuit)
 {
 	StopTimer(circuit->helloTimer);
+
+	if (nodeInfo.level == 2)
+	{
+		StopTimer(circuit->level2HelloTimer);
+	}
 }
 
 packet_t *EthCircuitReadPacket(circuit_t *circuit)
@@ -165,14 +176,24 @@ static void HandleLineNotifyData(line_t *line)
     circuit->WaitEventHandler(circuit);
 }
 
-static void HandleHelloTimer(rtimer_t *timer, char *name, void *context) // TODO: This should probably move to the init layer.
+static void HandleHelloTimer(rtimer_t* timer, char* name, void* context) // TODO: This should probably move to the init layer.
 {
-	packet_t *packet;
+	packet_t* packet;
 
-	circuit_t *circuit = (circuit_t *)context;
+	circuit_t* circuit = (circuit_t*)context;
 	Log(LogEthCircuit, LogVerbose, "Sending Ethernet Hello to All Routers %s\n", circuit->name);
 	packet = CreateEthernetHello(nodeInfo.address);
 	circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet, 1);
+}
+
+static void HandleLevel2HelloTimer(rtimer_t* timer, char* name, void* context) // TODO: This should probably move to the init layer.
+{
+	packet_t* packet;
+
+	circuit_t* circuit = (circuit_t*)context;
+	Log(LogEthCircuit, LogVerbose, "Sending Ethernet Hello to All Level 2 Routers %s\n", circuit->name);
+	packet = CreateEthernetHello(nodeInfo.address);
+	circuit->WritePacket(circuit, &nodeInfo.address, &AllLevel2RoutersAddress, packet, 1);
 }
 
 static int IsAddressedToThisNode(packet_t * packet)

@@ -48,6 +48,8 @@ in this Software without prior written authorization from the author.
 #include "decision.h"
 #include "forwarding.h"
 #include "update.h"
+#include "nsp.h"
+#include "session.h"
 #include "dns.h"
 #include "node.h"
 #include "socket.h"
@@ -56,7 +58,7 @@ static int dnsNeeded = 0;
 int numCircuits = 0;
 static init_layer_t *ethernetInitLayer;
 static init_layer_t *ddcmpInitLayer;
-static void (*processHigherLevelProtocolPacket)(decnet_address_t *from, byte *data, int dataLength) = NULL;
+static void (*processHigherLevelProtocolPacket)(decnet_address_t *from, byte *data, uint16 dataLength) = NULL;
 static rtimer_t *statsTimer = NULL;
 
 // TODO: Add Phase III support
@@ -68,6 +70,8 @@ static char *ReadSocketConfig(FILE *f, ConfigReadMode mode, int *ans);
 static char *ReadEthernetConfig(FILE *f, ConfigReadMode mode, int *ans);
 static char *ReadBridgeConfig(FILE *f, ConfigReadMode mode, int *ans);
 static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans);
+static char *ReadNspConfig(FILE *f, ConfigReadMode mode, int *ans);
+static char *ReadSessionConfig(FILE *f, ConfigReadMode mode, int *ans);
 static char *ReadDnsConfig(FILE *f, ConfigReadMode mode, int *ans);
 static char *ReadStatsConfig(FILE *f, ConfigReadMode mode, int *ans);
 static int SplitString(char *string, char splitBy, char **left, char **right);
@@ -114,12 +118,17 @@ void InitialiseLogging(void)
     LogSourceName[LogSock] = "SOK";
     LogSourceName[LogNsp] = "NSP";
     LogSourceName[LogNspMessages] = "NSM";
-    LogSourceName[LogNetMan] = "NMN";
+	LogSourceName[LogNetMan] = "NMN";
+	LogSourceName[LogSession] = "SES";
+
+	SysLogLocalFacilityNumber = 0;
 }
 
 int InitialiseConfig(int (*ConfigReader)(char *fileName, ConfigReadMode mode), char *configFileName)
 {
 	int ans;
+	NspInitialiseConfig();
+	SessionInitialiseConfig();
 	DnsConfig.dnsConfigured = 0;
 
 	ans = ConfigReader(configFileName, ConfigReadModeFull);
@@ -167,7 +176,7 @@ int DecnetInitialise(void)
     return ans;
 }
 
-void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, int dataLength))
+void RoutingSetCallback(void (*callback)(decnet_address_t *from, byte *data, uint16 dataLength))
 {
 	processHigherLevelProtocolPacket = callback;
 }
@@ -267,6 +276,11 @@ int ReadConfig(char *fileName, ConfigReadMode mode)
 	int ddcmpPresent = 0;
 	char *errString;
 
+	if (mode == ConfigReadModeUpdate)
+	{
+		Log(LogGeneral, LogInfo, "Updating configuration\n");
+	}
+
 	if ((f = fopen(fileName, "r")) == NULL)
 	{
 		errString = strerror(errno);
@@ -309,6 +323,14 @@ int ReadConfig(char *fileName, ConfigReadMode mode)
 			{
 				line = ReadDdcmpConfig(f, mode, &ans);
 				ddcmpPresent = 1;
+			}
+			else if (stricmp(line, "[nsp]") == 0)
+			{
+				line = ReadNspConfig(f, mode, &ans);
+			}
+			else if (stricmp(line, "[session]") == 0)
+			{
+				line = ReadSessionConfig(f, mode, &ans);
 			}
 			else if (stricmp(line, "[dns]") == 0)
 			{
@@ -451,6 +473,14 @@ static char *ReadLoggingConfig(FILE *f, ConfigReadMode mode, int *ans)
 			else if (stricmp(name, "netman") == 0)
 			{
 				ParseLogLevel(value, &LoggingLevels[LogNetMan]);
+			}
+			else if (stricmp(name, "session") == 0)
+			{
+				ParseLogLevel(value, &LoggingLevels[LogSession]);
+			}
+			else if (stricmp(name, "SysLogLocalFacilityNumber") == 0)
+			{
+				SysLogLocalFacilityNumber = atoi(value);
 			}
 		}
 	}
@@ -791,6 +821,70 @@ static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans)
 
 				CircuitCreateDdcmpSocket(&Circuits[1 + numCircuits++], hostName, port, cost, connectPoll, ProcessCircuitEvent);
 				dnsNeeded = 1;
+			}
+		}
+	}
+	else
+	{
+		line = ReadConfigToNextSection(f);
+	}
+
+	return line;
+}
+
+static char *ReadNspConfig(FILE *f, ConfigReadMode mode, int *ans)
+{
+	char *line;
+	char *name;
+	char *value;
+
+	if (mode == ConfigReadModeFull)
+	{
+		while ((line = ReadConfigLine(f)))
+		{
+			if (*line == '[')
+			{
+				break;
+			}
+
+			if (SplitString(line, '=', &name, &value))
+			{
+				if (stricmp(name, "InactivityTimer") == 0)
+				{
+					NspConfig.NSPInactTim = atoi(value);
+				}
+			}
+		}
+	}
+	else
+	{
+		line = ReadConfigToNextSection(f);
+	}
+
+	return line;
+}
+
+static char *ReadSessionConfig(FILE *f, ConfigReadMode mode, int *ans)
+{
+	char *line;
+	char *name;
+	char *value;
+
+	if (mode == ConfigReadModeFull)
+	{
+		while ((line = ReadConfigLine(f)))
+		{
+			if (*line == '[')
+			{
+				break;
+			}
+
+			if (SplitString(line, '=', &name, &value))
+			{
+				if (stricmp(name, "InactivityTimer") == 0)
+				{
+					SessionConfig.sessionInactivityTimeout = atoi(value);
+				}
 			}
 		}
 	}
@@ -1183,10 +1277,10 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 	}
 	else if (IsLevel1RoutingMessage(packet))
 	{
+		LogMessage(circuit, packet, "Level 1 Routing");
 		if ((nodeInfo.level == 1 || nodeInfo.level == 2))
 		{
 			routing_msg_t *msg;
-			LogMessage(circuit, packet, "Level 1 Routing");
 			msg = ParseRoutingMessage(packet);
 			if (msg != NULL)
 			{
@@ -1206,10 +1300,10 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 	}
 	else if (IsLevel2RoutingMessage(packet))
 	{
+		LogMessage(circuit, packet, "Level 2 Routing");
 		if (nodeInfo.level == 2)
 		{
 			routing_msg_t *msg;
-			LogMessage(circuit, packet, "Level 2 Routing");
 			msg = ParseRoutingMessage(packet);
 			if (msg != NULL)
 			{
@@ -1274,9 +1368,9 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 	}
 	else if (IsDataMessage(packet))
 	{
+		LogMessage(circuit, packet, "Data message");
         if (circuit->state == CircuitStateUp)
         {
-		    LogMessage(circuit, packet, "Data message");
             if (IsValidDataPacket(packet))
             {
                 decnet_address_t srcNode;
@@ -1284,7 +1378,7 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
                 byte flags;
                 int visits;
                 byte *data;
-                int dataLength;
+                uint16 dataLength;
 
                 ExtractDataPacketData(packet, &srcNode, &dstNode, &flags, &visits, &data, &dataLength);
                 CheckCircuitAdjacency(&packet->from, circuit);

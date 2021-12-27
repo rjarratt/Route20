@@ -105,7 +105,7 @@ void CircuitCreateEthernetPcap(circuit_ptr circuit, char *name, int cost, void (
 	circuit->circuitType = EthernetCircuit;
 	circuit->state = CircuitStateOff;
 	circuit->cost = cost;
-	circuit->nextLevel1Node = FirstLevel1Node();
+	circuit->startLevel1Node = FirstLevel1Node();
 
 	circuit->Start = EthCircuitStart;
 	circuit->Up = EthCircuitUp;
@@ -127,7 +127,7 @@ void CircuitCreateEthernetSocket(circuit_ptr circuit, char *name, uint16 receive
 	circuit->circuitType = EthernetCircuit;
 	circuit->state = CircuitStateOff;
 	circuit->cost = cost;
-	circuit->nextLevel1Node = FirstLevel1Node();
+	circuit->startLevel1Node = FirstLevel1Node();
 
     circuit->Start = EthCircuitStart;
 	circuit->Up = EthCircuitUp;
@@ -149,7 +149,7 @@ void CircuitCreateDdcmpSocket(circuit_ptr circuit, char *name, uint16 port, int 
 	circuit->circuitType = DDCMPCircuit;
 	circuit->state = CircuitStateOff;
 	circuit->cost = cost;
-	circuit->nextLevel1Node = FirstLevel1Node();
+	circuit->startLevel1Node = FirstLevel1Node();
 
     circuit->Start = DdcmpCircuitStart;
 	circuit->Up = DdcmpCircuitUp;

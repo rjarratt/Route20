@@ -60,13 +60,23 @@ typedef struct
 	decnet_address_t  node;
 	uint16            addrLoc;
 	uint16            addrRem;
-	uint16            transmitSegNum;
-	uint16            flowRem;
-    transmit_queue_t  transmit_queue;
+	uint16            numDat;
+	uint16            numOth;
+	uint16            numHigh;
+	uint16            numSent;
+	uint16            ackXmtDat;
+	uint16            ackXmtOth;
+	uint16            ackRcvDat;
+	byte              flowLocDat;
+	//char *???            flowLocDat;
+	uint16            flowRemDat;
+	uint16            flowRemInt;
+	transmit_queue_t  transmit_queue;
+	rtimer_t         *inactivityTimer;
 
 	void (*closeCallback)(uint16 locAddr);
-	void (*connectCallback)(uint16 locAddr);
-	void (*dataCallback)(uint16 locAddr, byte *data, int dataLength);
+	void (*connectCallback)(decnet_address_t* remNode, uint16 locAddr, uint16 remAddr, byte *data, byte dataLength);
+	void (*dataCallback)(uint16 locAddr, byte *data, uint16 dataLength);
 } session_control_port_t;
 
 void NspInitialiseScpDatabase(void);

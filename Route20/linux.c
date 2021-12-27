@@ -46,15 +46,23 @@
 #include "timer.h"
 #include "route20.h"
 #include "nsp.h"
+#include "session.h"
 #include "netman.h"
 #include "dns.h"
 
+#define PID_FILE_NAME "/var/run/route20.pid"
+
 static void ProcessPackets(circuit_t *circuit, void (*process)(circuit_t *, packet_t *));
+static void SetupHupHandler(void);
+static void SigHupHandler(int signum);
 static void SigTermHandler(int signum);
+
+static char configFileName[PATH_MAX];
+static volatile int shutdownRequested = 0;
 
 int main(int argc, char *argv[])
 {
-	char configFileName[PATH_MAX];
+	FILE* pidFile;
 
     /* Our process ID and Session ID */
     pid_t pid, sid;
@@ -71,8 +79,15 @@ int main(int argc, char *argv[])
 		strcat(configFileName, CONFIG_FILE_NAME);
 	}
 
+	if (access(PID_FILE_NAME, R_OK) == 0)
+	{
+		printf("Daemon is already running\n");
+		exit(EXIT_FAILURE);
+	}
+
     InitialiseLogging();
     ReadConfig(configFileName, ConfigReadModeInitial);
+	SetupHupHandler();
 
     /* Fork off the parent process */
     pid = fork();
@@ -86,13 +101,24 @@ int main(int argc, char *argv[])
     if (pid > 0)
 	{
 		printf("Daemon running with pid %d\n", pid);
-        exit(EXIT_SUCCESS);
+		pidFile = fopen(PID_FILE_NAME, "w");
+		if (pidFile != NULL)
+		{
+			fprintf(pidFile, "%d\n", pid);
+			fclose(pidFile);
+            exit(EXIT_SUCCESS);
+		}
+		else
+		{
+			printf("Unable to write PID file\n");
+			exit(EXIT_FAILURE);
+		}
     }
 
     /* Change the file mode mask */
     umask(0);
         
-   openlog("Route20", 0, LOG_DAEMON);
+    openlog("Route20", 0, LOG_DAEMON);
 
     /* Create a new SID for the child process */
     sid = setsid();
@@ -120,12 +146,26 @@ int main(int argc, char *argv[])
         if (DecnetInitialise())
         {
 		    NspInitialise();
+			SessionInitialise();
 		    NetManInitialise();
             MainLoop();
         }
+		else
+		{
+			remove(PID_FILE_NAME);
+			Log(LogGeneral, LogFatal, "Exiting because failed to initiliase DECnet\n");
+			exit(EXIT_FAILURE);
+		}
+	}
+	else
+	{
+		remove(PID_FILE_NAME);
+		Log(LogGeneral, LogFatal, "Exiting because failed to initiliase configuration\n");
+		exit(EXIT_FAILURE);
 	}
 
-    Log(LogGeneral, LogInfo, "Exited");
+	remove(PID_FILE_NAME);
+	Log(LogGeneral, LogInfo, "Exited");
     exit(EXIT_SUCCESS);
 }
 
@@ -182,7 +222,7 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
 
 		if (onNewLine)
 		{
-			syslog(sysLevel, "%s %s", LogSourceName[source], line);
+			syslog(sysLevel | LOG_LOCAL0 + SysLogLocalFacilityNumber, "%s %s", LogSourceName[source], line);
 			currentLen = 0;
 		}
 	}
@@ -203,7 +243,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 
 	signal(SIGTERM, SigTermHandler);
 
-	while(1)
+	while(!shutdownRequested)
 	{
 		struct timespec timeout;
 		timeout.tv_sec = SecondsUntilNextDue();
@@ -221,11 +261,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 		i = pselect(nfds + 1, &handles, NULL, NULL, &timeout, NULL);
 		if (i == -1)
 		{
-			if (errno == EINTR)
-			{
-				break;
-			}
-			else
+			if (errno != EINTR)
 			{
 			    Log(LogGeneral, LogError, "pselect error: %d\n", errno);
 			}
@@ -261,8 +297,24 @@ static void ProcessPackets(circuit_t *circuit, void (*process)(circuit_t *, pack
 	} while (packet != NULL);
 }
 
+static void SetupHupHandler(void)
+{
+	struct sigaction sa;
+
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = SA_RESTART;
+	sa.sa_handler = SigHupHandler;
+	sigaction(SIGHUP, &sa, NULL);
+}
+
 static void SigTermHandler(int signum)
 {
+	shutdownRequested = 1;
+}
+
+static void SigHupHandler(int signum)
+{
+	ReadConfig(configFileName, ConfigReadModeUpdate);
 }
 
 #endif

@@ -27,6 +27,10 @@
   ------------------------------------------------------------------------------*/
 
 #if !defined(NETMAN_H)
+#define NETMAN_VERSION 4
+#define NETMAN_DEC_ECO 0
+#define NETMAN_USER_ECO 0
+
 void NetManInitialise(void);
 #define NETMAN_H
 #endif

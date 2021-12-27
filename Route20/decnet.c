@@ -30,7 +30,8 @@
 #include "decnet.h"
 
 decnet_address_t AllEndNodesAddress = { AllEndNodes, 0, 0 };
-decnet_address_t AllRoutersAddress  = { AllRouters, 0, 0 };
+decnet_address_t AllRoutersAddress = { AllRouters, 0, 0 };
+decnet_address_t AllLevel2RoutersAddress = { AllLevel2Routers, 0, 0 };
 
 uint16 GetDecnetId(decnet_address_t address)
 {

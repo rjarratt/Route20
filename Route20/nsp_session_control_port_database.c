@@ -34,6 +34,7 @@ in this Software without prior written authorization from the author.
 static uint16 lastPort = 0;
 static session_control_port_t scpDatabase[NSP_MAX_SESSIONS];
 
+static void InitialiseScpDatabaseEntry(session_control_port_t* entry);
 static int IsEntryClosed(session_control_port_t *entry, void *context);
 static int IsEntryOpen(session_control_port_t *entry, void *context);
 static int IsEntryLocalAddress(session_control_port_t *entry, void *context);
@@ -43,8 +44,7 @@ void NspInitialiseScpDatabase(void)
 	int i;
 	for (i = 0; i < NSP_MAX_SESSIONS; i++)
 	{
-		memset(&scpDatabase[i], 0, sizeof(session_control_port_t));
-		scpDatabase[i].state = NspPortStateClosed;
+		InitialiseScpDatabaseEntry(&scpDatabase[i]);
 	}
 }
 
@@ -78,7 +78,9 @@ session_control_port_t *NspFindScpDatabaseEntry(int (*compare)(session_control_p
 
 session_control_port_t *NspFindFreeScpDatabaseEntry(void)
 {
-	return NspFindScpDatabaseEntry(IsEntryClosed, NULL);
+	session_control_port_t *result = NspFindScpDatabaseEntry(IsEntryClosed, NULL);
+	InitialiseScpDatabaseEntry(result);
+	return result;
 }
 
 session_control_port_t *NspFindOpenScpDatabaseEntry(void)
@@ -89,6 +91,14 @@ session_control_port_t *NspFindOpenScpDatabaseEntry(void)
 session_control_port_t *NspFindScpDatabaseEntryByLocalAddress(uint16 addrLoc)
 {
 	return NspFindScpDatabaseEntry(IsEntryLocalAddress, &addrLoc);
+}
+
+static void InitialiseScpDatabaseEntry(session_control_port_t* entry)
+{
+	memset(entry, 0, sizeof(session_control_port_t));
+	entry->state = NspPortStateClosed;
+	entry->numOth = 1;
+	entry->flowRemInt = 1;
 }
 
 static int IsEntryClosed(session_control_port_t *entry, void *context)

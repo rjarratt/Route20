@@ -68,9 +68,10 @@ typedef struct circuit
 	CircuitState       state;
 	struct init_layer *initLayer;
 	decnet_address_t   adjacentNode; /* valid for non-broadcast circuits only */
-	rtimer_t          *helloTimer;
+	rtimer_t*          helloTimer;
+	rtimer_t*          level2HelloTimer;
 	int                cost;
-	int                nextLevel1Node;
+	int                startLevel1Node; /* used to stagger the starting point for Level 1 updates to satisfy the requirements of section 4.8.1 to mitigate packet loss */
 	circuit_stats_t    stats;
 
 	int (*Start)(circuit_ptr circuit);

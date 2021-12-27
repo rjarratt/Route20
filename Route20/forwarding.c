@@ -65,7 +65,7 @@ void ForwardPacket(circuit_t *srcCircuit, packet_t *packet)
 	byte flags;
 	int visits;
 	byte *data;
-	int dataLength;
+	uint16 dataLength;
 	int forward = 1;
 	int rejectingForward = 0;
 
@@ -188,7 +188,16 @@ int SendPacket(circuit_t *srcCircuit, decnet_address_t *dstNode, packet_t *packe
 	}
 	else
 	{
-		Log(LogForwarding, LogWarning, "Destination adjacency not found.\n");
+		if (srcCircuit != NULL)
+		{
+			Log(LogForwarding, LogWarning, "Destination adjacency not found on circuit %s for adjacency ", srcCircuit->name);
+		}
+		else
+		{
+			Log(LogForwarding, LogWarning, "Destination adjacency not found for adjacency ");
+		}
+		LogDecnetAddress(LogForwarding, LogWarning, dstNode);
+		Log(LogForwarding, LogWarning, ".\n");
 	}
 
 	return ans;

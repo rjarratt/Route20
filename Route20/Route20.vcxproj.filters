@@ -129,6 +129,9 @@
     <ClCompile Include="vaxeln.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="session.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="makefile" />
@@ -136,6 +139,9 @@
     <None Include="route20.ini" />
     <None Include="descrip.mms" />
     <None Include="..\README.md" />
+    <None Include="route20">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="platform.h">
@@ -253,6 +259,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="ddcmp_sock_line.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="session.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

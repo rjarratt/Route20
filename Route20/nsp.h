@@ -33,11 +33,28 @@
 #define SERVICES_NONE 1
 #define SERVICES_SEGMENT 5
 
+
+#define REASON_NO_RESOURCES 1
+#define REASON_DISCONNECT_COMPLETE 42
+#define REASON_NO_LINK_TERMINATE 41
+
+typedef struct
+{
+	int  NSPInactTim; /* inactivity timer in seconds */
+} nsp_config_t;
+
+nsp_config_t NspConfig;
+
 void NspInitialise(void);
-int NspOpen(void (*closeCallback)(uint16 locAddr), void (*connectCallback)(uint16 locAddr), void (*dataCallback)(uint16 locAddr, byte *data, int dataLength));
-int NspAccept(uint16 srcAddr, byte services);
-void NspTransmit(uint16 srcAddr, byte *data, int dataLength); // TODO: will need to identify link src, dst (and node?)
-void NspProcessPacket(decnet_address_t *from, byte *data, int dataLength);
+void NspInitialiseConfig(void);
+// TODO: Add context parameter to support multiple sessions
+int NspOpen(void (*closeCallback)(uint16 locAddr), void (*connectCallback)(decnet_address_t* remNode, uint16 locAddr, uint16 remAddr, byte* data, byte dataLength), void (*dataCallback)(uint16 locAddr, byte* data, uint16 dataLength));
+void NspClose(uint16 locAddr);
+void NspDisconnect(uint16 locAddr, uint16 reason);
+int NspAccept(uint16 srcAddr, byte services, byte dataLen, byte* data);
+int NspReject(decnet_address_t* dstNode, uint16 srcAddr, uint16 dstAddr, uint16 reason, byte dataLen, byte* data); //TODO: check if reject really needs the dstNode parameter or if it can come from the port
+void NspTransmit(uint16 srcAddr, byte *data, uint16 dataLength); // TODO: will need to identify link src, dst (and node?)
+void NspProcessPacket(decnet_address_t *from, byte *data, uint16 dataLength);
 #define NSP_H
 #endif
 
