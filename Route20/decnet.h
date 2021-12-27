@@ -50,6 +50,7 @@ typedef struct
 
 extern decnet_address_t AllEndNodesAddress;
 extern decnet_address_t AllRoutersAddress;
+extern decnet_address_t AllLevel2RoutersAddress;
 
 uint16 GetDecnetId(decnet_address_t address);
 void GetDecnetAddressFromId(byte *id, decnet_address_t *address);
