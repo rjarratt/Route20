@@ -122,6 +122,7 @@ static void ProcessCircuitLevel2Update(circuit_t* circuit)
         packet = CreateLevel2RoutingMessage();
         if (IsBroadcastCircuit(circuit))
         {
+            circuit->WritePacket(circuit, &nodeInfo.address, &AllRoutersAddress, packet, 0);
             circuit->WritePacket(circuit, &nodeInfo.address, &AllLevel2RoutersAddress, packet, 0);
         }
         else
