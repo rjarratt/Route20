@@ -18,7 +18,7 @@ Minor changes and fixes:
 1. Improved internal representation of adjacencies to minimise searching.
 1. On Unix flavours it now creates a PID file in /var/run.
 1. On Unix flavours it now re-reads parts of the configuration on receiving a kill -s HUP.
-1. Miscellanous bug fixes.
+1. Miscellaneous bug fixes.
 
 # Third Alpha Release 10th October 2020
 This third release has the following major new Features
