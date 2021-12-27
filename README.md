@@ -2,14 +2,19 @@
 This program is a DECnet router that implements version 2.0 of the DECnet routing specification
 found here: http://linux-decnet.sourceforge.net/docs/route20.txt
 
-# Fourth Alpha Release <unreleased>
+# Fourth Alpha Release 27th Dec 2021
 
-Minor changes:
+This fourth release has the following major new Features
+1. Added the following Network Management commands:
+   * SHOW EXECUTOR CHARACTERISTICS
+   * SHOW KNOWN CIRCUIT STATUS
+   * SHOW ACTIVE NODES STATUS
+1. Added the beginnings of a proper session layer
+
+Minor changes and fixes:
+1. Level 2 routing messages and Ethernet Router Hello messages now also sent to all level 2 routers as well.
+1. Fixed Level 1 routing messages not being sent on all circuits
 1. Improved management of NSP connections.
-1. Added a proper session layer.
-1. Added support for the SHOW EXECUTOR CHARACTERISTICS network management command.
-1. Added support for the SHOW KNOWN CIRCUIT STATUS network management command.
-1. Added support for the SHOW ACTIVE NODES STATUS network management command.
 1. Improved internal representation of adjacencies to minimise searching.
 1. On Unix flavours it now creates a PID file in /var/run.
 1. On Unix flavours it now re-reads parts of the configuration on receiving a kill -s HUP.
