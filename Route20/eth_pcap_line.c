@@ -90,49 +90,64 @@ int EthPcapLineStart(line_t* line)
     if (eth_translate(line->name, devname))
     {
         Log(LogEthPcapLine, LogInfo, "Opening %s for packet capture\n", devname);
-        if ((pcapContext->pcap = pcap_open_live(devname, 1518, ETH_PROMISC, 1, ebuf)) == 0)
+        if ((pcapContext->pcap = pcap_create(devname, ebuf)) == NULL)
         {
-            Log(LogEthPcapLine, LogError, "Error opening device %s\n", ebuf);
+            Log(LogEthPcapLine, LogError, "Error creating device %s\n", ebuf);
         }
         else
         {
-#if defined(WIN32)
-            line->waitHandle = (int)pcap_getevent(pcapContext->pcap);
-            if (pcap_setmintocopy(pcapContext->pcap, 0) != 0)
+            if (pcap_set_promisc(pcapContext->pcap, ETH_PROMISC) != 0)
             {
-                Log(LogEthPcapLine, LogError, "Error setting min to copy\n");
+                Log(LogEthPcapLine, LogError, "Error setting promiscuous mode\n");
             }
-#else
-            int one = 1;
-            line->waitHandle = pcap_fileno(pcapContext->pcap);
-            //      if (ioctl(line->waitHandle,BIOCIMMEDIATE,&one) == -1)
-            //{
-            //	Log(LogError, "ioctl BIOCIMMEDIATE failed\n");
-            //      }
-
-            //if (ioctl(line->waitHandle,BIOCSHDRCMPLT,&i))
-            //{
-            //	Log(LogError, "ioctl BIOCSHDRCMPLT failed\n");
-            //}
-#endif
-            RegisterEventHandler(line->waitHandle, "EthPcap Line", line, line->LineWaitEventHandler);
-            if (pcap_setnonblock(pcapContext->pcap, 1, ebuf) != 0)
+            else if (pcap_set_timeout(pcapContext->pcap, 1) != 0)
             {
-                Log(LogEthPcapLine, LogError, "Error setting nonblock mode.\n%s\n", ebuf);
+                Log(LogEthPcapLine, LogError, "Error setting timeout\n");
+            }
+            else if (pcap_activate(pcapContext->pcap) != 0)
+            {
+                Log(LogEthPcapLine, LogError, "Error activating packet capture\n");
             }
             else
             {
-                struct bpf_program pgm;
-                pgm.bf_len = sizeof(filterInstructions) / sizeof(struct bpf_insn);
-                pgm.bf_insns = filterInstructions;
-                if (pcap_setfilter(pcapContext->pcap, &pgm) == -1) // TODO: change filter not to pass LAT.
+#if defined(WIN32)
+                line->waitHandle = (int)pcap_getevent(pcapContext->pcap);
+                if (pcap_setmintocopy(pcapContext->pcap, 0) != 0)
                 {
-                    Log(LogEthPcapLine, LogError, "loading filter program");
+                    Log(LogEthPcapLine, LogError, "Error setting min to copy\n");
+                }
+#else
+                int one = 1;
+                line->waitHandle = pcap_fileno(pcapContext->pcap);
+                //      if (ioctl(line->waitHandle,BIOCIMMEDIATE,&one) == -1)
+                //{
+                //	Log(LogError, "ioctl BIOCIMMEDIATE failed\n");
+                //      }
+
+                //if (ioctl(line->waitHandle,BIOCSHDRCMPLT,&i))
+                //{
+                //	Log(LogError, "ioctl BIOCSHDRCMPLT failed\n");
+                //}
+#endif
+                RegisterEventHandler(line->waitHandle, "EthPcap Line", line, line->LineWaitEventHandler);
+                if (pcap_setnonblock(pcapContext->pcap, 1, ebuf) != 0)
+                {
+                    Log(LogEthPcapLine, LogError, "Error setting nonblock mode.\n%s\n", ebuf);
                 }
                 else
                 {
-                    QueueImmediate(line, (void (*)(void*))(line->LineUp));
-                    ans = 1;
+                    struct bpf_program pgm;
+                    pgm.bf_len = sizeof(filterInstructions) / sizeof(struct bpf_insn);
+                    pgm.bf_insns = filterInstructions;
+                    if (pcap_setfilter(pcapContext->pcap, &pgm) == -1) // TODO: change filter not to pass LAT.
+                    {
+                        Log(LogEthPcapLine, LogError, "loading filter program");
+                    }
+                    else
+                    {
+                        QueueImmediate(line, (void (*)(void*))(line->LineUp));
+                        ans = 1;
+                    }
                 }
             }
 
@@ -168,6 +183,15 @@ packet_t* EthPcapLineReadPacket(line_t* line)
     packet_t* ans;
     struct pcap_pkthdr* h;
     int pcapRes;
+    struct pcap_stat stats;
+    static unsigned int lastDroppedPacketCount = 0;
+
+    pcap_stats(pcapContext->pcap, &stats);
+    if (stats.ps_drop > lastDroppedPacketCount)
+    {
+        Log(LogEthPcapLine, LogError, "%u packets dropped since the last read on line %s\n", stats.ps_drop - lastDroppedPacketCount, line->name);
+        lastDroppedPacketCount = stats.ps_drop;
+    }
 
     do
     {
@@ -201,6 +225,7 @@ packet_t* EthPcapLineReadPacket(line_t* line)
                 else
                 {
                     Log(LogEthPcapLine, LogVerbose, "Discarding valid non-DECnet Ethernet packet from %s\n", line->name);
+                    ans = NULL;
                 }
             }
             else
