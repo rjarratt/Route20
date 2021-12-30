@@ -85,7 +85,8 @@ static void ProcessPhaseIIMessage(circuit_t *circuit, packet_t *packet);
 static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet);
 static int RouterHelloIsForThisNode(decnet_address_t *from, int iinfo);
 static int EndnodeHelloIsForThisNode(decnet_address_t *from, int iinfo);
-static void LogMessage(circuit_t *circuit, packet_t *packet, char *messageName);
+static void LogMessage(circuit_t* circuit, packet_t* packet, char* messageName);
+static void LogMessageEnd(void);
 static void LogLoopbackMessage(circuit_t *circuit, packet_t *packet, char *messageName);
 
 #pragma warning(disable : 4996)
@@ -1137,7 +1138,7 @@ void ProcessCircuitEvent(void *context) /* TODO: not sure this should in here */
 
     // Two processing methods available, not decided which one is best.
 #if 1
-    while (ProcessSingleCircuitPacket(circuit))
+	while (ProcessSingleCircuitPacket(circuit))
     {
     }
 #else
@@ -1201,6 +1202,7 @@ static void ProcessPhaseIIMessage(circuit_t *circuit, packet_t *packet)
 		node_init_phaseii_t *msg = NULL;
 		LogMessage(circuit, packet, "Node Init (PhaseII)");
 		msg = ValidateAndParseNodeInitPhaseIIMessage(packet);
+		LogMessageEnd();
 		if (msg != NULL)
 		{
 		    Log(LogMessages,
@@ -1237,6 +1239,7 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 		if (IsValidInitializationMessage(packet))
 		{
 			initialization_msg_t *msg = ParseInitializationMessage(packet);
+			LogMessageEnd();
 			if (msg != NULL)
 			{
                 DdcmpInitProcessInitializationMessage(circuit, msg);
@@ -1244,12 +1247,14 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 		}
 		else
 		{
-            DdcmpInitProcessInvalidMessage(circuit);
+			LogMessageEnd();
+			DdcmpInitProcessInvalidMessage(circuit);
 		}
 	}
 	else if (IsVerificationMessage(packet))
 	{
 		LogMessage(circuit, packet, "Verification");
+		LogMessageEnd();
 		if (IsValidVerificationMessage(packet))
 		{
 			verification_msg_t *msg = (verification_msg_t *)packet->payload;
@@ -1263,7 +1268,8 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 	else if (IsHelloAndTestMessage(packet))
 	{
 		LogMessage(circuit, packet, "Hello and Test");
-        if (IsValidHelloAndTestMessage(packet))
+		LogMessageEnd();
+		if (IsValidHelloAndTestMessage(packet))
         {
             hello_and_test_msg_t *msg = (hello_and_test_msg_t *)packet->payload;
 			decnet_address_t from;
@@ -1282,6 +1288,7 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 		{
 			routing_msg_t *msg;
 			msg = ParseRoutingMessage(packet);
+			LogMessageEnd();
 			if (msg != NULL)
 			{
                 CheckCircuitAdjacency(&packet->from, circuit);
@@ -1297,6 +1304,10 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 				FreeRoutingMessage(msg);
 			}
 		}
+		else
+		{
+			LogMessageEnd();
+		}
 	}
 	else if (IsLevel2RoutingMessage(packet))
 	{
@@ -1305,6 +1316,7 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 		{
 			routing_msg_t *msg;
 			msg = ParseRoutingMessage(packet);
+			LogMessageEnd();
 			if (msg != NULL)
 			{
                 CheckCircuitAdjacency(&packet->from, circuit);
@@ -1319,14 +1331,33 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 				}
 			}
 		}
+		else
+		{
+			LogMessageEnd();
+		}
 	}
 	else if (IsEthernetRouterHelloMessage(packet))
 	{
 		LogMessage(circuit, packet, "Ethernet Router Hello");
+		Log(LogMessages, LogDetail, " Router List:");
 		if (IsValidRouterHelloMessage(packet))
 		{
 			ethernet_router_hello_t *msg = (ethernet_router_hello_t *)packet->payload;
 			decnet_address_t from;
+			int i;
+			int routersCount = msg->rslistlen / sizeof(rslist_t);
+
+			for (i = 0; i < routersCount; i++)
+			{
+				decnet_address_t remoteAddress;
+				GetDecnetAddress(&msg->rslist[i].router, &remoteAddress);
+				Log(LogMessages, LogDetail, " ");
+				LogDecnetAddress(LogMessages, LogDetail, &remoteAddress);
+				Log(LogMessages, LogDetail, msg->rslist[i].priority_state & 0x80 ? " Up" : " Down");
+			}
+
+			LogMessageEnd();
+
 			GetDecnetAddress(&msg->id, &from);
 			if (CompareDecnetAddress(&from, &nodeInfo.address))
 			{
@@ -1338,11 +1369,16 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 				{
 					if (VersionSupported(msg->tiver))
 					{
-						AdjacencyType at = GetAdjacencyType(msg->iinfo);
-						CheckRouterAdjacency(&from, circuit, at, msg->timer, msg->priority, msg->rslist, msg->rslistlen/sizeof(rslist_t));
+						AdjacencyType at;
+						at = GetAdjacencyType(msg->iinfo);
+						CheckRouterAdjacency(&from, circuit, at, msg->timer, msg->priority, msg->rslist, routersCount);
 					}
 				}
 			}
+		}
+		else
+		{
+			LogMessageEnd();
 		}
 	}
 	else if (IsEthernetEndNodeHelloMessage(packet))
@@ -1355,21 +1391,36 @@ static void ProcessPhaseIVMessage(circuit_t *circuit, packet_t *packet)
 			GetDecnetAddress(&msg->id, &from);
 			if (CompareDecnetAddress(&from, &nodeInfo.address))
 			{
+				LogMessageEnd();
 				LogLoopbackMessage(circuit, packet, "Ethernet Endnode Hello");
 			}
 			else if (EndnodeHelloIsForThisNode(&from, msg->iinfo))
 			{
 				if (VersionSupported(msg->tiver))
 				{
+					LogMessageEnd();
 					CheckEndnodeAdjacency(&from, circuit, msg->timer);
 				}
+				else
+				{
+					LogMessageEnd();
+				}
 			}
+			else
+			{
+				LogMessageEnd();
+			}
+		}
+		else
+		{
+			LogMessageEnd();
 		}
 	}
 	else if (IsDataMessage(packet))
 	{
 		LogMessage(circuit, packet, "Data message");
-        if (circuit->state == CircuitStateUp)
+		LogMessageEnd();
+		if (circuit->state == CircuitStateUp)
         {
             if (IsValidDataPacket(packet))
             {
@@ -1445,9 +1496,13 @@ static int EndnodeHelloIsForThisNode(decnet_address_t *from, int iinfo)
 static void LogMessage(circuit_t *circuit, packet_t *packet, char *messageName)
 {
 	//Log(LogInfo, "Process pkt from %6s from ", circuit->name);
-	Log(LogMessages, LogDetail, "Process pkt on %s from ", circuit->name);
+	Log(LogMessages, LogDetail, "Process %s on %s from ", messageName, circuit->name);
 	LogDecnetAddress(LogMessages, LogDetail, &packet->from);
-	Log(LogMessages, LogDetail, " %s\n", messageName);
+}
+
+static void LogMessageEnd(void)
+{
+	Log(LogMessages, LogDetail, "\n");
 }
 
 static void LogLoopbackMessage(circuit_t *circuit, packet_t *packet, char *messageName)
