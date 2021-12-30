@@ -259,6 +259,7 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
 	int n;
 	char buf[MAX_LOG_LINE_LEN];
 	static int onNewLine = 1;
+	static char* consoleColours[] = { "\033[91m\033[1m", "\033[91m\033[0m", "\033[94m\033[0m", "\033[97m\033[0m", "\033[97m\033[0m", "\033[97m\033[0m" };
 
 	time_t now;
 
@@ -277,7 +278,7 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
             }
 
             fprintf(logFile, "%s\t", LogSourceName[source]);
-            if (!runningAsService) printf("%s ", LogSourceName[source]);
+            if (!runningAsService) printf("%s%s ", consoleColours[level], LogSourceName[source]);
 		}
 
 		n = vsprintf(buf, format, argptr);
@@ -330,9 +331,8 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 		}
 		else
 		{
-    	    Log(LogGeneral, LogVerbose, "Wait return is %d, processing timers\n", i);
+    	    Log(LogGeneral, LogVerbose, "Wait return is %d\n", i);
 			ProcessTimers();
-            Log(LogGeneral, LogVerbose, "Finished processing timers\n");
 			if (i != WAIT_TIMEOUT)
 			{
 				i = i - WAIT_OBJECT_0;
