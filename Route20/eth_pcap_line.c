@@ -34,9 +34,7 @@ in this Software without prior written authorization from the author.
 #if !defined(__VAX)
 #include <ctype.h>
 #endif
-#if defined(WIN32)
-#include <Win32-Extensions.h>
-#else
+#if !defined(WIN32)
 #include <unistd.h>
 #include <pcap/bpf.h>
 //#include <sys/ioctl.h>
@@ -90,6 +88,7 @@ int EthPcapLineStart(line_t* line)
     if (eth_translate(line->name, devname))
     {
         Log(LogEthPcapLine, LogInfo, "Opening %s for packet capture\n", devname);
+ 
         if ((pcapContext->pcap = pcap_create(devname, ebuf)) == NULL)
         {
             Log(LogEthPcapLine, LogError, "Error creating device %s\n", ebuf);
@@ -391,6 +390,9 @@ static int eth_devices(int max, struct eth_list* list)
 
 #ifndef DONT_USE_PCAP_FINDALLDEVS
     /* retrieve the device list */
+    const char* pcap_version = pcap_lib_version();
+    Log(LogEthPcapLine, LogInfo, "%s\n", pcap_version);
+
     if (pcap_findalldevs(&alldevs, errbuf) == -1)
     {
         char* msg = "Eth: error in pcap_findalldevs: %s\r\n";
