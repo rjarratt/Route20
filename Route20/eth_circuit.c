@@ -98,43 +98,50 @@ void EthCircuitDown(circuit_ptr circuit)
 
 packet_t *EthCircuitReadPacket(circuit_t *circuit)
 {
-    line_t *line = GetLineFromCircuit(circuit);
+	line_t *line = GetLineFromCircuit(circuit);
 	packet_t *ans;
+	int haveReadAPacket;
 
-	ans = line->LineReadPacket(line);
-	if (ans != NULL)
+	do
 	{
-        int disableLoopbackCheck = 0;
-        if (!disableLoopbackCheck && CompareDecnetAddress(&nodeInfo.address, &ans->from))
-        {
-            Log(LogEthCircuit, LogVerbose, "Discarding loopback packet on circuit %s\n", circuit->name);
-            circuit->stats.loopbackPacketsReceived++;
-            ans = NULL;
-        }
-        else
-        {
-            Log(LogEthCircuit, LogVerbose, "Circuit %s received a valid raw packet, payload length=%d \n", line->name, ans->payloadLen);
-            LogBytes(LogEthCircuit, LogVerbose, ans->payload, ans->payloadLen);
-            circuit->stats.validRawPacketsReceived++;
-            if (!ans->IsDecnet(ans))
-            {
-                ans = NULL;
-                circuit->stats.nonDecnetPacketsReceived++;
-            }
-            else
-            {
-                circuit->stats.decnetPacketsReceived++;
-                if (!IsAddressedToThisNode(ans))
-                {
-                    ans = NULL;
-                }
-                else
-                {
-                    circuit->stats.decnetToThisNodePacketsReceived++;
-                }
-            }
-        }
-    }
+		ans = line->LineReadPacket(line);
+		haveReadAPacket = ans != NULL;
+		if (ans != NULL)
+		{
+			int disableLoopbackCheck = 0;
+			if (!disableLoopbackCheck && CompareDecnetAddress(&nodeInfo.address, &ans->from))
+			{
+				Log(LogEthCircuit, LogDetail, "Discarding loopback packet on circuit %s\n", circuit->name);
+				circuit->stats.loopbackPacketsReceived++;
+				ans = NULL;
+			}
+			else
+			{
+				Log(LogEthCircuit, LogDetail, "Circuit %s received a valid raw packet, payload length=%d\n", circuit->name, ans->payloadLen);
+				LogBytes(LogEthCircuit, LogVerbose, ans->payload, ans->payloadLen);
+				circuit->stats.validRawPacketsReceived++;
+				if (!ans->IsDecnet(ans))
+				{
+					Log(LogEthCircuit, LogDetail, "Discarding non-Decnet packet received on circuit %s\n", circuit->name);
+					ans = NULL;
+					circuit->stats.nonDecnetPacketsReceived++;
+				}
+				else
+				{
+					circuit->stats.decnetPacketsReceived++;
+					if (!IsAddressedToThisNode(ans))
+					{
+						Log(LogEthCircuit, LogDetail, "Discarding packet not addressed to this node received on circuit %s\n", circuit->name);
+						ans = NULL;
+					}
+					else
+					{
+						circuit->stats.decnetToThisNodePacketsReceived++;
+					}
+				}
+			}
+		}
+	} while (haveReadAPacket && ans == NULL);
 
 	return ans;
 }
