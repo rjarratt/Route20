@@ -273,12 +273,11 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
             fprintf(logFile, "\t");
             if (!runningAsService)
             {
-                printf(buf);
-                printf(" ");
+				printf("%s%s ", consoleColours[level], buf);
             }
 
             fprintf(logFile, "%s\t", LogSourceName[source]);
-            if (!runningAsService) printf("%s%s ", consoleColours[level], LogSourceName[source]);
+            if (!runningAsService) printf("%s ", LogSourceName[source]);
 		}
 
 		n = vsprintf(buf, format, argptr);
