@@ -46,7 +46,7 @@ typedef struct
 	NodeState state;
 } node_t;
 
-node_t nodeInfo;
+extern node_t nodeInfo;
 
 #define NODE_H
 #endif

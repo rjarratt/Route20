@@ -54,6 +54,10 @@ in this Software without prior written authorization from the author.
 #include "node.h"
 #include "socket.h"
 
+event_handler_t eventHandlers[MAX_EVENT_HANDLERS];
+int numEventHandlers;
+int eventHandlersChanged;
+
 static int dnsNeeded = 0;
 int numCircuits = 0;
 static init_layer_t *ethernetInitLayer;

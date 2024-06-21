@@ -30,12 +30,12 @@
 
 #if !defined(ROUTING_DATABASE_H)
 
-circuit_t Circuits[NC + 1]; /* 1-based array, 0th entry is not used */
-int Minhop[NN + 1];
-int Mincost[NN + 1];
-int Cost[NN + 1][NC+NBRA+1];
-int Hop[NN + 1][NC+NBRA+1];
-int Srm[NN + 1][NC + 1];
+extern circuit_t Circuits[NC + 1]; /* 1-based array, 0th entry is not used */
+extern int Minhop[NN + 1];
+extern int Mincost[NN + 1];
+extern int Cost[NN + 1][NC+NBRA+1];
+extern int Hop[NN + 1][NC+NBRA+1];
+extern int Srm[NN + 1][NC + 1];
 
 void InitRoutingDatabase(void);
 

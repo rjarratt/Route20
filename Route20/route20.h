@@ -48,9 +48,9 @@ typedef struct
 
 } event_handler_t;
 
-event_handler_t eventHandlers[MAX_EVENT_HANDLERS];
-int numEventHandlers;
-int eventHandlersChanged;
+extern event_handler_t eventHandlers[MAX_EVENT_HANDLERS];
+extern int numEventHandlers;
+extern int eventHandlersChanged;
 
 void InitialiseLogging(void);
 int ReadConfig(char *fileName, ConfigReadMode mode);

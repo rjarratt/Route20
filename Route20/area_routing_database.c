@@ -31,6 +31,13 @@
 #include "node.h"
 #include "area_routing_database.h"
 
+int AMinhop[NA + 1];
+int AMincost[NA + 1];
+int ACost[NA + 1][NC + NBRA + 1];
+int AHop[NA + 1][NC + NBRA + 1];
+int ASrm[NA + 1][NC + 1];
+int AttachedFlg;
+
 void InitAreaRoutingDatabase(void)
 {
 	int i;

@@ -28,12 +28,12 @@
 
 #if !defined(AREA_ROUTING_DATABASE_H)
 
-int AMinhop[NA + 1];
-int AMincost[NA + 1];
-int ACost[NA + 1][NC+NBRA+1]; 
-int AHop[NA + 1][NC+NBRA+1];
-int ASrm[NA + 1][NC + 1];
-int AttachedFlg;
+extern int AMinhop[NA + 1];
+extern int AMincost[NA + 1];
+extern int ACost[NA + 1][NC+NBRA+1]; 
+extern int AHop[NA + 1][NC+NBRA+1];
+extern int ASrm[NA + 1][NC + 1];
+extern int AttachedFlg;
 
 void InitAreaRoutingDatabase(void);
 

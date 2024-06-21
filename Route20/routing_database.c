@@ -31,6 +31,13 @@
 #include "node.h"
 #include "routing_database.h"
 
+circuit_t Circuits[NC + 1]; /* 1-based array, 0th entry is not used */
+int Minhop[NN + 1];
+int Mincost[NN + 1];
+int Cost[NN + 1][NC + NBRA + 1];
+int Hop[NN + 1][NC + NBRA + 1];
+int Srm[NN + 1][NC + 1];
+
 void InitRoutingDatabase(void)
 {
 	// TODO: consider moving adjacencies database here as well and initialise it here too. Make it a 1-based array too.
