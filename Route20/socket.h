@@ -71,8 +71,8 @@ typedef struct
     char        *eventName;
 } socket_t;
 
-socket_config_t SocketConfig;
-socket_t ListenSocket;
+extern socket_config_t SocketConfig;
+extern socket_t ListenSocket;
 
 void InitialiseSockets(void);
 void InitialiseSocket(socket_t *sock, char *eventName);

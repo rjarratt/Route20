@@ -46,6 +46,9 @@
 
 #define MAX_BUF_LEN 8192
 
+socket_config_t SocketConfig;
+socket_t ListenSocket;
+
 static int started;
 static int SockStartup(void);
 static int GetSockError(void);

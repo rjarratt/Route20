@@ -32,6 +32,8 @@ in this Software without prior written authorization from the author.
 #include "nsp.h"
 #include "timer.h"
 
+session_config_t SessionConfig;
+
 #define MAX_SESSIONS 5
 #define MAX_OBJECTS 3
 

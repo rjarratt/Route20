@@ -28,10 +28,10 @@
 
 #if !defined(FORWARDING_DATABASE_H)
 
-int OA[NC+NBRA+NBEA+1];
-int Reach[NN+1];
+extern int OA[NC+NBRA+NBEA+1];
+extern int Reach[NN+1];
 
-int IsNodeReachable(int node);
+extern int IsNodeReachable(int node);
 
 #define FORWARDING_DATABASE_H
 #endif

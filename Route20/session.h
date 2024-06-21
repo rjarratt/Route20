@@ -36,7 +36,7 @@ typedef struct
 	int  sessionInactivityTimeout; /* inactivity timer in seconds */
 } session_config_t;
 
-session_config_t SessionConfig;
+extern session_config_t SessionConfig;
 
 void SessionInitialise(void);
 void SessionInitialiseConfig(void);

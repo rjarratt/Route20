@@ -28,8 +28,8 @@
 
 #if !defined(AREA_FORWARDING_DATABASE_H)
 
-int AOA[NC+NBRA+NBEA+1];
-int AReach[NA+1];
+extern int AOA[NC+NBRA+NBEA+1];
+extern int AReach[NA+1];
 
 void InitAreaForwardingDatabase(void);
 int IsAreaReachable(int area);

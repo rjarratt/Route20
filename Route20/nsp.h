@@ -43,7 +43,7 @@ typedef struct
 	int  NSPInactTim; /* inactivity timer in seconds */
 } nsp_config_t;
 
-nsp_config_t NspConfig;
+extern nsp_config_t NspConfig;
 
 void NspInitialise(void);
 void NspInitialiseConfig(void);

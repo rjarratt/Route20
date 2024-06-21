@@ -39,6 +39,8 @@
 #include "dns.h"
 #include "socket.h"
 
+dns_config_t DnsConfig;
+
 typedef struct
 {
 	uint16 id;

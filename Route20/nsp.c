@@ -35,6 +35,8 @@ in this Software without prior written authorization from the author.
 #include "route20.h"
 #include "forwarding.h" // TODO: remove when do proper layering
 
+nsp_config_t NspConfig;
+
 // TODO: Implement timercon from NSP spec
 
 #define INFO_V40 2

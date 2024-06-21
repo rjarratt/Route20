@@ -35,7 +35,7 @@ typedef struct
 	int  pollPeriod;
 } dns_config_t;
 
-dns_config_t DnsConfig;
+extern dns_config_t DnsConfig;
 
 int DnsOpen(char *serverName);
 void DnsSendQuery(char *name, uint16 id, void (*callback)(byte *, void *), void *callbackContext);

@@ -29,6 +29,9 @@
 #include "constants.h"
 #include "area_forwarding_database.h"
 
+int AOA[NC + NBRA + NBEA + 1];
+int AReach[NA + 1];
+
 void InitAreaForwardingDatabase(void)
 {
 	int i;

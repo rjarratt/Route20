@@ -29,6 +29,11 @@
 #include "constants.h"
 #include "forwarding_database.h"
 
+int OA[NC + NBRA + NBEA + 1];
+int Reach[NN + 1];
+
+int IsNodeReachable(int node);
+
 int IsNodeReachable(int node)
 {
 	return Reach[node];
