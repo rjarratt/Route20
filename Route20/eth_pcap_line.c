@@ -487,7 +487,7 @@ static int eth_translate(char* name, char* translated_name)
             numberPtr++;
         }
 
-        if (numberPtr != '\0')
+        if (numberPtr != NULL)
         {
             result = eth_getname(atoi(numberPtr), translated_name, list, count);
         }
