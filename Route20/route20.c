@@ -59,7 +59,6 @@ int numEventHandlers;
 int eventHandlersChanged;
 
 static int dnsNeeded = 0;
-int numCircuits = 0;
 static init_layer_t *ethernetInitLayer;
 static init_layer_t *ddcmpInitLayer;
 static void (*processHigherLevelProtocolPacket)(decnet_address_t *from, byte *data, uint16 dataLength) = NULL;

@@ -31,6 +31,7 @@
 #include "timer.h"
 #include "line.h"
 
+extern int numCircuits;
 extern int numEthPcapCircuits;
 extern int numEthSockCircuits;
 extern int numDdcmpCircuits;

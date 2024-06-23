@@ -35,6 +35,7 @@
 #include "eth_circuit.h"
 #include "ddcmp_circuit.h"
 
+int numCircuits = 0;
 int numEthPcapCircuits = 0;
 int numEthSockCircuits = 0;
 int numDdcmpCircuits = 0;

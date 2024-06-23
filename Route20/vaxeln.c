@@ -56,8 +56,6 @@ in this Software without prior written authorization from the author.
 #define PACKET_BUFFER_LEN 1600
 #define PACKET_HEADER_LEN 14
 
-int numCircuits;
-
 FILE *logFile;
 typedef struct pcap_vaxeln
 {

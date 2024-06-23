@@ -52,8 +52,6 @@
 #define DATA_TYPE_DU(n) (0x00 | n)
 #define DATA_TYPE_CM(n) (0xC0 | n)
 
-int numCircuits;
-
 typedef enum
 {
 	SignificantNodes = 0xFB,
