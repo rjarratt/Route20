@@ -31,6 +31,10 @@
 #include "timer.h"
 #include "line.h"
 
+extern int numEthPcapCircuits;
+extern int numEthSockCircuits;
+extern int numDdcmpCircuits;
+
 #if !defined(CIRCUIT_H)
 
 typedef struct circuit *circuit_ptr;

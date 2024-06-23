@@ -57,9 +57,6 @@ in this Software without prior written authorization from the author.
 #define PACKET_HEADER_LEN 14
 
 int numCircuits;
-int numEthPcapCircuits;
-int numEthSockCircuits;
-int numDdcmpCircuits;
 
 FILE *logFile;
 typedef struct pcap_vaxeln
