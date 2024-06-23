@@ -206,7 +206,7 @@ void PurgeAdjacencies(void)
 
 void StopAllAdjacencies(CircuitType circuitType)
 {
-	ProcessAllAdjacencies(StopAdjacencyCallback, (void *)circuitType);
+	ProcessAllAdjacencies(StopAdjacencyCallback, &circuitType);
 }
 
 adjacency_t *GetAdjacency(int i)
@@ -504,8 +504,8 @@ static int FindAdjacencyCallback(adjacency_t *adjacency, void *context)
 
 static int StopAdjacencyCallback(adjacency_t *adjacency, void *context)
 {
-	CircuitType circuitType = (CircuitType)context;
-	if (adjacency->circuit->circuitType == circuitType)
+	CircuitType *circuitType = (CircuitType *)context;
+	if (adjacency->circuit->circuitType == *circuitType)
 	{
 		AdjacencyDown(adjacency);
 		DeleteAdjacency(adjacency);
