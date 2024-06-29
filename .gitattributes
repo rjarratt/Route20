@@ -5,6 +5,7 @@
 # to native line endings on checkout.
 *.c text
 *.h text
+*.ini text
 
 # Declare files that will always have CRLF line endings on checkout.
 *.mms text eol=crlf
