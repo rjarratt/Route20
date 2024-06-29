@@ -249,6 +249,7 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
 		timeout.tv_sec = SecondsUntilNextDue();
 		timeout.tv_nsec = 0;
 
+		FD_ZERO(&handles);
         for (h = 0; h < numEventHandlers; h++)
         {
             FD_SET(eventHandlers[h].waitHandle, &handles);
