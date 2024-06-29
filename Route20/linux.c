@@ -62,57 +62,57 @@ static volatile int shutdownRequested = 0;
 
 int main(int argc, char *argv[])
 {
-	FILE* pidFile;
+    FILE* pidFile;
 
     /* Our process ID and Session ID */
     pid_t pid, sid;
 
-	if (argc > 1)
-	{
-		strncpy(configFileName, argv[1], PATH_MAX - 1);
-		configFileName[PATH_MAX - 1] = '\0';
-	}
-	else
-	{
-		getcwd(configFileName, PATH_MAX - 1);
-		strcat(configFileName, "/");
-		strcat(configFileName, CONFIG_FILE_NAME);
-	}
+    if (argc > 1)
+    {
+        strncpy(configFileName, argv[1], PATH_MAX - 1);
+        configFileName[PATH_MAX - 1] = '\0';
+    }
+    else
+    {
+        getcwd(configFileName, PATH_MAX - 1);
+        strcat(configFileName, "/");
+        strcat(configFileName, CONFIG_FILE_NAME);
+    }
 
-	if (access(PID_FILE_NAME, R_OK) == 0)
-	{
-		printf("Daemon is already running\n");
-		exit(EXIT_FAILURE);
-	}
+    if (access(PID_FILE_NAME, R_OK) == 0)
+    {
+        printf("Daemon is already running\n");
+        exit(EXIT_FAILURE);
+    }
 
     InitialiseLogging();
     ReadConfig(configFileName, ConfigReadModeInitial);
-	SetupHupHandler();
+    SetupHupHandler();
 
     /* Fork off the parent process */
     pid = fork();
     if (pid < 0)
-	{
-		printf("Fork failed\n");
+    {
+        printf("Fork failed\n");
         exit(EXIT_FAILURE);
     }
 
-	/* If we got a good PID, then we can exit the parent process. */
+    /* If we got a good PID, then we can exit the parent process. */
     if (pid > 0)
-	{
-		printf("Daemon running with pid %d\n", pid);
-		pidFile = fopen(PID_FILE_NAME, "w");
-		if (pidFile != NULL)
-		{
-			fprintf(pidFile, "%d\n", pid);
-			fclose(pidFile);
+    {
+        printf("Daemon running with pid %d\n", pid);
+        pidFile = fopen(PID_FILE_NAME, "w");
+        if (pidFile != NULL)
+        {
+            fprintf(pidFile, "%d\n", pid);
+            fclose(pidFile);
             exit(EXIT_SUCCESS);
-		}
-		else
-		{
-			printf("Unable to write PID file\n");
-			exit(EXIT_FAILURE);
-		}
+        }
+        else
+        {
+            printf("Unable to write PID file\n");
+            exit(EXIT_FAILURE);
+        }
     }
 
     /* Change the file mode mask */
@@ -123,14 +123,14 @@ int main(int argc, char *argv[])
     /* Create a new SID for the child process */
     sid = setsid();
     if (sid < 0) 
-	{
+    {
         Log(LogGeneral, LogFatal, "Failed to set SID");
         exit(EXIT_FAILURE);
     }
     
     /* Change the current working directory */
     if ((chdir("/")) < 0)
-	{
+    {
         Log(LogGeneral, LogFatal, "Failed to change directory to root");
         exit(EXIT_FAILURE);
     }
@@ -141,91 +141,91 @@ int main(int argc, char *argv[])
     close(STDERR_FILENO);
     
     Log(LogGeneral, LogInfo, "Initialising");
-	if (InitialiseConfig(ReadConfig, configFileName))
-	{
+    if (InitialiseConfig(ReadConfig, configFileName))
+    {
         if (DecnetInitialise())
         {
-		    NspInitialise();
-			SessionInitialise();
-		    NetManInitialise();
+            NspInitialise();
+            SessionInitialise();
+            NetManInitialise();
             MainLoop();
         }
-		else
-		{
-			remove(PID_FILE_NAME);
-			Log(LogGeneral, LogFatal, "Exiting because failed to initiliase DECnet\n");
-			exit(EXIT_FAILURE);
-		}
-	}
-	else
-	{
-		remove(PID_FILE_NAME);
-		Log(LogGeneral, LogFatal, "Exiting because failed to initiliase configuration\n");
-		exit(EXIT_FAILURE);
-	}
+        else
+        {
+            remove(PID_FILE_NAME);
+            Log(LogGeneral, LogFatal, "Exiting because failed to initiliase DECnet\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+    else
+    {
+        remove(PID_FILE_NAME);
+        Log(LogGeneral, LogFatal, "Exiting because failed to initiliase configuration\n");
+        exit(EXIT_FAILURE);
+    }
 
-	remove(PID_FILE_NAME);
-	Log(LogGeneral, LogInfo, "Exited");
+    remove(PID_FILE_NAME);
+    Log(LogGeneral, LogInfo, "Exited");
     exit(EXIT_SUCCESS);
 }
 
 void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
 {
-	static char line[MAX_LOG_LINE_LEN];
-	static int  currentLen = 0;
-	static int onNewLine = 1;
+    static char line[MAX_LOG_LINE_LEN];
+    static int  currentLen = 0;
+    static int onNewLine = 1;
 
     if (level <= LoggingLevels[source])
-	{
-		int sysLevel;
-		switch (level)
-		{
-		case LogVerbose:
-			{
-				sysLevel = LOG_DEBUG;
-				break;
-			}
-		case LogWarning:
-			{
-				sysLevel = LOG_WARNING;
-				break;
-			}
-		case LogInfo:
-			{
-				sysLevel = LOG_INFO;
-				break;
-			}
-		case LogDetail:
-			{
-				sysLevel = LOG_DEBUG;
-				break;
-			}
-		case LogError:
-			{
-				sysLevel = LOG_ERR;
-				break;
-			}
-		case LogFatal:
-			{
-				sysLevel = LOG_CRIT;
-				break;
-			}
-		default:
-			{
-				sysLevel = LOG_ERR;
-				break;
-			}
-		}
+    {
+        int sysLevel;
+        switch (level)
+        {
+        case LogVerbose:
+            {
+                sysLevel = LOG_DEBUG;
+                break;
+            }
+        case LogWarning:
+            {
+                sysLevel = LOG_WARNING;
+                break;
+            }
+        case LogInfo:
+            {
+                sysLevel = LOG_INFO;
+                break;
+            }
+        case LogDetail:
+            {
+                sysLevel = LOG_DEBUG;
+                break;
+            }
+        case LogError:
+            {
+                sysLevel = LOG_ERR;
+                break;
+            }
+        case LogFatal:
+            {
+                sysLevel = LOG_CRIT;
+                break;
+            }
+        default:
+            {
+                sysLevel = LOG_ERR;
+                break;
+            }
+        }
 
-		currentLen += vsprintf(&line[currentLen], format, argptr);
-		onNewLine = line[currentLen-1] == '\n';
+        currentLen += vsprintf(&line[currentLen], format, argptr);
+        onNewLine = line[currentLen-1] == '\n';
 
-		if (onNewLine)
-		{
-			syslog(sysLevel | LOG_LOCAL0 + SysLogLocalFacilityNumber, "%s %s", LogSourceName[source], line);
-			currentLen = 0;
-		}
-	}
+        if (onNewLine)
+        {
+            syslog(sysLevel | LOG_LOCAL0 + SysLogLocalFacilityNumber, "%s %s", LogSourceName[source], line);
+            currentLen = 0;
+        }
+    }
 }
 
 // TODO: Add threading to Linux implementation
@@ -236,20 +236,20 @@ void QueuePacket(circuit_t *circuit, packet_t *packet)
 
 void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *))
 {
-	int i;
-	int h;
-	int nfds = 0;
-	fd_set handles;
+    int i;
+    int h;
+    int nfds = 0;
+    fd_set handles;
 
-	signal(SIGTERM, SigTermHandler);
+    signal(SIGTERM, SigTermHandler);
 
-	while(!shutdownRequested)
-	{
-		struct timespec timeout;
-		timeout.tv_sec = SecondsUntilNextDue();
-		timeout.tv_nsec = 0;
+    while(!shutdownRequested)
+    {
+        struct timespec timeout;
+        timeout.tv_sec = SecondsUntilNextDue();
+        timeout.tv_nsec = 0;
 
-		FD_ZERO(&handles);
+        FD_ZERO(&handles);
         for (h = 0; h < numEventHandlers; h++)
         {
             FD_SET(eventHandlers[h].waitHandle, &handles);
@@ -259,63 +259,63 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
             }
         }
 
-		i = pselect(nfds + 1, &handles, NULL, NULL, &timeout, NULL);
-		if (i == -1)
-		{
-			if (errno != EINTR)
-			{
-			    Log(LogGeneral, LogError, "pselect error: %d\n", errno);
-			}
-		}
-		else
-		{
-			ProcessTimers();
-			if (i > 0)
-			{
-    			for (h = 0; h < numEventHandlers; h++)
-	    		{
-		    		if (FD_ISSET(eventHandlers[h].waitHandle, &handles))
+        i = pselect(nfds + 1, &handles, NULL, NULL, &timeout, NULL);
+        if (i == -1)
+        {
+            if (errno != EINTR)
+            {
+                Log(LogGeneral, LogError, "pselect error: %d\n", errno);
+            }
+        }
+        else
+        {
+            ProcessTimers();
+            if (i > 0)
+            {
+                for (h = 0; h < numEventHandlers; h++)
+                {
+                    if (FD_ISSET(eventHandlers[h].waitHandle, &handles))
                     {
-				        eventHandlers[h].eventHandler(eventHandlers[h].context);
+                        eventHandlers[h].eventHandler(eventHandlers[h].context);
                     }
-    			}
-			}
-		}
-	}
+                }
+            }
+        }
+    }
 }
 
 static void ProcessPackets(circuit_t *circuit, void (*process)(circuit_t *, packet_t *))
 {
-	packet_t *packet;
+    packet_t *packet;
 
-	do
-	{
-	    packet = (*(circuit->ReadPacket))(circuit);
-		if (packet != NULL)
-		{
-			process(circuit, packet);
-		}
-	} while (packet != NULL);
+    do
+    {
+        packet = (*(circuit->ReadPacket))(circuit);
+        if (packet != NULL)
+        {
+            process(circuit, packet);
+        }
+    } while (packet != NULL);
 }
 
 static void SetupHupHandler(void)
 {
-	struct sigaction sa;
+    struct sigaction sa;
 
-	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = SA_RESTART;
-	sa.sa_handler = SigHupHandler;
-	sigaction(SIGHUP, &sa, NULL);
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+    sa.sa_handler = SigHupHandler;
+    sigaction(SIGHUP, &sa, NULL);
 }
 
 static void SigTermHandler(int signum)
 {
-	shutdownRequested = 1;
+    shutdownRequested = 1;
 }
 
 static void SigHupHandler(int signum)
 {
-	ReadConfig(configFileName, ConfigReadModeUpdate);
+    ReadConfig(configFileName, ConfigReadModeUpdate);
 }
 
 #endif
