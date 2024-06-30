@@ -61,17 +61,6 @@ struct eth_list {
     char    desc[ETH_DEV_DESC_MAX];
 };
 
-struct bpf_insn filterInstructions[] = {
-    BPF_STMT(BPF_LD + BPF_H + BPF_ABS, 12),
-    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_LOOPBACK, 5, 0),
-    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_MOPRC, 4, 0),
-    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_MOPDL, 3, 0),
-    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_LAT, 2, 0),
-    BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ETHERTYPE_DECnet, 1, 0),
-    BPF_STMT(BPF_RET + BPF_K, 0),
-    BPF_STMT(BPF_RET + BPF_K, 1518),
-};
-
 static int eth_translate(char* name, char* translated_name);
 
 int EthPcapLineStart(line_t* line)
@@ -99,13 +88,17 @@ int EthPcapLineStart(line_t* line)
             {
                 Log(LogEthPcapLine, LogError, "Error setting promiscuous mode\n");
             }
-            else if (pcap_set_timeout(pcapContext->pcap, 1) != 0)
+            else if (pcap_set_immediate_mode(pcapContext->pcap, 1) != 0)
             {
-                Log(LogEthPcapLine, LogError, "Error setting timeout\n");
+                Log(LogEthPcapLine, LogError, "Could not set immediate mode\n");
             }
             else if (pcap_activate(pcapContext->pcap) != 0)
             {
                 Log(LogEthPcapLine, LogError, "Error activating packet capture\n");
+            }
+            else if (pcap_setdirection(pcapContext->pcap, PCAP_D_IN) == PCAP_ERROR)
+            {
+                Log(LogEthPcapLine, LogError, "Error setting direction of packet capture: %s\n", pcap_geterr(pcapContext->pcap));
             }
             else
             {
@@ -117,12 +110,11 @@ int EthPcapLineStart(line_t* line)
                 }
 #else
                 int one = 1;
-                line->waitHandle = pcap_fileno(pcapContext->pcap);
-                //      if (ioctl(line->waitHandle,BIOCIMMEDIATE,&one) == -1)
-                //{
-                //	Log(LogError, "ioctl BIOCIMMEDIATE failed\n");
-                //      }
-
+                line->waitHandle = pcap_get_selectable_fd(pcapContext->pcap);
+                if (line->waitHandle == PCAP_ERROR)
+                {
+                    Log(LogEthPcapLine, LogError, "Error getting selectable file descriptor: %s\n", pcap_geterr(pcapContext->pcap));
+                }
                 //if (ioctl(line->waitHandle,BIOCSHDRCMPLT,&i))
                 //{
                 //	Log(LogError, "ioctl BIOCSHDRCMPLT failed\n");
@@ -136,8 +128,10 @@ int EthPcapLineStart(line_t* line)
                 else
                 {
                     struct bpf_program pgm;
-                    pgm.bf_len = sizeof(filterInstructions) / sizeof(struct bpf_insn);
-                    pgm.bf_insns = filterInstructions;
+                    if (pcap_compile(pcapContext->pcap, &pgm, "decnet or moprc or mopdl", 1, PCAP_NETMASK_UNKNOWN) == -1)
+                    {
+                        Log(LogEthPcapLine, LogError, "Failed to compile filter: %s\n", pcap_geterr(pcapContext->pcap));
+                    }
                     if (pcap_setfilter(pcapContext->pcap, &pgm) == -1) // TODO: change filter not to pass LAT.
                     {
                         Log(LogEthPcapLine, LogError, "loading filter program");
