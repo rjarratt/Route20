@@ -96,10 +96,6 @@ int EthPcapLineStart(line_t* line)
             {
                 Log(LogEthPcapLine, LogError, "Error activating packet capture\n");
             }
-            else if (pcap_setdirection(pcapContext->pcap, PCAP_D_IN) == PCAP_ERROR)
-            {
-                Log(LogEthPcapLine, LogError, "Error setting direction of packet capture: %s\n", pcap_geterr(pcapContext->pcap));
-            }
             else
             {
 #if defined(WIN32)
@@ -114,6 +110,10 @@ int EthPcapLineStart(line_t* line)
                 if (line->waitHandle == PCAP_ERROR)
                 {
                     Log(LogEthPcapLine, LogError, "Error getting selectable file descriptor: %s\n", pcap_geterr(pcapContext->pcap));
+                }
+                else if (pcap_setdirection(pcapContext->pcap, PCAP_D_IN) == PCAP_ERROR)
+                {
+                    Log(LogEthPcapLine, LogError, "Error setting direction of packet capture: %s\n", pcap_geterr(pcapContext->pcap));
                 }
                 //if (ioctl(line->waitHandle,BIOCSHDRCMPLT,&i))
                 //{
