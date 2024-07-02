@@ -38,6 +38,7 @@
 #include "session.h"
 
 #define OBJECT_NML 19
+#define OBJECT_LM 25
 
 #define ENTITY_TYPE_NODE_C_IDENTIFICATION 100
 #define ENTITY_TYPE_NODE_C_MANAGEMENT_VERSION 101
@@ -51,6 +52,8 @@
 #define DATA_TYPE_AI 0x40
 #define DATA_TYPE_DU(n) (0x00 | n)
 #define DATA_TYPE_CM(n) (0xC0 | n)
+
+#define MAX_LOOPBACK_SIZE 1024
 
 typedef enum
 {
@@ -78,7 +81,8 @@ typedef struct
 static nice_session_t NiceSessions; // TODO: allow more than one concurrent NICE session
 
 void OpenPort(void);
-int ConnectCallback(void *session, decnet_address_t *remNode, byte *data, byte dataLength, uint16 *reason, byte **acceptData, byte *acceptDataLength);
+int NiceConnectCallback(void* session, decnet_address_t* remNode, byte* data, byte dataLength, uint16* reason, byte** acceptData, byte* acceptDataLength);
+int LoopbackConnectCallback(void* session, decnet_address_t* remNode, byte* data, byte dataLength, uint16* reason, byte** acceptData, byte* acceptDataLength);
 void DataCallback(void *session, byte *data, uint16 dataLength);
 void CloseCallback(void *session);
 
@@ -102,10 +106,11 @@ static void AddStringToResponse(byte *data, uint16 *pos, char *s, int maxLength)
 
 void NetManInitialise(void)
 {
-	SessionRegisterObjectType(OBJECT_NML, ConnectCallback, CloseCallback, DataCallback);
+	SessionRegisterObjectType(OBJECT_NML, NiceConnectCallback, CloseCallback, DataCallback);
+	SessionRegisterObjectType(OBJECT_LM, LoopbackConnectCallback, CloseCallback, DataCallback);
 }
 
-int ConnectCallback(void *session, decnet_address_t *remNode, byte *data, byte dataLength, uint16 *reason, byte **acceptData, byte *acceptDataLength)
+int NiceConnectCallback(void *session, decnet_address_t *remNode, byte *data, byte dataLength, uint16 *reason, byte **acceptData, byte *acceptDataLength)
 {
 	static byte niceAcceptData[] = { NETMAN_VERSION, NETMAN_DEC_ECO, NETMAN_USER_ECO };
 	nice_session_t *niceSession = &NiceSessions;
@@ -148,6 +153,25 @@ void CloseCallback(void *session)
 	Log(LogNetMan, LogVerbose, " closed\n");
 	SessionClose(session);
 }
+
+int LoopbackConnectCallback(void* session, decnet_address_t* remNode, byte* data, byte dataLength, uint16* reason, byte** acceptData, byte* acceptDataLength)
+{
+	static byte niceAcceptData[sizeof(uint16)];
+
+	int result = 1;
+
+	Log(LogNetMan, LogVerbose, "Accepting session from ");
+	LogDecnetAddress(LogNetMan, LogVerbose, remNode);
+	Log(LogNetMan, LogVerbose, "\n");
+
+	uint16 littleEndianMaxLoopbackSize = Uint16ToLittleEndian(MAX_LOOPBACK_SIZE);
+	memcpy(niceAcceptData, &littleEndianMaxLoopbackSize, sizeof(uint16));
+	*acceptData = niceAcceptData;
+	*acceptDataLength = sizeof(niceAcceptData);
+
+	return result;
+}
+
 
 static void ProcessReadInformationMessage(nice_session_t *niceSession, netman_read_information_t *readInformation)
 {

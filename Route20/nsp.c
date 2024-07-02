@@ -310,9 +310,8 @@ static void ProcessConnectInitiateMessage(decnet_address_t *from, nsp_connect_in
 
 	   Bullet 4 not implemented, where ConnectInitiate has been returned, because the router does not initiate connections */
 
-	//Log(LogNsp, LogVerbose, "Connect Initiate data is ");
-	//LogBytes(LogNsp, LogVerbose, connectInitiate->dataCtl, connectInitiate->dataCtlLength);
-	//Log(LogNsp, LogVerbose, "\n");
+	Log(LogNsp, LogVerbose, "Connect Initiate data is ");
+	LogBytes(LogNsp, LogVerbose, connectInitiate->dataCtl, connectInitiate->dataCtlLength);
 
 	if (connectInitiate->header.dstAddr == 0)
 	{
