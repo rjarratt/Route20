@@ -82,8 +82,9 @@ static nice_session_t NiceSessions; // TODO: allow more than one concurrent NICE
 
 void OpenPort(void);
 int NiceConnectCallback(void* session, decnet_address_t* remNode, byte* data, byte dataLength, uint16* reason, byte** acceptData, byte* acceptDataLength);
+void NiceDataCallback(void* session, byte* data, uint16 dataLength);
 int LoopbackConnectCallback(void* session, decnet_address_t* remNode, byte* data, byte dataLength, uint16* reason, byte** acceptData, byte* acceptDataLength);
-void DataCallback(void *session, byte *data, uint16 dataLength);
+void LoopbackDataCallback(void* session, byte* data, uint16 dataLength);
 void CloseCallback(void *session);
 
 static void ProcessReadInformationMessage(nice_session_t *niceSession, netman_read_information_t *readInformation);
@@ -106,8 +107,8 @@ static void AddStringToResponse(byte *data, uint16 *pos, char *s, int maxLength)
 
 void NetManInitialise(void)
 {
-	SessionRegisterObjectType(OBJECT_NML, NiceConnectCallback, CloseCallback, DataCallback);
-	SessionRegisterObjectType(OBJECT_LM, LoopbackConnectCallback, CloseCallback, DataCallback);
+	SessionRegisterObjectType(OBJECT_NML, NiceConnectCallback, CloseCallback, NiceDataCallback);
+	SessionRegisterObjectType(OBJECT_LM, LoopbackConnectCallback, CloseCallback, LoopbackDataCallback);
 }
 
 int NiceConnectCallback(void *session, decnet_address_t *remNode, byte *data, byte dataLength, uint16 *reason, byte **acceptData, byte *acceptDataLength)
@@ -129,7 +130,7 @@ int NiceConnectCallback(void *session, decnet_address_t *remNode, byte *data, by
 	return result;
 }
 
-void DataCallback(void *handle, byte *data, uint16 dataLength)
+void NiceDataCallback(void *handle, byte *data, uint16 dataLength)
 {
 	nice_session_t *niceSession = &NiceSessions;
 
@@ -156,13 +157,18 @@ void CloseCallback(void *session)
 
 int LoopbackConnectCallback(void* session, decnet_address_t* remNode, byte* data, byte dataLength, uint16* reason, byte** acceptData, byte* acceptDataLength)
 {
+	// See Connect Accept Data Format in netman40.txt for accept response.
 	static byte niceAcceptData[sizeof(uint16)];
+	nice_session_t* niceSession = &NiceSessions;
 
 	int result = 1;
 
 	Log(LogNetMan, LogVerbose, "Accepting session from ");
 	LogDecnetAddress(LogNetMan, LogVerbose, remNode);
 	Log(LogNetMan, LogVerbose, "\n");
+
+	memcpy(&niceSession->remNode, remNode, sizeof(decnet_address_t));
+	niceSession->session = session;
 
 	uint16 littleEndianMaxLoopbackSize = Uint16ToLittleEndian(MAX_LOOPBACK_SIZE);
 	memcpy(niceAcceptData, &littleEndianMaxLoopbackSize, sizeof(uint16));
@@ -172,6 +178,22 @@ int LoopbackConnectCallback(void* session, decnet_address_t* remNode, byte* data
 	return result;
 }
 
+void LoopbackDataCallback(void* handle, byte* data, uint16 dataLength)
+{
+	nice_session_t* niceSession = &NiceSessions;
+
+	byte responseData[MAX_LOOPBACK_SIZE + 1];
+	int responseLength = dataLength > MAX_LOOPBACK_SIZE ? MAX_LOOPBACK_SIZE : dataLength;
+	memcpy(responseData, data, responseLength);
+	responseData[0] = 1;
+
+	Log(LogNetMan, LogVerbose, "Received data from ");
+	LogDecnetAddress(LogNetMan, LogVerbose, &niceSession->remNode);
+	Log(LogNetMan, LogVerbose, ", data = ");
+	LogBytes(LogNetMan, LogVerbose, data, dataLength);
+
+	SessionDataTransmit(niceSession->session, responseData, responseLength);
+}
 
 static void ProcessReadInformationMessage(nice_session_t *niceSession, netman_read_information_t *readInformation)
 {
@@ -441,11 +463,11 @@ static void AddEntityTypeAndDataTypeToResponse(byte* data, uint16 * pos, uint16 
 	data[(*pos)++] = dataType;
 }
 
-static void AddStringToResponse(byte *data, uint16 *pos, char *s, int maxLength)
+static void AddStringToResponse(byte* data, uint16* pos, char* s, int maxLength)
 {
 	uint16 slen = (uint16)strlen(s);
 	uint16 len = (slen > maxLength && maxLength > 0) ? maxLength : slen;
 	data[(*pos)++] = (byte)len;
-	strcpy((char *)(&data[*pos]), s);
-	*pos = *pos +len;
+	strcpy((char*)(&data[*pos]), s);
+	*pos = *pos + len;
 }
