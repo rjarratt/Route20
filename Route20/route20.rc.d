@@ -1,4 +1,10 @@
 #!/bin/sh
+# Rename this file "route20" and place it in the /usr/local/etc/rc.d directory. Give it +x permissions.
+# Add route20_enable to /etc/rc.conf, use sysrc route20_enable="YES"
+
+# PROVIDE: route20
+# REQUIRE: networking syslog
+# KEYWORD: shutdown
 
 . /etc/rc.subr
 
@@ -12,5 +18,4 @@ pidfile="/var/run/${name}.pid"
 extra_commands=reload
 
 load_rc_config $name
-: ${route20_enable:=yes}
 run_rc_command "$1"
