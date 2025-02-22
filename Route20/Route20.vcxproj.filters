@@ -139,7 +139,7 @@
     <None Include="route20.ini" />
     <None Include="descrip.mms" />
     <None Include="..\README.md" />
-    <None Include="route20">
+    <None Include="route20.rc.d">
       <Filter>Source Files</Filter>
     </None>
   </ItemGroup>

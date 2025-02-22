@@ -143,7 +143,7 @@
     <None Include="makefile" />
     <None Include="readme.txt" />
     <None Include="route20.ini" />
-    <None Include="route20" />
+    <None Include="route20.rc.d" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="adjacency.h" />
