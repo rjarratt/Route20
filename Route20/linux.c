@@ -124,14 +124,14 @@ int main(int argc, char *argv[])
     sid = setsid();
     if (sid < 0) 
     {
-        Log(LogGeneral, LogFatal, "Failed to set SID");
+        Log(LogGeneral, LogFatal, "Failed to set SID\n");
         exit(EXIT_FAILURE);
     }
     
     /* Change the current working directory */
     if ((chdir("/")) < 0)
     {
-        Log(LogGeneral, LogFatal, "Failed to change directory to root");
+        Log(LogGeneral, LogFatal, "Failed to change directory to root\n");
         exit(EXIT_FAILURE);
     }
     
@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
     close(STDOUT_FILENO);
     close(STDERR_FILENO);
     
-    Log(LogGeneral, LogInfo, "Initialising");
+    Log(LogGeneral, LogInfo, "Initialising\n");
     if (InitialiseConfig(ReadConfig, configFileName))
     {
         if (DecnetInitialise())
@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
     }
 
     remove(PID_FILE_NAME);
-    Log(LogGeneral, LogInfo, "Exited");
+    Log(LogGeneral, LogInfo, "Exited\n");
     exit(EXIT_SUCCESS);
 }
 
