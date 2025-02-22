@@ -408,12 +408,29 @@ static int SockStartup(void)
 static int GetSockError(void)
 {
 #if defined(WIN32)
-	int err = WSAGetLastError ();
+	int err = WSAGetLastError();
 #else
 	int err = errno;
 #endif
 
 	return err;
+}
+
+static char* GetSockErrorString(int err)
+{
+#if defined(WIN32)
+    static char errBuf[256];
+    FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, 0, err, 0, errBuf, sizeof(errBuf), 0);
+    int len = strlen(errBuf);
+    if (errBuf[len - 2] = '\r')
+    {
+        errBuf[len - 2] = '\0';
+    }
+#else
+    char *errBuf = strerror(errno);
+#endif
+
+    return errBuf;
 }
 
 static void SockError(char *msg)
@@ -422,7 +439,7 @@ static void SockError(char *msg)
 
 	if (lastSocketError != err)
 	{
-	    Log(LogSock, LogError, "Sockets: %s error %d\n", msg, err);
+	    Log(LogSock, LogError, "Sockets: %s error %d (%s)\n", msg, err, GetSockErrorString(err));
 		lastSocketError = err;
 	}
 }
