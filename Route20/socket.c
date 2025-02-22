@@ -521,7 +521,7 @@ static int IsSockErrorWouldBlock(int err)
 #if defined(WIN32)
     ans = err == WSAEWOULDBLOCK;
 #else
-	ans = err == EWOULDBLOCK;
+	ans = err == EWOULDBLOCK || err == EINPROGRESS;
 #endif
 
 	return ans;
