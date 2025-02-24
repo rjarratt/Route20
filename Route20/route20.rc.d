@@ -11,7 +11,8 @@
 name=route20
 rcvar=route20_enable
 
-command="/root/route20/${name}" # Modify this for where you keep your binary
+procname="/root/route20/${name}" # Modify this for where you keep your binary
+command="${procname}"
 command_args="/root/route20/${name}.ini" # Modify this for where you keep the configuration
 
 pidfile="/var/run/${name}.pid"
