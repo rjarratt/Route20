@@ -59,6 +59,7 @@ static void SigTermHandler(int signum);
 
 static char configFileName[PATH_MAX];
 static volatile int shutdownRequested = 0;
+static int runAsDaemon = 1;
 
 int main(int argc, char *argv[])
 {
@@ -89,29 +90,32 @@ int main(int argc, char *argv[])
     ReadConfig(configFileName, ConfigReadModeInitial);
     SetupHupHandler();
 
-    /* Fork off the parent process */
-    pid = fork();
-    if (pid < 0)
+    if (runAsDaemon)
     {
-        printf("Fork failed\n");
-        exit(EXIT_FAILURE);
-    }
-
-    /* If we got a good PID, then we can exit the parent process. */
-    if (pid > 0)
-    {
-        printf("Daemon running with pid %d\n", pid);
-        pidFile = fopen(PID_FILE_NAME, "w");
-        if (pidFile != NULL)
+        /* Fork off the parent process */
+        pid = fork();
+        if (pid < 0)
         {
-            fprintf(pidFile, "%d\n", pid);
-            fclose(pidFile);
-            exit(EXIT_SUCCESS);
-        }
-        else
-        {
-            printf("Unable to write PID file\n");
+            printf("Fork failed\n");
             exit(EXIT_FAILURE);
+        } 
+
+        /* If we got a good PID, then we can exit the parent process. */
+        if (pid > 0)
+        {
+            printf("Daemon running with pid %d\n", pid);
+            pidFile = fopen(PID_FILE_NAME, "w");
+            if (pidFile != NULL)
+            {
+                fprintf(pidFile, "%d\n", pid);
+                fclose(pidFile);
+                exit(EXIT_SUCCESS);
+            }
+            else
+            {
+                printf("Unable to write PID file\n");
+                exit(EXIT_FAILURE);
+            }
         }
     }
 
@@ -120,26 +124,29 @@ int main(int argc, char *argv[])
         
     openlog("Route20", 0, LOG_DAEMON);
 
-    /* Create a new SID for the child process */
-    sid = setsid();
-    if (sid < 0) 
+    if (runAsDaemon)
     {
-        Log(LogGeneral, LogFatal, "Failed to set SID\n");
-        exit(EXIT_FAILURE);
+        /* Create a new SID for the child process */
+        sid = setsid();
+        if (sid < 0) 
+        {
+            Log(LogGeneral, LogFatal, "Failed to set SID\n");
+            exit(EXIT_FAILURE);
+        }
+    
+        /* Change the current working directory */
+        if ((chdir("/")) < 0)
+        {
+            Log(LogGeneral, LogFatal, "Failed to change directory to root\n");
+            exit(EXIT_FAILURE);
+        }
+    
+        /* Close out the standard file descriptors */
+        close(STDIN_FILENO);
+        close(STDOUT_FILENO);
+        close(STDERR_FILENO);
     }
-    
-    /* Change the current working directory */
-    if ((chdir("/")) < 0)
-    {
-        Log(LogGeneral, LogFatal, "Failed to change directory to root\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    /* Close out the standard file descriptors */
-    close(STDIN_FILENO);
-    close(STDOUT_FILENO);
-    close(STDERR_FILENO);
-    
+ 
     Log(LogGeneral, LogInfo, "Initialising\n");
     if (InitialiseConfig(ReadConfig, configFileName))
     {
@@ -222,7 +229,15 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
 
         if (onNewLine)
         {
-            syslog(sysLevel | LOG_LOCAL0 + SysLogLocalFacilityNumber, "%s %s", LogSourceName[source], line);
+            if (runAsDaemon)
+            {
+                syslog(sysLevel | LOG_LOCAL0 + SysLogLocalFacilityNumber, "%s %s", LogSourceName[source], line);
+            }
+            else
+            {
+                printf("%s %s", LogSourceName[source], line);
+            }
+
             currentLen = 0;
         }
     }
@@ -237,6 +252,7 @@ void QueuePacket(circuit_t *circuit, packet_t *packet)
 void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *))
 {
     int i;
+
     int h;
     int nfds = 0;
     fd_set handles;
