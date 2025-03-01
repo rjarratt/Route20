@@ -81,23 +81,23 @@ static int lastSocketError = 0;
 
 void InitialiseSockets(void)
 {
-	if (!started)
-	{
-		SockStartup();
-	}
+    if (!started)
+    {
+        SockStartup();
+    }
 
     InitialiseSocket(&ListenSocket, "TCPLISTEN");
-	if (SocketConfig.socketConfigured)
-	{
-		if (OpenTcpSocketInbound(&ListenSocket, SocketConfig.tcpListenPort))
+    if (SocketConfig.socketConfigured)
+    {
+        if (OpenTcpSocketInbound(&ListenSocket, SocketConfig.tcpListenPort))
         {
-		    RegisterEventHandler(ListenSocket.waitHandle, "TCP listen socket", NULL, ProcessListenSocketEvent);
+            RegisterEventHandler(ListenSocket.waitHandle, "TCP listen socket", NULL, ProcessListenSocketEvent);
         }
         else
         {
             Log(LogSock, LogError, "Unable to open TCP listen socket on port %d\n", SocketConfig.tcpListenPort);
         }
-	}
+    }
 }
 
 void InitialiseSocket(socket_t *sock, char *eventName)
@@ -109,85 +109,85 @@ void InitialiseSocket(socket_t *sock, char *eventName)
 
 int OpenUdpSocket(socket_t *sock, uint16 receivePort)
 {
-	int ans = OpenSocket(sock, sock->eventName, receivePort, SOCK_DGRAM, IPPROTO_UDP);
+    int ans = OpenSocket(sock, sock->eventName, receivePort, SOCK_DGRAM, IPPROTO_UDP);
 
-	return ans;
+    return ans;
 }
 
 int OpenTcpSocketInbound(socket_t *sock, uint16 receivePort)
 {
-	int ans = OpenSocket(sock, sock->eventName, receivePort, SOCK_STREAM, IPPROTO_TCP);
-	if (ans)
-	{
-		ans = ListenTcpSocket(sock);
-	}
+    int ans = OpenSocket(sock, sock->eventName, receivePort, SOCK_STREAM, IPPROTO_TCP);
+    if (ans)
+    {
+        ans = ListenTcpSocket(sock);
+    }
 
-	return ans;
+    return ans;
 }
 
 int OpenTcpSocketOutbound(socket_t *sock, sockaddr_t *address)
 {
-	int ans = OpenSocket(sock, sock->eventName, 0, SOCK_STREAM, IPPROTO_TCP);
-	if (ans)
-	{
+    int ans = OpenSocket(sock, sock->eventName, 0, SOCK_STREAM, IPPROTO_TCP);
+    if (ans)
+    {
         memcpy(&sock->remoteAddress, address, sizeof(sockaddr_t));
-		ans = ConnectTcpSocket(sock);
+        ans = ConnectTcpSocket(sock);
         if (ans)
         {
-		    RegisterEventHandler(sock->waitHandle, sock->eventName, sock, ProcessConnectSocketEvent);
+            RegisterEventHandler(sock->waitHandle, sock->eventName, sock, ProcessConnectSocketEvent);
         }
-	}
+    }
 
-	return ans;
+    return ans;
 }
 
 void SetTcpAcceptCallback(socket_t * (*callback)(sockaddr_t *receivedFrom))
 {
-	tcpAcceptCallback = callback;
+    tcpAcceptCallback = callback;
 }
 
 void SetTcpConnectCallback(void (*callback)(socket_t *sock))
 {
-	tcpConnectCallback = callback;
+    tcpConnectCallback = callback;
 }
 
 void SetTcpDisconnectCallback(void (*callback)(socket_t *sock))
 {
-	tcpDisconnectCallback = callback;
+    tcpDisconnectCallback = callback;
 }
 
 int ReadFromDatagramSocket(socket_t *sock, packet_t *packet, sockaddr_t *receivedFrom)
 {
-	static byte buf[8192];
-	int ans;
-	socklen_t ilen;
+    static byte buf[8192];
+    int ans;
+    socklen_t ilen;
 
-	ans = 1;
-	ilen = sizeof(*receivedFrom);
-	packet->rawLen = recvfrom(sock->socket, (char *)buf, 1518, 0, receivedFrom, &ilen);
-	if (packet->rawLen > 0)
-	{
+    ans = 1;
+    ilen = sizeof(*receivedFrom);
+    packet->rawLen = recvfrom(sock->socket, (char *)buf, 1518, 0, receivedFrom, &ilen);
+    if (packet->rawLen > 0)
+    {
         if (IsLoggable(LogSock, LogVerbose))
         {
-	        Log(LogSock, LogVerbose, "Read %d bytes on port %d\n", packet->rawLen, sock->receivePort);
-		    LogBytes(LogSock, LogVerbose, buf, packet->rawLen);
+            Log(LogSock, LogVerbose, "Read %d bytes on port %d\n", packet->rawLen, sock->receivePort);
+            LogBytes(LogSock, LogVerbose, buf, packet->rawLen);
         }
-		packet->rawData = buf;
-	}
-	else
-	{
-		ans = 0;
-	}
+        packet->rawData = buf;
+    }
+    else
+    {
+        ans = 0;
+    }
 
-	return  ans;
+    return  ans;
 }
 
 int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
 {
-	int ans;
-	int bytesRead;
+    int ans;
+    int bytesRead;
 
-	ans = 0;
+    ans = 0;
     if (!IsSockClosed(sock))
     {
         bytesRead = recv(sock->socket, (char *)buffer, bufferLength, 0);
@@ -226,7 +226,7 @@ int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
         }
     }
 
-	return ans;
+    return ans;
 }
 
 int WriteToStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
@@ -241,20 +241,20 @@ int WriteToStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
         {
             int retry = 0;
 #if defined(WIN32)
-			if (IsSockErrorWouldBlock(GetSockError()))
-			{
-				retry = 1;
-				Sleep(1);
-			}
-			else
-			{
-				retry = 0;
-				SockError("send");
-			}
+            if (IsSockErrorWouldBlock(GetSockError()))
+            {
+                retry = 1;
+                Sleep(1);
+            }
+            else
+            {
+                retry = 0;
+                SockError("send");
+            }
 #else
-			SockError("send");
+            SockError("send");
 #endif
-			if (!retry)
+            if (!retry)
             {
                Log(LogSock, LogDetail, "Socket write failure due to unexpected closure of socket %s\n", sock->eventName);
                QueueImmediate(sock, (void (*)(void *))CompleteSocketDisconnection);
@@ -264,62 +264,62 @@ int WriteToStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
         }
         else
         {
-    	    Log(LogSock, LogVerbose, "Wrote %d bytes on port %d\n", sentBytes, sock->receivePort);
-		    LogBytes(LogSock, LogVerbose, buffer + totalBytesSent, sentBytes);
+            Log(LogSock, LogVerbose, "Wrote %d bytes on port %d\n", sentBytes, sock->receivePort);
+            LogBytes(LogSock, LogVerbose, buffer + totalBytesSent, sentBytes);
             totalBytesSent += sentBytes;
         }
 
     }
     while (totalBytesSent < bufferLength);
 
-	return ans;
+    return ans;
 }
 
 int SendToSocket(socket_t *sock, sockaddr_t *destination, packet_t *packet)
 {
-	int ans = 0;
-	int retry = 0;
+    int ans = 0;
+    int retry = 0;
 
-	do
-	{
-		if (sendto(sock->socket, (char *)packet->rawData, packet->rawLen, 0, destination, sizeof(*destination)) == -1)
-		{
+    do
+    {
+        if (sendto(sock->socket, (char *)packet->rawData, packet->rawLen, 0, destination, sizeof(*destination)) == -1)
+        {
 #if defined(WIN32)
-			if (IsSockErrorWouldBlock(GetSockError()))
-			{
-				retry = 1;
-				Sleep(1);
-			}
-			else
-			{
-				retry = 0;
-				SockError("sendto");
-			}
+            if (IsSockErrorWouldBlock(GetSockError()))
+            {
+                retry = 1;
+                Sleep(1);
+            }
+            else
+            {
+                retry = 0;
+                SockError("sendto");
+            }
 #else
-			SockError("sendto");
+            SockError("sendto");
 #endif
-		}
-		else
-		{
-    	    Log(LogSock, LogVerbose, "Wrote %d bytes on port %d\n", packet->rawLen, sock->receivePort);
-		    LogBytes(LogSock, LogVerbose, packet->rawData, packet->rawLen);
-			ans = 1;
-			retry = 0;
-		}
-	}
-	while (retry);
+        }
+        else
+        {
+            Log(LogSock, LogVerbose, "Wrote %d bytes on port %d\n", packet->rawLen, sock->receivePort);
+            LogBytes(LogSock, LogVerbose, packet->rawData, packet->rawLen);
+            ans = 1;
+            retry = 0;
+        }
+    }
+    while (retry);
 
-	SockErrorClear();
+    SockErrorClear();
 
-	return ans;
+    return ans;
 }
 
 static void ClosePrimitiveSocket(uint_ptr sock)
 {
 #if defined(WIN32)
-	closesocket(sock);
+    closesocket(sock);
 #else
-	close(sock);
+    close(sock);
 #endif
 }
 
@@ -339,82 +339,82 @@ void CloseSocket(socket_t *sock)
 
 sockaddr_t *GetSocketAddressFromName(char *hostName, uint16 port)
 {
-	static sockaddr_in_t sa;
-	sockaddr_t *ans;
-	hostent_t *he;
+    static sockaddr_in_t sa;
+    sockaddr_t *ans;
+    hostent_t *he;
 
-	if (!started)
-	{
-		SockStartup();
-	}
+    if (!started)
+    {
+        SockStartup();
+    }
 
-	he = gethostbyname(hostName);
-	if (he != NULL)
-	{
-		rinaddr_t *addr;
-		sa.sin_family = AF_INET;
-		sa.sin_port = htons(port);
-		addr = (rinaddr_t *)(he->h_addr);
-		sa.sin_addr.s_addr = addr->s_addr;
-		ans = (sockaddr_t *)&sa;
-	}
-	else
-	{
-		SockErrorAndClear("gethostbyname");
-		ans = NULL;
-	}
+    he = gethostbyname(hostName);
+    if (he != NULL)
+    {
+        rinaddr_t *addr;
+        sa.sin_family = AF_INET;
+        sa.sin_port = htons(port);
+        addr = (rinaddr_t *)(he->h_addr);
+        sa.sin_addr.s_addr = addr->s_addr;
+        ans = (sockaddr_t *)&sa;
+    }
+    else
+    {
+        SockErrorAndClear("gethostbyname");
+        ans = NULL;
+    }
 
-	return ans;
+    return ans;
 }
 
 sockaddr_t *GetSocketAddressFromIpAddress(byte *address, uint16 port)
 {
-	static struct sockaddr_in sa;
-	rinaddr_t *addr;
+    static struct sockaddr_in sa;
+    rinaddr_t *addr;
 
-	sa.sin_family = AF_INET;
-	sa.sin_port = htons(port);
-	addr = (rinaddr_t *)(address);
-	sa.sin_addr.s_addr = addr->s_addr;
+    sa.sin_family = AF_INET;
+    sa.sin_port = htons(port);
+    addr = (rinaddr_t *)(address);
+    sa.sin_addr.s_addr = addr->s_addr;
 
-	return (sockaddr_t *)&sa;
+    return (sockaddr_t *)&sa;
 }
 
 static int SockStartup(void)
 {
 #if defined(WIN32)
-	WSADATA wsaData;
-	WORD wVersionRequested; 
-	int err;
-	wVersionRequested = MAKEWORD (1, 1); 
+    WSADATA wsaData;
+    WORD wVersionRequested; 
+    int err;
+    wVersionRequested = MAKEWORD (1, 1); 
 
-	SockErrorClear();
+    SockErrorClear();
 
-	err = WSAStartup (wVersionRequested, &wsaData);
-	if (err != 0)
-	{
-		SockErrorAndClear("startup");
-	}
-	else
-	{
-		started = 1;
-	}
+    err = WSAStartup (wVersionRequested, &wsaData);
+    if (err != 0)
+    {
+        SockErrorAndClear("startup");
+    }
+    else
+    {
+        started = 1;
+    }
 #else
-	started = 1;
+    started = 1;
 #endif
 
-	return started;
+    return started;
 }
 
 static int GetSockError(void)
 {
 #if defined(WIN32)
-	int err = WSAGetLastError();
+    int err = WSAGetLastError();
 #else
-	int err = errno;
+    int err = errno;
 #endif
 
-	return err;
+    return err;
 }
 
 static char* GetSockErrorString(int err)
@@ -436,13 +436,13 @@ static char* GetSockErrorString(int err)
 
 static void SockError(char *msg)
 {
-	int err = GetSockError();
+    int err = GetSockError();
 
-	if (lastSocketError != err)
-	{
-	    Log(LogSock, LogError, "Sockets: %s error %d (%s)\n", msg, err, GetSockErrorString(err));
-		lastSocketError = err;
-	}
+    if (lastSocketError != err)
+    {
+        Log(LogSock, LogError, "Sockets: %s error %d (%s)\n", msg, err, GetSockErrorString(err));
+        lastSocketError = err;
+    }
 }
 
 static int IsSockClosed(socket_t *sock)
@@ -498,10 +498,10 @@ static int IsSockErrorConnReset(int err)
 #if defined(WIN32)
     ans = err == WSAECONNRESET;
 #else
-	ans = err == ECONNRESET;
+    ans = err == ECONNRESET;
 #endif
 
-	return ans;
+    return ans;
 }
 
 static int IsSockErrorConnAborted(int err)
@@ -510,10 +510,10 @@ static int IsSockErrorConnAborted(int err)
 #if defined(WIN32)
     ans = err == WSAECONNABORTED;
 #else
-	ans = 0;
+    ans = 0;
 #endif
 
-	return ans;
+    return ans;
 }
 
 static int IsSockErrorWouldBlock(int err)
@@ -522,29 +522,29 @@ static int IsSockErrorWouldBlock(int err)
 #if defined(WIN32)
     ans = err == WSAEWOULDBLOCK;
 #else
-	ans = err == EWOULDBLOCK || err == EINPROGRESS;
+    ans = err == EWOULDBLOCK || err == EINPROGRESS;
 #endif
 
-	return ans;
+    return ans;
 }
 
 static void SockErrorAndClear(char *msg)
 {
-	SockError(msg);
-	SockErrorClear();
+    SockError(msg);
+    SockErrorClear();
 }
 
 static void SockErrorClear(void)
 {
-	lastSocketError = 0;
+    lastSocketError = 0;
 }
 
 static void SetNonBlocking(socket_t *socket)
 {
-	/* this code from SIMH by Robert M Supnik */
+    /* this code from SIMH by Robert M Supnik */
 #if defined(WIN32)
     unsigned long value = 1;
-	ioctlsocket(socket->socket, FIONBIO, &value);
+    ioctlsocket(socket->socket, FIONBIO, &value);
 #elif defined(__VAX)
     int value = 1;
     int socketDeviceDescriptor = vaxc$get_sdc((int)socket->socket);
@@ -561,94 +561,94 @@ static void SetNonBlocking(socket_t *socket)
     }
 #else
     int flags;
-	int status;
+    int status;
 
     flags = fcntl(socket->socket, F_GETFL, 0);
     if (flags == -1)
-	{
-		SockErrorAndClear("fcntl");
-	}
-	else
-	{
-		status = fcntl(socket->socket, F_SETFL, flags | O_NONBLOCK);
-		if (status == -1)
-		{
-		    SockErrorAndClear("fcntl");
-		}
-	}
+    {
+        SockErrorAndClear("fcntl");
+    }
+    else
+    {
+        status = fcntl(socket->socket, F_SETFL, flags | O_NONBLOCK);
+        if (status == -1)
+        {
+            SockErrorAndClear("fcntl");
+        }
+    }
 #endif
 }
 
 static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int type, int protocol)
 {
-	sockaddr_in_t sa;
+    sockaddr_in_t sa;
 
     Log(LogSock, LogVerbose, "Opening %s socket for %s, receive port is %d, protocol is %d\n", (type==SOCK_DGRAM) ? "UDP": "TCP", eventName, receivePort, protocol);
     InitialiseSocket(sock, eventName);
-	sock->receivePort = receivePort;
+    sock->receivePort = receivePort;
 
-	if (!started)
-	{
-		SockStartup();
-	}
+    if (!started)
+    {
+        SockStartup();
+    }
 
-	if (started)
-	{
-		sock->socket = socket(AF_INET, type, protocol);
-		if (sock->socket == INVALID_SOCKET)
-		{
-			SockErrorAndClear("socket");
-		}
-		else
-		{
-			SetNonBlocking(sock);
-			sa.sin_family = AF_INET;
-			sa.sin_port = htons(receivePort);
-			sa.sin_addr.s_addr = INADDR_ANY; /* TODO: use specific interface? */
-			if (bind(sock->socket, (sockaddr_t*)&sa, sizeof(sa)) == -1)
-			{
-				SockErrorAndClear("bind");
-				CloseSocket(sock);
-			}
-			else
-			{
+    if (started)
+    {
+        sock->socket = socket(AF_INET, type, protocol);
+        if (sock->socket == INVALID_SOCKET)
+        {
+            SockErrorAndClear("socket");
+        }
+        else
+        {
+            SetNonBlocking(sock);
+            sa.sin_family = AF_INET;
+            sa.sin_port = htons(receivePort);
+            sa.sin_addr.s_addr = INADDR_ANY; /* TODO: use specific interface? */
+            if (bind(sock->socket, (sockaddr_t*)&sa, sizeof(sa)) == -1)
+            {
+                SockErrorAndClear("bind");
+                CloseSocket(sock);
+            }
+            else
+            {
 #if defined(WIN32)
-				SetupSocketEvents(sock, eventName, FD_READ | FD_ACCEPT | FD_CONNECT);
+                SetupSocketEvents(sock, eventName, FD_READ | FD_ACCEPT | FD_CONNECT);
 #else
-				SetupSocketEvents(sock, eventName, 0);
+                SetupSocketEvents(sock, eventName, 0);
 #endif
-				if (sock->waitHandle == -1)
-				{
+                if (sock->waitHandle == -1)
+                {
                     Log(LogSock, LogError, "Closing opened socket because there is no wait handle, event name is %s\n", eventName);
-					CloseSocket(sock);
-				}
-			}
-		}
-	}
+                    CloseSocket(sock);
+                }
+            }
+        }
+    }
 
-	return sock->socket != INVALID_SOCKET;
+    return sock->socket != INVALID_SOCKET;
 }
 
 static int ListenTcpSocket(socket_t *sock)
 {
-	int ans = 1;
-	if (listen(sock->socket, 5) != SOCKET_ERROR)
-	{
-	    Log(LogSock, LogDetail, "Listening for TCP connections on %d\n", sock->receivePort);
-	}
-	else
-	{
+    int ans = 1;
+    if (listen(sock->socket, 5) != SOCKET_ERROR)
+    {
+        Log(LogSock, LogDetail, "Listening for TCP connections on %d\n", sock->receivePort);
+    }
+    else
+    {
         ans = 0;
-		SockErrorAndClear("listen");
-		CloseSocket(sock);
-	}
+        SockErrorAndClear("listen");
+        CloseSocket(sock);
+    }
 
-	return ans;
+    return ans;
 }
 
 static int ConnectTcpSocket(socket_t *sock)
 {
-	int ans = 1;
+    int ans = 1;
 
     if (connect(sock->socket, &sock->remoteAddress, sizeof(sockaddr_in_t)) == SOCKET_ERROR)
     {
@@ -658,11 +658,11 @@ static int ConnectTcpSocket(socket_t *sock)
             SockErrorAndClear("connect");
             CloseSocket(sock);
         }
-	}
+    }
 
     if (ans)
     {
-	    Log(LogSock, LogDetail, "Connecting to TCP address %s\n", FormatAddr(&sock->remoteAddress));
+        Log(LogSock, LogDetail, "Connecting to TCP address %s\n", FormatAddr(&sock->remoteAddress));
     }
 
     return ans;
@@ -674,22 +674,22 @@ static void SetupSocketEvents(socket_t *sock, char *eventName, long events)
     /* For outbound sockets we can change the events we are interested in and the event may already exist, so don't create it again */
     if (sock->waitHandle == (unsigned int)-1)
     {
-	    sock->waitHandle = (int)CreateEvent(NULL, 0, 0, eventName);
-	    Log(LogSock, LogDetail, "New wait handle for %s is %d\n", eventName, sock->waitHandle);
+        sock->waitHandle = (int)CreateEvent(NULL, 0, 0, eventName);
+        Log(LogSock, LogDetail, "New wait handle for %s is %d\n", eventName, sock->waitHandle);
     }
     else
     {
-	    Log(LogSock, LogDetail, "Reusing wait handle %d for %s\n", sock->waitHandle, eventName);
+        Log(LogSock, LogDetail, "Reusing wait handle %d for %s\n", sock->waitHandle, eventName);
     }
 
-	if (WSAEventSelect(sock->socket, (HANDLE)sock->waitHandle, events) == SOCKET_ERROR)
-	{
-		SockErrorAndClear("WSAEventSelect");
-	}
+    if (WSAEventSelect(sock->socket, (HANDLE)sock->waitHandle, events) == SOCKET_ERROR)
+    {
+        SockErrorAndClear("WSAEventSelect");
+    }
 #elif defined(__VAX)
     sock->waitHandle = sock->socket;
 #else
-	sock->waitHandle = sock->socket;
+    sock->waitHandle = sock->socket;
 #endif
 }
 
@@ -709,32 +709,32 @@ static void CompleteSocketDisconnection(socket_t *sock)
 
 static void ProcessListenSocketEvent(void *context)
 {
-	socklen_t ilen;
+    socklen_t ilen;
     sockaddr_t receivedFrom;
-	struct sockaddr_in  *inaddr;
-	uint_ptr newSocket;
+    struct sockaddr_in  *inaddr;
+    uint_ptr newSocket;
 
-	Log(LogSock, LogDetail, "Processing TCP connection attempt on %d\n", ListenSocket.receivePort);
-	ilen = sizeof(receivedFrom);
-	newSocket = accept(ListenSocket.socket, &receivedFrom, &ilen);
+    Log(LogSock, LogDetail, "Processing TCP connection attempt on %d\n", ListenSocket.receivePort);
+    ilen = sizeof(receivedFrom);
+    newSocket = accept(ListenSocket.socket, &receivedFrom, &ilen);
         Log(LogSock, LogVerbose, "Accepting new connection on socket %d\n", newSocket);
-	if (newSocket != INVALID_SOCKET)
-	{
+    if (newSocket != INVALID_SOCKET)
+    {
         int reject = 1;
-		socket_t *sock = NULL;
-		if (tcpAcceptCallback != NULL)
-		{
-			sock = tcpAcceptCallback(&receivedFrom);
+        socket_t *sock = NULL;
+        if (tcpAcceptCallback != NULL)
+        {
+            sock = tcpAcceptCallback(&receivedFrom);
             if (sock == NULL)
             {
-    	        Log(LogSock, LogDetail, "TCP connection from %s rejected\n", FormatAddr(&receivedFrom));
+                Log(LogSock, LogDetail, "TCP connection from %s rejected\n", FormatAddr(&receivedFrom));
             }
-		}
+        }
 
-		inaddr = (struct sockaddr_in *)&receivedFrom;
+        inaddr = (struct sockaddr_in *)&receivedFrom;
 
-		if (sock != NULL)
-		{
+        if (sock != NULL)
+        {
             reject = 0;
             if (sock->socket != INVALID_SOCKET)
             {
@@ -744,13 +744,13 @@ static void ProcessListenSocketEvent(void *context)
                     if (rand() < (RAND_MAX / 2))
                     {
                         /* reject inbound request */
-    	                Log(LogSock, LogDetail, "Successful inbound and outbound connection, randomly rejecting inbound request from %s\n", FormatAddr(&receivedFrom));
+                        Log(LogSock, LogDetail, "Successful inbound and outbound connection, randomly rejecting inbound request from %s\n", FormatAddr(&receivedFrom));
                         reject = 1;
                     }
                     else
                     {
                         /* reject outbound connection */
-    	                Log(LogSock, LogDetail, "Successful inbound and outbound connection, randomly rejecting outbound request from %s\n", FormatAddr(&receivedFrom));
+                        Log(LogSock, LogDetail, "Successful inbound and outbound connection, randomly rejecting outbound request from %s\n", FormatAddr(&receivedFrom));
                         ClosePrimitiveSocket(sock->socket);
                         DeregisterEventHandler(sock->waitHandle);
                     }
@@ -777,13 +777,13 @@ static void ProcessListenSocketEvent(void *context)
                     tcpConnectCallback(sock);
                 }
             }
-		}
-		
+        }
+        
         if (reject)
-		{
-			ClosePrimitiveSocket(newSocket);
-		}
-	}
+        {
+            ClosePrimitiveSocket(newSocket);
+        }
+    }
 }
 
 static void ProcessConnectSocketEvent(void *context)
