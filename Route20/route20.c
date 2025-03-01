@@ -250,6 +250,7 @@ void DeregisterEventHandler(unsigned int waitHandle)
 void MainLoop(void)
 {
 	Log(LogGeneral, LogInfo, "Main loop start\n");
+	srand(time(0));
 
 	ProcessEvents(Circuits, numCircuits, ProcessPacket);
 
