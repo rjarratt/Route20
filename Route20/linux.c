@@ -235,7 +235,11 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
             }
             else
             {
-                printf("%s %s", LogSourceName[source], line);
+                time_t now;
+                char buf[MAX_LOG_LINE_LEN];
+                time(&now);
+                strftime(buf, 80, "%Y-%m-%d %H:%M:%S", localtime(&now));
+                printf("%s %s %s", buf, LogSourceName[source], line);
             }
 
             currentLen = 0;
@@ -266,21 +270,24 @@ void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circui
         timeout.tv_nsec = 0;
 
         FD_ZERO(&handles);
+        Log(LogGeneral, LogVerbose, "Waiting for handles");
         for (h = 0; h < numEventHandlers; h++)
         {
             FD_SET(eventHandlers[h].waitHandle, &handles);
+            Log(LogGeneral, LogVerbose, " %d", eventHandlers[h].waitHandle);
             if (eventHandlers[h].waitHandle > nfds)
             {
                 nfds = eventHandlers[h].waitHandle;
             }
         }
+        Log(LogGeneral, LogVerbose, "\n");
 
         i = pselect(nfds + 1, &handles, NULL, NULL, &timeout, NULL);
         if (i == -1)
         {
             if (errno != EINTR)
             {
-                Log(LogGeneral, LogError, "pselect error: %d\n", errno);
+                Log(LogGeneral, LogError, "Error %d in pselect: %s\n", errno, strerror(errno));
             }
         }
         else

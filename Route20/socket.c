@@ -216,7 +216,7 @@ int ReadFromStreamSocket(socket_t *sock, byte *buffer, int bufferLength)
 
             if (closed)
             {
-                Log(LogSock, LogDetail, "Socket read failure due to unexpected closure of socket %s\n", sock->eventName);
+                Log(LogSock, LogDetail, "Socket read failure due to unexpected closure of socket %s socket %d\n", sock->eventName, sock->waitHandle);
                 QueueImmediate(sock, (void (*)(void *))CompleteSocketDisconnection);
             }
             else if (!IsSockErrorWouldBlock(sockErr))
@@ -333,7 +333,8 @@ void CloseSocket(socket_t *sock)
     }
 #endif
     ClosePrimitiveSocket(sock->socket);
-	sock->socket = INVALID_SOCKET;
+    sock->socket = INVALID_SOCKET;
+    Log(LogSock, LogError, "Closing socket with wait handle %d\n", sock->waitHandle);
 }
 
 sockaddr_t *GetSocketAddressFromName(char *hostName, uint16 port)
@@ -716,6 +717,7 @@ static void ProcessListenSocketEvent(void *context)
 	Log(LogSock, LogDetail, "Processing TCP connection attempt on %d\n", ListenSocket.receivePort);
 	ilen = sizeof(receivedFrom);
 	newSocket = accept(ListenSocket.socket, &receivedFrom, &ilen);
+        Log(LogSock, LogVerbose, "Accepting new connection on socket %d\n", newSocket);
 	if (newSocket != INVALID_SOCKET)
 	{
         int reject = 1;
@@ -750,8 +752,13 @@ static void ProcessListenSocketEvent(void *context)
                         /* reject outbound connection */
     	                Log(LogSock, LogDetail, "Successful inbound and outbound connection, randomly rejecting outbound request from %s\n", FormatAddr(&receivedFrom));
                         ClosePrimitiveSocket(sock->socket);
+                        DeregisterEventHandler(sock->waitHandle);
                     }
                 }
+            else
+            {
+                DeregisterEventHandler(sock->waitHandle);
+            }
             }
 
             if (!reject)
