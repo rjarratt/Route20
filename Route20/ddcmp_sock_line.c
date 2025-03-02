@@ -38,9 +38,9 @@ in this Software without prior written authorization from the author.
 
 typedef struct
 {
-	rtimer_t *timer;
-	void *timerContext;
-	void (*timerHandler)(void *timerContext);
+    rtimer_t *timer;
+    void *timerContext;
+    void (*timerHandler)(void *timerContext);
 } ddcmp_sock_timer_t;
 
 static void ProcessDnsTimer(rtimer_t *timer, char *name, void *context);
@@ -59,63 +59,63 @@ static void DdcmpLog(LogLevel level, char *format, ...);
 
 int DdcmpSockLineStart(line_t *line)
 {
-	/* We don't necessarily open a socket here, but just do the necessary preparations for when the remote side connects to the listen port.
-	   In this case that means just setting up the address of the peer for verification when the connection comes in. However, if a destination port has been
+    /* We don't necessarily open a socket here, but just do the necessary preparations for when the remote side connects to the listen port.
+       In this case that means just setting up the address of the peer for verification when the connection comes in. However, if a destination port has been
        specified then we actively try to connect to the other side. */
 
-	int ans = 1;
-	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
-	sockaddr_t *destinationAddress;
+    int ans = 1;
+    ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
+    sockaddr_t *destinationAddress;
 
     Log(LogDdcmpSock, LogDetail, "Starting DDCMP socket line %s\n", sockContext->destinationHostName);
 
-	sockContext->bufferLength = 0;
-	sockContext->bufferInUse = 0;
+    sockContext->bufferLength = 0;
+    sockContext->bufferInUse = 0;
 
-	memset(&sockContext->line, 0, sizeof(sockContext->line));
-	sockContext->line.context = line;
+    memset(&sockContext->line, 0, sizeof(sockContext->line));
+    sockContext->line.context = line;
     sockContext->line.name = sockContext->destinationHostName;
-	sockContext->line.CreateOneShotTimer = DdcmpCreateOneShotTimer;
-	sockContext->line.CancelOneShotTimer = DdcmpCancelOneShotTimer;
-	sockContext->line.SendData = DdcmpSendData;
-	sockContext->line.NotifyDataMessage = DdcmpNotifyDataMessage;
-	sockContext->line.Log = DdcmpLog;
+    sockContext->line.CreateOneShotTimer = DdcmpCreateOneShotTimer;
+    sockContext->line.CancelOneShotTimer = DdcmpCancelOneShotTimer;
+    sockContext->line.SendData = DdcmpSendData;
+    sockContext->line.NotifyDataMessage = DdcmpNotifyDataMessage;
+    sockContext->line.Log = DdcmpLog;
 
     InitialiseSocket(&sockContext->socket, line->name);
 
-	destinationAddress = GetSocketAddressFromName(sockContext->destinationHostName, sockContext->destinationPort);
-	if (destinationAddress != NULL)
-	{
-		memcpy(&sockContext->destinationAddress, destinationAddress, sizeof(sockContext->destinationAddress));
+    destinationAddress = GetSocketAddressFromName(sockContext->destinationHostName, sockContext->destinationPort);
+    if (destinationAddress != NULL)
+    {
+        memcpy(&sockContext->destinationAddress, destinationAddress, sizeof(sockContext->destinationAddress));
         if (IsActiveOutbound(sockContext))
         {
             StartConnectPollTimer(sockContext);
         }
-	}
-	else
-	{
-		Log(LogDdcmpSock, LogError, "Cannot resolve address for %s, line will not start until DNS can resolve the address.\n", sockContext->destinationHostName);
-	}
+    }
+    else
+    {
+        Log(LogDdcmpSock, LogError, "Cannot resolve address for %s, line will not start until DNS can resolve the address.\n", sockContext->destinationHostName);
+    }
 
-	if (DnsConfig.dnsConfigured)
-	{
-		time_t now;
+    if (DnsConfig.dnsConfigured)
+    {
+        time_t now;
 
-		time(&now);
-		CreateTimer("DNS", now + DnsConfig.pollPeriod, DnsConfig.pollPeriod, line, ProcessDnsTimer);
-	}
+        time(&now);
+        CreateTimer("DNS", now + DnsConfig.pollPeriod, DnsConfig.pollPeriod, line, ProcessDnsTimer);
+    }
 
     if (!ans)
     {
-		Log(LogDdcmpSock, LogError, "Could not open circuit for %s\n", sockContext->destinationHostName);
+        Log(LogDdcmpSock, LogError, "Could not open circuit for %s\n", sockContext->destinationHostName);
     }
 
-	return ans;
+    return ans;
 }
 
 int DdcmpSockLineOpen(line_t *line)
 {
-	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
+    ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
     Log(LogDdcmpSock, LogDetail, "DDCMP socket line %s is open\n", sockContext->destinationHostName);
     if (IsActiveOutbound(sockContext))
     {
@@ -127,7 +127,7 @@ int DdcmpSockLineOpen(line_t *line)
 
 void DdcmpSockLineClosed(line_t *line)
 {
-	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
+    ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
     Log(LogDdcmpSock, LogDetail, "DDCMP socket line %s is closed\n", sockContext->destinationHostName);
     if (IsActiveOutbound(sockContext))
     {
@@ -137,74 +137,74 @@ void DdcmpSockLineClosed(line_t *line)
 
 void DdcmpSockLineStop(line_t *line)
 {
-	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
-	CloseSocket(&sockContext->socket);
+    ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
+    CloseSocket(&sockContext->socket);
     Log(LogDdcmpSock, LogDetail, "DDCMP socket line %s is stopped\n", sockContext->destinationHostName);
 }
 
 packet_t *DdcmpSockLineReadPacket(line_t *line)
 {
-	static packet_t sockPacket;
-	byte buffer[MAX_DDCMP_BUFFER_LENGTH];
-	int bufferLength;
-	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
-	packet_t *packet = NULL;
+    static packet_t sockPacket;
+    byte buffer[MAX_DDCMP_BUFFER_LENGTH];
+    int bufferLength;
+    ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
+    packet_t *packet = NULL;
 
-	bufferLength = ReadFromStreamSocket(&sockContext->socket, buffer, MAX_DDCMP_BUFFER_LENGTH);
+    bufferLength = ReadFromStreamSocket(&sockContext->socket, buffer, MAX_DDCMP_BUFFER_LENGTH);
 
-	if (bufferLength > 0)
-	{
-		Log(LogDdcmpSock, LogDetail, "Read %d bytes from DDCMP socket %s\n", bufferLength, sockContext->destinationHostName);
-		LogBytes(LogDdcmpSock, LogVerbose, buffer, bufferLength);
-		DdcmpProcessReceivedData(&sockContext->line, buffer, bufferLength);
+    if (bufferLength > 0)
+    {
+        Log(LogDdcmpSock, LogDetail, "Read %d bytes from DDCMP socket %s\n", bufferLength, sockContext->destinationHostName);
+        LogBytes(LogDdcmpSock, LogVerbose, buffer, bufferLength);
+        DdcmpProcessReceivedData(&sockContext->line, buffer, bufferLength);
 
-		if (sockContext->bufferInUse)
-		{
-			sockPacket.rawData = sockContext->buffer;
-			sockPacket.rawLen = sockContext->bufferLength;
-			sockPacket.payload = sockContext->buffer;
-			sockPacket.payloadLen = sockContext->bufferLength;
-			sockPacket.IsDecnet = DdcmpSockIsDecnet;
-			packet = &sockPacket;
-			sockContext->bufferInUse = 0;
+        if (sockContext->bufferInUse)
+        {
+            sockPacket.rawData = sockContext->buffer;
+            sockPacket.rawLen = sockContext->bufferLength;
+            sockPacket.payload = sockContext->buffer;
+            sockPacket.payloadLen = sockContext->bufferLength;
+            sockPacket.IsDecnet = DdcmpSockIsDecnet;
+            packet = &sockPacket;
+            sockContext->bufferInUse = 0;
             line->stats.validPacketsReceived++;
         }
-	}
+    }
 
-	return packet;
+    return packet;
 }
 
 int DdcmpSockLineWritePacket(line_t *line, packet_t *packet)
 {
-	int ans = 0;
-	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
+    int ans = 0;
+    ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
 
-	Log(LogDdcmpSock, LogDetail, "Writing %d bytes to DDCMP socket %s\n", packet->payloadLen, sockContext->destinationHostName);
-	LogBytes(LogDdcmpSock, LogVerbose, packet->payload, packet->payloadLen);
+    Log(LogDdcmpSock, LogDetail, "Writing %d bytes to DDCMP socket %s\n", packet->payloadLen, sockContext->destinationHostName);
+    LogBytes(LogDdcmpSock, LogVerbose, packet->payload, packet->payloadLen);
     ans = DdcmpSendDataMessage(&sockContext->line, packet->payload, packet->payloadLen);
 
-	return ans;
+    return ans;
 }
 
 static void ProcessDnsTimer(rtimer_t *timer, char *name, void *context)
 {
-	line_t *line = (line_t *)context;
+    line_t *line = (line_t *)context;
     circuit_t *circuit = GetCircuitFromLine(line);
-	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
-	DnsSendQuery(sockContext->destinationHostName, (uint16)circuit->slot, ProcessDnsResponse, context);
+    ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
+    DnsSendQuery(sockContext->destinationHostName, (uint16)circuit->slot, ProcessDnsResponse, context);
 }
 
 static void ProcessDnsResponse(byte *address, void *context)
 {
-	line_t *line = (line_t *)context;
-	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
-	sockaddr_t *newAddress = GetSocketAddressFromIpAddress(address, 0);
+    line_t *line = (line_t *)context;
+    ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
+    sockaddr_t *newAddress = GetSocketAddressFromIpAddress(address, 0);
 
-	if (memcmp(&sockContext->destinationAddress, newAddress, sizeof(sockaddr_t)) != 0)
-	{
-	    Log(LogDdcmpSock, LogInfo, "Changed IP address for %s\n", line->name);
-	    memcpy(&sockContext->destinationAddress, newAddress, sizeof(sockContext->destinationAddress));
-	}
+    if (memcmp(&sockContext->destinationAddress, newAddress, sizeof(sockaddr_t)) != 0)
+    {
+        Log(LogDdcmpSock, LogInfo, "Changed IP address for %s\n", line->name);
+        memcpy(&sockContext->destinationAddress, newAddress, sizeof(sockContext->destinationAddress));
+    }
 }
 
 static int  IsActiveOutbound(ddcmp_sock_t *ddcmpSock)
@@ -250,83 +250,83 @@ static void ProcessConnectPollTimer(rtimer_t *timer, char *name, void *context)
 
 static int CheckSourceAddress(sockaddr_t *receivedFrom, ddcmp_sock_t *context)
 {
-	int ans = 0;
-	if (memcmp(receivedFrom, &context->destinationAddress, sizeof(sockaddr_t)) == 0)
-	{
-		ans = 1;
-	}
-	//else
-	//{
-	//	Log(LogError, "Security, dropping packet from unrecognised source\n");
-	//}
-	
-	return ans;
+    int ans = 0;
+    if (memcmp(receivedFrom, &context->destinationAddress, sizeof(sockaddr_t)) == 0)
+    {
+        ans = 1;
+    }
+    //else
+    //{
+    //	Log(LogError, "Security, dropping packet from unrecognised source\n");
+    //}
+    
+    return ans;
 }
 
 static void DdcmpTimerHandler(rtimer_t *timer, char *name, void *context)
 {
-	ddcmp_sock_timer_t *sockTimerContext = (ddcmp_sock_timer_t *)context;
-	sockTimerContext->timerHandler(sockTimerContext->timerContext);
-	free(sockTimerContext);
+    ddcmp_sock_timer_t *sockTimerContext = (ddcmp_sock_timer_t *)context;
+    sockTimerContext->timerHandler(sockTimerContext->timerContext);
+    free(sockTimerContext);
 }
 
 static void *DdcmpCreateOneShotTimer(void *timerContext, char *name, int seconds, void (*timerHandler)(void *timerContext))
 {
     ddcmp_sock_timer_t *sockTimerContext;
     time_t now;
-	
-	time(&now);
+    
+    time(&now);
 
-	sockTimerContext = (ddcmp_sock_timer_t *)malloc(sizeof(ddcmp_sock_timer_t));
-	sockTimerContext->timerContext = timerContext;
-	sockTimerContext->timerHandler = timerHandler;
+    sockTimerContext = (ddcmp_sock_timer_t *)malloc(sizeof(ddcmp_sock_timer_t));
+    sockTimerContext->timerContext = timerContext;
+    sockTimerContext->timerHandler = timerHandler;
 
-	sockTimerContext->timer = CreateTimer(name, now + seconds, 0, sockTimerContext, DdcmpTimerHandler);
+    sockTimerContext->timer = CreateTimer(name, now + seconds, 0, sockTimerContext, DdcmpTimerHandler);
 
-	return (void *)sockTimerContext;
+    return (void *)sockTimerContext;
 }
 
 static void DdcmpCancelOneShotTimer(void *timerHandle)
 {
-	ddcmp_sock_timer_t *sockTimerContext = (ddcmp_sock_timer_t *)timerHandle;
-	StopTimer(sockTimerContext->timer);
-	free(sockTimerContext);
+    ddcmp_sock_timer_t *sockTimerContext = (ddcmp_sock_timer_t *)timerHandle;
+    StopTimer(sockTimerContext->timer);
+    free(sockTimerContext);
 }
 
 static void DdcmpSendData(void *context, byte *data, int length)
 {
     line_t *line = (line_t *)context;
-	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
-	WriteToStreamSocket(&sockContext->socket, data, length);
+    ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
+    WriteToStreamSocket(&sockContext->socket, data, length);
 }
 
 static int DdcmpNotifyDataMessage(void *context, byte *data, int length)
 {
     line_t *line = (line_t *)context;
-	ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
-	int ans = 0;
-	if (sockContext->bufferInUse)
-	{
-		Log(LogDdcmpSock, LogError, "DDCMP overrun, previous message not read before next one delivered for line %s\n", line->name);
-	}
-	else
-	{
-		sockContext->bufferLength = (length <= MAX_DDCMP_DATA_LENGTH) ? length : MAX_DDCMP_DATA_LENGTH;
-		memcpy(sockContext->buffer, data, sockContext->bufferLength);
-		sockContext->bufferInUse = 1;
-		ans = 1;
-	}
+    ddcmp_sock_t *sockContext = (ddcmp_sock_t *)line->lineContext;
+    int ans = 0;
+    if (sockContext->bufferInUse)
+    {
+        Log(LogDdcmpSock, LogError, "DDCMP overrun, previous message not read before next one delivered for line %s\n", line->name);
+    }
+    else
+    {
+        sockContext->bufferLength = (length <= MAX_DDCMP_DATA_LENGTH) ? length : MAX_DDCMP_DATA_LENGTH;
+        memcpy(sockContext->buffer, data, sockContext->bufferLength);
+        sockContext->bufferInUse = 1;
+        ans = 1;
+    }
 
-	return ans;
+    return ans;
 }
 
 static void DdcmpLog(LogLevel level, char *format, ...)
 {
-	va_list va;
+    va_list va;
 
-	va_start(va, format);
+    va_start(va, format);
 
-	VLog(LogDdcmp, level, format, va);
+    VLog(LogDdcmp, level, format, va);
 
-	va_end(va);
+    va_end(va);
 }

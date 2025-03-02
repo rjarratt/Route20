@@ -44,7 +44,7 @@ in this Software without prior written authorization from the author.
 
 typedef enum
 {
-	DdcmpInitUndefinedEvent,
+    DdcmpInitUndefinedEvent,
     DdcmpInitNRIVREvent, /* NRI with verification requested */
     DdcmpInitNRINVEvent, /* NRI with verification not requested */
     DdcmpInitNRVEvent,
@@ -61,10 +61,10 @@ typedef enum
 
 typedef struct
 {
-	DdcmpInitEvent evt;
-	DdcmpInitState currentState;
-	DdcmpInitState newState;
-	int (*action)(circuit_t *circuit);
+    DdcmpInitEvent evt;
+    DdcmpInitState currentState;
+    DdcmpInitState newState;
+    int (*action)(circuit_t *circuit);
 } state_table_entry_t;
 
 typedef struct
@@ -101,11 +101,11 @@ static int SendVerifyMessageAction(circuit_t *circuit);
 
 static char * lineStateString[] =
 {
-	"Run",
-	"Circuit Rejected",
-	"Data Link Start",
-	"Routing Layer Initialize",
-	"Routing Layer Verify",
+    "Run",
+    "Circuit Rejected",
+    "Data Link Start",
+    "Routing Layer Initialize",
+    "Routing Layer Verify",
     "Routing Layer Complete",
     "Off",
     "Halt"
@@ -113,7 +113,7 @@ static char * lineStateString[] =
 
 static char * lineEventString[] =
 {
-	"Undefined",
+    "Undefined",
     "New Routing Layer Init (with verification) message received",
     "New Routing Layer Init (without verification) message received",
     "New Routing Layer Verification message received",
@@ -244,12 +244,12 @@ static state_table_entry_t stateTable[] =
 int DdcmpInitLayerStart(circuit_t circuits[], int circuitCount)
 {
     int ans = 1;
-	int i;
+    int i;
 
-	for(i = 1; i <= circuitCount; i++)
-	{
-		if (circuits[i].circuitType == DDCMPCircuit)
-		{
+    for(i = 1; i <= circuitCount; i++)
+    {
+        if (circuits[i].circuitType == DDCMPCircuit)
+        {
             circuit_t *circuit = &circuits[i];
             line_t *line = GetLineFromCircuit(circuit);
             ddcmp_sock_t *sockContext;
@@ -257,59 +257,59 @@ int DdcmpInitLayerStart(circuit_t circuits[], int circuitCount)
             line->LineNotifyStateChange = HandleLineNotifyStateChange;
 
             ans &= circuit->Start(circuit); // TODO: should start lines, when lines open then should open circuit.
-           	sockContext = (ddcmp_sock_t *)line->lineContext; // TODO: Why does the init layer know about ddcmp_sock at all? This is badly layered.
+            sockContext = (ddcmp_sock_t *)line->lineContext; // TODO: Why does the init layer know about ddcmp_sock at all? This is badly layered.
             sockContext->line.NotifyRunning = DdcmpInitNotifyRunning; // TODO: this looks like it needs to be rationalised, ie line within a line.
             sockContext->line.NotifyHalt = DdcmpInitNotifyHalt;
-		    ddcmpCircuits[ddcmpCircuitCount++] = &circuits[i];
-		}
-	}
+            ddcmpCircuits[ddcmpCircuitCount++] = &circuits[i];
+        }
+    }
 
-	SetTcpAcceptCallback(TcpAcceptCallback);
-	SetTcpConnectCallback(TcpConnectCallback);
-	SetTcpDisconnectCallback(TcpDisconnectCallback);
+    SetTcpAcceptCallback(TcpAcceptCallback);
+    SetTcpConnectCallback(TcpConnectCallback);
+    SetTcpDisconnectCallback(TcpDisconnectCallback);
 
     return ans;
 }
 
 void DdcmpInitLayerStop(void)
 {
-	int i;
+    int i;
 
-	StopAllAdjacencies(DDCMPCircuit);
+    StopAllAdjacencies(DDCMPCircuit);
 
-	for(i = 0; i < ddcmpCircuitCount; i++)
-	{
-		circuit_t *circuit = ddcmpCircuits[i];
-		ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
-		circuit->Stop(circuit);
+    for(i = 0; i < ddcmpCircuitCount; i++)
+    {
+        circuit_t *circuit = ddcmpCircuits[i];
+        ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
+        circuit->Stop(circuit);
         ProcessEvent(ddcmpCircuit, DdcmpInitOPFEvent);
-		//DdcmpHalt(&ddcmpSock->line);
-	}
+        //DdcmpHalt(&ddcmpSock->line);
+    }
 }
 
 void DdcmpInitLayerCircuitUpComplete(circuit_ptr circuit)
 {
-	ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
+    ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
     CircuitUpComplete(circuit);
     ProcessEvent(ddcmpCircuit, DdcmpInitCUCEvent);
 }
 
 void DdcmpInitLayerCircuitDownComplete(circuit_ptr circuit)
 {
-	ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
+    ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
     CircuitDownComplete(circuit);
     ProcessEvent(ddcmpCircuit, DdcmpInitCDCEvent);
 }
 
 void DdcmpInitLayerAdjacencyUpComplete(adjacency_t *adjacency)
 {
-	/* this will not normally be called because the decision layer does not report adjacency up complete for non-broadcast circuits */
+    /* this will not normally be called because the decision layer does not report adjacency up complete for non-broadcast circuits */
     AdjacencyUpComplete(adjacency);
 }
 
 void DdcmpInitLayerAdjacencyDownComplete(adjacency_t *adjacency)
 {
-	/* this will not normally be called because the decision layer does not report adjacency down complete for non-broadcast circuits */
+    /* this will not normally be called because the decision layer does not report adjacency down complete for non-broadcast circuits */
     AdjacencyDownComplete(adjacency);
 }
 
@@ -317,7 +317,7 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
 {
     AdjacencyType at;
     decnet_address_t from;
-	ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
+    ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
     int valid = 0;
 
     GetDecnetAddressFromId((byte *)&msg->srcnode, &from);
@@ -352,21 +352,21 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
         valid = 1;
     }
 
-	if (valid)
-	{
-		memcpy( &circuit->adjacentNode, &from, sizeof(decnet_address_t)); 
-	}
+    if (valid)
+    {
+        memcpy( &circuit->adjacentNode, &from, sizeof(decnet_address_t)); 
+    }
 
     at = GetAdjacencyType(msg->tiinfo);
     if (valid && VerificationRequired(msg->tiinfo))
     {
         ProcessEvent(ddcmpCircuit, DdcmpInitNRIVREvent);
-	    InitialiseCircuitAdjacency(&from, circuit, at, msg->timer);
+        InitialiseCircuitAdjacency(&from, circuit, at, msg->timer);
     }
     else if (valid)
     {
         ProcessEvent(ddcmpCircuit, DdcmpInitNRINVEvent);
-    	InitialiseCircuitAdjacency(&from, circuit, at, msg->timer);
+        InitialiseCircuitAdjacency(&from, circuit, at, msg->timer);
     }
     else
     {
@@ -377,15 +377,15 @@ void DdcmpInitProcessInitializationMessage(circuit_t *circuit, initialization_ms
 void DdcmpInitProcessVerificationMessage(circuit_t *circuit, verification_msg_t *msg)
 {
     decnet_address_t from;
-	ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
-	//int i;
+    ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
+    //int i;
 
-	//Log(LogMessages, LogVerbose, "Verification function value:");
-	//for (i = 0; i < msg->fcnvalLen; i++)
-	//{
-	//    Log(LogMessages, LogVerbose, " %02X", msg->fcnval[i]);
-	//}
-	//Log(LogMessages, LogVerbose, "\n");
+    //Log(LogMessages, LogVerbose, "Verification function value:");
+    //for (i = 0; i < msg->fcnvalLen; i++)
+    //{
+    //    Log(LogMessages, LogVerbose, " %02X", msg->fcnval[i]);
+    //}
+    //Log(LogMessages, LogVerbose, "\n");
 
     GetDecnetAddressFromId((byte *)&msg->srcnode, &from);
     ProcessEvent(ddcmpCircuit, DdcmpInitNRVEvent);
@@ -393,56 +393,56 @@ void DdcmpInitProcessVerificationMessage(circuit_t *circuit, verification_msg_t 
 
 void DdcmpInitProcessPhaseIINodeInitializationMessage(circuit_t *circuit, node_init_phaseii_t *msg)
 {
-	ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
-	ddcmp_sock_t *ddcmpSock = GetDdcmpSockFromDdcmpCircuit(ddcmpCircuit);
-	packet_t *pkt;
-	if (msg->requests & 0x01)
-	{
-		// TODO: implement verification message required
-	}
+    ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
+    ddcmp_sock_t *ddcmpSock = GetDdcmpSockFromDdcmpCircuit(ddcmpCircuit);
+    packet_t *pkt;
+    if (msg->requests & 0x01)
+    {
+        // TODO: implement verification message required
+    }
 
-	pkt = CreateNodeInitPhaseIIMessage(nodeInfo.address, nodeInfo.name);
-	if (pkt != NULL)
-	{
-		DdcmpSendDataMessage(&ddcmpSock->line, pkt->payload, pkt->payloadLen);
-	}
+    pkt = CreateNodeInitPhaseIIMessage(nodeInfo.address, nodeInfo.name);
+    if (pkt != NULL)
+    {
+        DdcmpSendDataMessage(&ddcmpSock->line, pkt->payload, pkt->payloadLen);
+    }
 }
 
 void DdcmpInitProcessInvalidMessage(circuit_t *circuit)
 {
-	ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
+    ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
     ProcessEvent(ddcmpCircuit, DdcmpInitIMEvent);
 }
 
 void DdcmpInitProcessCircuitRejectComplete(circuit_t *circuit)
 {
-	ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
-	ProcessEvent(ddcmpCircuit, DdcmpInitRCEvent);
+    ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
+    ProcessEvent(ddcmpCircuit, DdcmpInitRCEvent);
 }
 
 static void DdcmpInitLineUp(ddcmp_circuit_t *ddcmpCircuit)
 {
-	QueueImmediate(ddcmpCircuit->circuit, (void (*)(void *))CircuitUp);
+    QueueImmediate(ddcmpCircuit->circuit, (void (*)(void *))CircuitUp);
 }
 
 static void DdcmpInitLineDown(ddcmp_circuit_t *ddcmpCircuit)
 {
-	QueueImmediate(ddcmpCircuit->circuit, (void (*)(void *))CircuitDown);
+    QueueImmediate(ddcmpCircuit->circuit, (void (*)(void *))CircuitDown);
 }
 
 static void DdcmpInitNotifyRunning(void *context)
 {
     line_t *line = (line_t *)context;
-	Log(LogDdcmpInit, LogDetail, "DDCMP line %s running\n", line->name);
-	QueueImmediate(line, (void (*)(void *))(line->LineUp));
+    Log(LogDdcmpInit, LogDetail, "DDCMP line %s running\n", line->name);
+    QueueImmediate(line, (void (*)(void *))(line->LineUp));
 }
 
 static void DdcmpInitNotifyHalt(void *context)
 {
     line_t *line = (line_t *)context;
     ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitForLine(line);
-	Log(LogDdcmpInit, LogDetail, "DDCMP line %s halted\n", ddcmpCircuit->circuit->name);
-	QueueImmediate(line, (void (*)(void *))(line->LineDown));
+    Log(LogDdcmpInit, LogDetail, "DDCMP line %s halted\n", ddcmpCircuit->circuit->name);
+    QueueImmediate(line, (void (*)(void *))(line->LineDown));
 }
 
 static void HandleLineNotifyStateChange(line_t *line)
@@ -462,30 +462,30 @@ static void HandleLineNotifyStateChange(line_t *line)
 
 static socket_t * TcpAcceptCallback(sockaddr_t *receivedFrom)
 {
-	int i;
-	socket_t *ans = NULL;
-	sockaddr_in_t *receivedFromIn = (sockaddr_in_t *)receivedFrom;
+    int i;
+    socket_t *ans = NULL;
+    sockaddr_in_t *receivedFromIn = (sockaddr_in_t *)receivedFrom;
 
-	for(i = 0; i < ddcmpCircuitCount; i++)
-	{
-		ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(ddcmpCircuits[i]);
-		ddcmp_sock_t *ddcmpSock = GetDdcmpSockFromDdcmpCircuit(ddcmpCircuit);
+    for(i = 0; i < ddcmpCircuitCount; i++)
+    {
+        ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(ddcmpCircuits[i]);
+        ddcmp_sock_t *ddcmpSock = GetDdcmpSockFromDdcmpCircuit(ddcmpCircuit);
 
-		sockaddr_in_t *destinationAddressIn = (sockaddr_in_t *)&ddcmpSock->destinationAddress;
+        sockaddr_in_t *destinationAddressIn = (sockaddr_in_t *)&ddcmpSock->destinationAddress;
 
-		if (memcmp(&receivedFromIn->sin_addr, &destinationAddressIn->sin_addr, sizeof(struct in_addr)) == 0)
-		{
-		    ans = &ddcmpSock->socket;
-			break;
-		}
-	}
+        if (memcmp(&receivedFromIn->sin_addr, &destinationAddressIn->sin_addr, sizeof(struct in_addr)) == 0)
+        {
+            ans = &ddcmpSock->socket;
+            break;
+        }
+    }
 
-	return ans;
+    return ans;
 }
 
 static void TcpConnectCallback(socket_t *sock)
 {
-	ddcmp_circuit_t *ddcmpCircuit = FindCircuit(sock);
+    ddcmp_circuit_t *ddcmpCircuit = FindCircuit(sock);
     if (ddcmpCircuit != NULL)
     {
         line_t *line = GetLineFromDdcmpCircuit(ddcmpCircuit);
@@ -494,7 +494,7 @@ static void TcpConnectCallback(socket_t *sock)
         line->LineOpen(line);
         RegisterEventHandler(line->waitHandle, "DDCMP Circuit", line, line->LineWaitEventHandler);
         ProcessEvent(ddcmpCircuit, DdcmpInitOPOEvent);
-	}
+    }
     else
     {
         Log(LogDdcmpInit, LogInfo, "Cannot find DDCMP circuit for connected socket\n");
@@ -507,7 +507,7 @@ static void TcpDisconnectCallback(socket_t *sock)
     if (ddcmpCircuit != NULL)
     {
         line_t *line = GetLineFromDdcmpCircuit(ddcmpCircuit);
-		ProcessEvent(ddcmpCircuit, DdcmpInitOPFEvent);
+        ProcessEvent(ddcmpCircuit, DdcmpInitOPFEvent);
         DeregisterEventHandler(GetWaitHandleFromDdcmpCircuit(ddcmpCircuit));
         Log(LogDdcmpInit, LogDetail, "DDCMP line %s has been closed\n", ddcmpCircuit->circuit->name);
         line->LineClosed(line);
@@ -517,19 +517,19 @@ static void TcpDisconnectCallback(socket_t *sock)
 static ddcmp_circuit_t *FindCircuit(socket_t *sock)
 {
     ddcmp_circuit_t * ans = NULL;
-	int i;
+    int i;
 
-	for(i = 0; i < ddcmpCircuitCount; i++)
-	{
-		ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(ddcmpCircuits[i]);
-		ddcmp_sock_t *ddcmpSock = GetDdcmpSockFromDdcmpCircuit(ddcmpCircuit);
+    for(i = 0; i < ddcmpCircuitCount; i++)
+    {
+        ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(ddcmpCircuits[i]);
+        ddcmp_sock_t *ddcmpSock = GetDdcmpSockFromDdcmpCircuit(ddcmpCircuit);
 
-		if (sock == &ddcmpSock->socket)
-		{
+        if (sock == &ddcmpSock->socket)
+        {
             ans = ddcmpCircuit;
-			break;
-		}
-	}
+            break;
+        }
+    }
 
     return ans;
 }
@@ -564,46 +564,46 @@ static void QueueEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
 
 static void ProcessEvent(ddcmp_circuit_t *ddcmpCircuit, DdcmpInitEvent evt)
 {
-	state_table_entry_t *entry;
-	int i = 0;
-	int match;
+    state_table_entry_t *entry;
+    int i = 0;
+    int match;
 
-	do
-	{
-		entry = &stateTable[i++];
-		match = entry->evt == DdcmpInitUndefinedEvent || (entry->evt == evt && entry->currentState == ddcmpCircuit->state);
-	}
-	while (!match);
+    do
+    {
+        entry = &stateTable[i++];
+        match = entry->evt == DdcmpInitUndefinedEvent || (entry->evt == evt && entry->currentState == ddcmpCircuit->state);
+    }
+    while (!match);
 
-	if (entry->evt != DdcmpInitUndefinedEvent)
-	{
-		int ok = 1;
-		int stateChanging = ddcmpCircuit->state != entry->newState;
+    if (entry->evt != DdcmpInitUndefinedEvent)
+    {
+        int ok = 1;
+        int stateChanging = ddcmpCircuit->state != entry->newState;
 
-		if (stateChanging)
-		{
-			Log(LogDdcmpInit, LogVerbose, "%s. Changing DDCMP circuit state from %s to %s\n", lineEventString[(int)entry->evt], lineStateString[(int)ddcmpCircuit->state], lineStateString[(int)entry->newState]);
-		}
+        if (stateChanging)
+        {
+            Log(LogDdcmpInit, LogVerbose, "%s. Changing DDCMP circuit state from %s to %s\n", lineEventString[(int)entry->evt], lineStateString[(int)ddcmpCircuit->state], lineStateString[(int)entry->newState]);
+        }
 
-		ddcmpCircuit->state = entry->newState;
+        ddcmpCircuit->state = entry->newState;
 
         if (entry->action != NULL)
         {
             ok = entry->action(ddcmpCircuit->circuit);
         }
 
-		if (stateChanging)
-		{
+        if (stateChanging)
+        {
             if (entry->newState == DdcmpInitRCState)
             {
-	            DdcmpInitLineUp(ddcmpCircuit);
+                DdcmpInitLineUp(ddcmpCircuit);
             }
             else if (entry->newState == DdcmpInitCRState || entry->newState == DdcmpInitOFState)
             {
-	            DdcmpInitLineDown(ddcmpCircuit);
+                DdcmpInitLineDown(ddcmpCircuit);
             }
-		}
-	}
+        }
+    }
 }
 
 static void ProcessQueuedEvent(queued_ddcmp_init_event_t *queuedEvt)
@@ -614,33 +614,33 @@ static void ProcessQueuedEvent(queued_ddcmp_init_event_t *queuedEvt)
 
 static void HandleRecallTimer(rtimer_t *timer, char *name, void *context)
 {
-	ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)context;
-	ddcmpCircuit->recallTimer = NULL;
-	if (ddcmpCircuit->state != DdcmpInitRUState)
-	{
-		Log(LogDdcmpInit, LogVerbose, "Recall timer timed out for %s.\n", ddcmpCircuit->circuit->name);
-		ProcessEvent(ddcmpCircuit, DdcmpInitRTEvent);
-	}
+    ddcmp_circuit_t *ddcmpCircuit = (ddcmp_circuit_t *)context;
+    ddcmpCircuit->recallTimer = NULL;
+    if (ddcmpCircuit->state != DdcmpInitRUState)
+    {
+        Log(LogDdcmpInit, LogVerbose, "Recall timer timed out for %s.\n", ddcmpCircuit->circuit->name);
+        ProcessEvent(ddcmpCircuit, DdcmpInitRTEvent);
+    }
 }
 
 static int IssueReinitializeCommandAndStartRecallTimerAction(circuit_t *circuit)
 {
-	time_t now;
+    time_t now;
     ddcmp_circuit_t *ddcmpCircuit = GetDdcmpCircuitFromCircuit(circuit);
     ddcmp_sock_t *ddcmpSock = GetDdcmpSockFromDdcmpCircuit(ddcmpCircuit);
 
-	if (ddcmpCircuit->recallTimer == NULL)
-	{
-		Log(LogDdcmpInit, LogDetail, "Starting DDCMP line %s\n", ddcmpCircuit->circuit->name);
-		DdcmpStart(&ddcmpSock->line);
+    if (ddcmpCircuit->recallTimer == NULL)
+    {
+        Log(LogDdcmpInit, LogDetail, "Starting DDCMP line %s\n", ddcmpCircuit->circuit->name);
+        DdcmpStart(&ddcmpSock->line);
 
-		time(&now);
-		ddcmpCircuit->recallTimer = CreateTimer("Recall timer", now + RECALL_TIMER, 0, ddcmpCircuit, HandleRecallTimer);
-	}
-	else
-	{
-		Log(LogDdcmpInit, LogVerbose, "Skipping reinitialize for %s because recall timer is active, will reinitialize in the timer handler.\n", ddcmpCircuit->circuit->name);
-	}
+        time(&now);
+        ddcmpCircuit->recallTimer = CreateTimer("Recall timer", now + RECALL_TIMER, 0, ddcmpCircuit, HandleRecallTimer);
+    }
+    else
+    {
+        Log(LogDdcmpInit, LogVerbose, "Skipping reinitialize for %s because recall timer is active, will reinitialize in the timer handler.\n", ddcmpCircuit->circuit->name);
+    }
     return 1;
 }
 
