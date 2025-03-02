@@ -334,7 +334,7 @@ void CloseSocket(socket_t *sock)
 #endif
     ClosePrimitiveSocket(sock->socket);
     sock->socket = INVALID_SOCKET;
-    Log(LogSock, LogError, "Closing socket with wait handle %d\n", sock->waitHandle);
+    Log(LogSock, LogDetail, "Closing socket with wait handle %d\n", sock->waitHandle);
 }
 
 sockaddr_t *GetSocketAddressFromName(char *hostName, uint16 port)
@@ -583,7 +583,6 @@ static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int t
 {
     sockaddr_in_t sa;
 
-    Log(LogSock, LogVerbose, "Opening %s socket for %s, receive port is %d, protocol is %d\n", (type==SOCK_DGRAM) ? "UDP": "TCP", eventName, receivePort, protocol);
     InitialiseSocket(sock, eventName);
     sock->receivePort = receivePort;
 
@@ -595,6 +594,7 @@ static int OpenSocket(socket_t *sock, char *eventName, uint16 receivePort, int t
     if (started)
     {
         sock->socket = socket(AF_INET, type, protocol);
+        Log(LogSock, LogDetail, "Opening %s socket for %s, receive port is %d, protocol is %d, socket is %d\n", (type == SOCK_DGRAM) ? "UDP" : "TCP", eventName, receivePort, protocol, (int)sock->socket);
         if (sock->socket == INVALID_SOCKET)
         {
             SockErrorAndClear("socket");
@@ -675,11 +675,11 @@ static void SetupSocketEvents(socket_t *sock, char *eventName, long events)
     if (sock->waitHandle == (unsigned int)-1)
     {
         sock->waitHandle = (int)CreateEvent(NULL, 0, 0, eventName);
-        Log(LogSock, LogVerbose, "New wait handle for %s is %d\n", eventName, sock->waitHandle);
+        Log(LogSock, LogDetail, "New wait handle for %s is %d\n", eventName, sock->waitHandle);
     }
     else
     {
-        Log(LogSock, LogVerbose, "Reusing wait handle %d for %s\n", sock->waitHandle, eventName);
+        Log(LogSock, LogDetail, "Reusing wait handle %d for %s\n", sock->waitHandle, eventName);
     }
 
     if (WSAEventSelect(sock->socket, (HANDLE)sock->waitHandle, events) == SOCKET_ERROR)
@@ -688,10 +688,10 @@ static void SetupSocketEvents(socket_t *sock, char *eventName, long events)
     }
 #elif defined(__VAX)
     sock->waitHandle = sock->socket;
-    Log(LogSock, LogVerbose, "Wait handle for %s is %d\n", eventName, sock->waitHandle);
+    Log(LogSock, LogDetail, "Wait handle for %s is %d\n", eventName, sock->waitHandle);
 #else
     sock->waitHandle = sock->socket;
-    Log(LogSock, LogVerbose, "Wait handle for %s is %d\n", eventName, sock->waitHandle);
+    Log(LogSock, LogDetail, "Wait handle for %s is %d\n", eventName, sock->waitHandle);
 #endif
 }
 
