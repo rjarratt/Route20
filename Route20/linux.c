@@ -54,8 +54,10 @@
 
 static void ProcessPackets(circuit_t *circuit, void (*process)(circuit_t *, packet_t *));
 static void SetupHupHandler(void);
+static void SetupAbortHandlers(void);
 static void SigHupHandler(int signum);
 static void SigTermHandler(int signum);
+static void SigAbortHandler(int signum);
 
 static char configFileName[PATH_MAX];
 static volatile int shutdownRequested = 0;
@@ -89,6 +91,7 @@ int main(int argc, char *argv[])
     InitialiseLogging();
     ReadConfig(configFileName, ConfigReadModeInitial);
     SetupHupHandler();
+    SetupAbortHandlers();
 
     if (runAsDaemon)
     {
@@ -331,6 +334,15 @@ static void SetupHupHandler(void)
     sigaction(SIGHUP, &sa, NULL);
 }
 
+static void SetupAbortHandlers(void)
+{
+    struct sigaction sa;
+
+    sigemptyset(&sa.sa_mask);
+    sa.sa_handler = SigAbortHandler;
+    sigaction(SIGSEGV, &sa, NULL);
+}
+
 static void SigTermHandler(int signum)
 {
     shutdownRequested = 1;
@@ -339,6 +351,12 @@ static void SigTermHandler(int signum)
 static void SigHupHandler(int signum)
 {
     ReadConfig(configFileName, ConfigReadModeUpdate);
+}
+
+static void SigAbortHandler(int signum)
+{
+    Log(LogGeneral, LogFatal, "Aborting after %s signal\n", strsignal(signum));
+    exit(signum);
 }
 
 #endif
