@@ -27,8 +27,6 @@
 
   ------------------------------------------------------------------------------*/
 
-// TODO: Don't try outbound connect again, if there is still an outbound connect in progress
-
 #include "platform.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,6 +53,7 @@ static int GetSockError(void);
 static void SockError(char *msg);
 static int IsSockClosed(socket_t *sock);
 static int IsSockConnected(socket_t *sock);
+static int IsSockConnectionInProgress(socket_t* sock);
 static int IsSockErrorConnReset(int err);
 static int IsSockErrorConnAborted(int err);
 static int IsSockErrorWouldBlock(int err);
@@ -127,15 +126,24 @@ int OpenTcpSocketInbound(socket_t *sock, uint16 receivePort)
 
 int OpenTcpSocketOutbound(socket_t *sock, sockaddr_t *address)
 {
-    int ans = OpenSocket(sock, sock->eventName, 0, SOCK_STREAM, IPPROTO_TCP);
-    if (ans)
+    int ans;
+    if (!IsSockConnectionInProgress(sock))
     {
-        memcpy(&sock->remoteAddress, address, sizeof(sockaddr_t));
-        ans = ConnectTcpSocket(sock);
+        ans = OpenSocket(sock, sock->eventName, 0, SOCK_STREAM, IPPROTO_TCP);
         if (ans)
         {
-            RegisterEventHandler(sock->waitHandle, sock->eventName, sock, ProcessConnectSocketEvent);
+            memcpy(&sock->remoteAddress, address, sizeof(sockaddr_t));
+            ans = ConnectTcpSocket(sock);
+            if (ans)
+            {
+                RegisterEventHandler(sock->waitHandle, sock->eventName, sock, ProcessConnectSocketEvent);
+            }
         }
+    }
+    else
+    {
+        Log(LogSock, LogDetail, "Already attempting connection to %s on socket %d, not attempting a new connection\n", FormatAddr(&sock->remoteAddress), (int)sock->socket);
+        ans = 1;
     }
 
     return ans;
@@ -492,6 +500,12 @@ static int IsSockConnected(socket_t *sock)
     return ans;
 }
 
+int IsSockConnectionInProgress(socket_t* sock)
+{
+    int ans = sock->socket != INVALID_SOCKET;
+    return ans;
+}
+
 static int IsSockErrorConnReset(int err)
 {
     int ans;
@@ -794,7 +808,7 @@ static void ProcessConnectSocketEvent(void *context)
 
     LogNetworkEvents(sock);
 
-    Log(LogSock, LogDetail, "TCP connection to %s ", FormatAddr(&sock->remoteAddress));
+    Log(LogSock, LogDetail, "TCP connection to %s on socket %d ", FormatAddr(&sock->remoteAddress), (int)sock->socket);
     
     if (IsSockConnected(sock))
     {
