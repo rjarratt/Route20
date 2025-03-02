@@ -40,6 +40,7 @@
 #include <string.h>
 #include <limits.h>
 #include <signal.h>
+#include <getopt.h>
 
 #include "constants.h"
 #include "platform.h"
@@ -52,6 +53,7 @@
 
 #define PID_FILE_NAME "/var/run/route20.pid"
 
+static void PrintUsage(char *name);
 static void ProcessPackets(circuit_t *circuit, void (*process)(circuit_t *, packet_t *));
 static void SetupHupHandler(void);
 static void SetupAbortHandlers(void);
@@ -63,16 +65,40 @@ static char configFileName[PATH_MAX];
 static volatile int shutdownRequested = 0;
 static int runAsDaemon = 1;
 
+static struct option longOptions[] =
+{
+    {"no-daemon", no_argument, NULL, 'n'}
+};
+
 int main(int argc, char *argv[])
 {
+    int opt;
     FILE* pidFile;
 
     /* Our process ID and Session ID */
     pid_t pid, sid;
 
-    if (argc > 1)
+    while ((opt = getopt_long(argc, argv, "n", longOptions, NULL)) != -1)
     {
-        strncpy(configFileName, argv[1], PATH_MAX - 1);
+        switch (opt)
+        {
+        case 'n':
+            runAsDaemon = 0;
+            break;
+       default:
+           PrintUsage(argv[0]);
+           break;
+       }
+    }
+
+    if (argc > optind +1)
+    {
+        PrintUsage(argv[0]);
+        exit(EXIT_FAILURE);
+    }
+    else if (argc > optind)
+    {
+        strncpy(configFileName, argv[optind], PATH_MAX - 1);
         configFileName[PATH_MAX - 1] = '\0';
     }
     else
@@ -177,6 +203,11 @@ int main(int argc, char *argv[])
     remove(PID_FILE_NAME);
     Log(LogGeneral, LogInfo, "Exited\n");
     exit(EXIT_SUCCESS);
+}
+
+void PrintUsage(char *name)
+{
+   fprintf(stderr, "Usage: %s [--no-daemon] [config file]\n", name);
 }
 
 void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
