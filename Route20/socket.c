@@ -675,11 +675,11 @@ static void SetupSocketEvents(socket_t *sock, char *eventName, long events)
     if (sock->waitHandle == (unsigned int)-1)
     {
         sock->waitHandle = (int)CreateEvent(NULL, 0, 0, eventName);
-        Log(LogSock, LogDetail, "New wait handle for %s is %d\n", eventName, sock->waitHandle);
+        Log(LogSock, LogVerbose, "New wait handle for %s is %d\n", eventName, sock->waitHandle);
     }
     else
     {
-        Log(LogSock, LogDetail, "Reusing wait handle %d for %s\n", sock->waitHandle, eventName);
+        Log(LogSock, LogVerbose, "Reusing wait handle %d for %s\n", sock->waitHandle, eventName);
     }
 
     if (WSAEventSelect(sock->socket, (HANDLE)sock->waitHandle, events) == SOCKET_ERROR)
@@ -688,8 +688,10 @@ static void SetupSocketEvents(socket_t *sock, char *eventName, long events)
     }
 #elif defined(__VAX)
     sock->waitHandle = sock->socket;
+    Log(LogSock, LogVerbose, "Wait handle for %s is %d\n", eventName, sock->waitHandle);
 #else
     sock->waitHandle = sock->socket;
+    Log(LogSock, LogVerbose, "Wait handle for %s is %d\n", eventName, sock->waitHandle);
 #endif
 }
 
@@ -717,7 +719,7 @@ static void ProcessListenSocketEvent(void *context)
     Log(LogSock, LogDetail, "Processing TCP connection attempt on %d\n", ListenSocket.receivePort);
     ilen = sizeof(receivedFrom);
     newSocket = accept(ListenSocket.socket, &receivedFrom, &ilen);
-        Log(LogSock, LogVerbose, "Accepting new connection on socket %d\n", newSocket);
+    Log(LogSock, LogVerbose, "Accepting new connection on socket %d\n", newSocket);
     if (newSocket != INVALID_SOCKET)
     {
         int reject = 1;
