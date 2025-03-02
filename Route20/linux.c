@@ -355,7 +355,7 @@ static void SigHupHandler(int signum)
 
 static void SigAbortHandler(int signum)
 {
-    Log(LogGeneral, LogFatal, "Aborting after %s signal\n", strsignal(signum));
+    Log(LogGeneral, LogFatal, "\nAborting after %s signal\n", strsignal(signum));
     exit(signum);
 }
 
