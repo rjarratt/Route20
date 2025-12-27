@@ -684,5 +684,7 @@ FakesAssemblies/
 # Visual Studio 6 workspace options file
 *.opt
 
-route20
+**/route20
+!**/route20/
 *.core
+CMakeUserPresets.json

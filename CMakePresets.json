@@ -1,0 +1,13 @@
+{
+    "version": 10,
+    "$comment": "Also see https://go.microsoft.com//fwlink//?linkid=834763",
+    "configurePresets": [
+        {
+            "name": "default",
+            "description": "Configure for VS 2022 Win32",
+            "generator": "Visual Studio 17 2022",
+            "architecture": "Win32",
+            "binaryDir": "${sourceDir}/build"
+        }
+    ]
+}
