@@ -35,6 +35,7 @@
 #include "route20.h"
 #include "socket.h"
 #if defined(WIN32)
+#include <ws2tcpip.h>
 #elif defined(__VAX)
 #include inetdef
 #else
@@ -349,26 +350,28 @@ sockaddr_t *GetSocketAddressFromName(char *hostName, uint16 port)
 {
     static sockaddr_in_t sa;
     sockaddr_t *ans;
-    hostent_t *he;
+    char portStr[16];
+    struct addrinfo hints;
+    struct addrinfo* results = NULL;
 
     if (!started)
     {
         SockStartup();
     }
 
-    he = gethostbyname(hostName);
-    if (he != NULL)
+    _itoa(port, portStr, 10);
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    if (getaddrinfo(hostName, portStr, &hints, &results) == 0)
     {
-        rinaddr_t *addr;
-        sa.sin_family = AF_INET;
-        sa.sin_port = htons(port);
-        addr = (rinaddr_t *)(he->h_addr);
-        sa.sin_addr.s_addr = addr->s_addr;
-        ans = (sockaddr_t *)&sa;
+        memcpy(&sa, results->ai_addr, results->ai_addrlen); // use first result
+ 
+        ans = (sockaddr_t*)&sa;
+        freeaddrinfo(results);
     }
     else
     {
-        SockErrorAndClear("gethostbyname");
+        SockErrorAndClear("getaddrinfo");
         ans = NULL;
     }
 
@@ -848,7 +851,7 @@ static void LogNetworkEvents(socket_t *sock)
 #if defined(WIN32)
     WSANETWORKEVENTS NetworkEvents;
 
-    WSAEnumNetworkEvents(sock->socket, NULL, &NetworkEvents);
+    WSAEnumNetworkEvents(sock->socket, (HANDLE)sock->waitHandle, &NetworkEvents);
 
     LogNetworkEvent(&NetworkEvents, "Connect", FD_CONNECT, FD_CONNECT_BIT);
     LogNetworkEvent(&NetworkEvents, "Close", FD_CLOSE, FD_CLOSE_BIT);
@@ -870,11 +873,11 @@ static char *FormatAddr(sockaddr_t *addr)
 
     if (inaddr->sin_port != 0)
     {
-        sprintf(buf, "%d.%d.%d.%d:%d", (inaddr->sin_addr.s_addr) & 0xFF, (inaddr->sin_addr.s_addr >> 8) & 0xFF, (inaddr->sin_addr.s_addr >> 16) & 0xFF, (inaddr->sin_addr.s_addr >> 24) & 0xFF, ntohs(inaddr->sin_port));
+        sprintf(buf, "%ld.%ld.%ld.%ld:%d", (inaddr->sin_addr.s_addr) & 0xFF, (inaddr->sin_addr.s_addr >> 8) & 0xFF, (inaddr->sin_addr.s_addr >> 16) & 0xFF, (inaddr->sin_addr.s_addr >> 24) & 0xFF, ntohs(inaddr->sin_port));
     }
     else
     {
-        sprintf(buf, "%d.%d.%d.%d", (inaddr->sin_addr.s_addr) & 0xFF, (inaddr->sin_addr.s_addr >> 8) & 0xFF, (inaddr->sin_addr.s_addr >> 16) & 0xFF, (inaddr->sin_addr.s_addr >> 24) & 0xFF);
+        sprintf(buf, "%ld.%ld.%ld.%ld", (inaddr->sin_addr.s_addr) & 0xFF, (inaddr->sin_addr.s_addr >> 8) & 0xFF, (inaddr->sin_addr.s_addr >> 16) & 0xFF, (inaddr->sin_addr.s_addr >> 24) & 0xFF);
     }
 
     return buf;

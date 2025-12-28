@@ -485,7 +485,7 @@ void QueuePacket(circuit_t *circuit, packet_t *packet)
     }
 }
 
-void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *))
+void ProcessEvents(circuit_t circuits[], int circuitCount, void (*process)(circuit_t *, packet_t *))
 {
     LARGE_INTEGER timeout;
     static $DESCRIPTOR(timeoutString,"0 00:00:00.01"); /* 10ms */

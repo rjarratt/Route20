@@ -103,7 +103,7 @@ static void SendAdjacentNodeInfo(nice_session_t *niceSession, circuit_t *circuit
 static void StartDataBlockResponse(byte* data, uint16* pos);
 static void AddDecnetIdToResponse(byte* data, uint16 * pos, decnet_address_t* address);
 static void AddEntityTypeAndDataTypeToResponse(byte* data, uint16 * pos, uint16 entityType, byte dataType);
-static void AddStringToResponse(byte *data, uint16 *pos, char *s, int maxLength);
+static void AddStringToResponse(byte *data, uint16 *pos, char *s, int16 maxLength);
 
 void NetManInitialise(void)
 {
@@ -183,7 +183,7 @@ void LoopbackDataCallback(void* handle, byte* data, uint16 dataLength)
 	nice_session_t* niceSession = &NiceSessions;
 
 	byte responseData[MAX_LOOPBACK_SIZE + 1];
-	int responseLength = dataLength > MAX_LOOPBACK_SIZE ? MAX_LOOPBACK_SIZE : dataLength;
+	uint16 responseLength = dataLength > MAX_LOOPBACK_SIZE ? MAX_LOOPBACK_SIZE : dataLength;
 	memcpy(responseData, data, responseLength);
 	responseData[0] = 1;
 
@@ -463,7 +463,7 @@ static void AddEntityTypeAndDataTypeToResponse(byte* data, uint16 * pos, uint16 
 	data[(*pos)++] = dataType;
 }
 
-static void AddStringToResponse(byte* data, uint16* pos, char* s, int maxLength)
+static void AddStringToResponse(byte* data, uint16* pos, char* s, int16 maxLength)
 {
 	uint16 slen = (uint16)strlen(s);
 	uint16 len = (slen > maxLength && maxLength > 0) ? maxLength : slen;

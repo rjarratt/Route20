@@ -96,7 +96,7 @@ target_link_libraries(Route20 PRIVATE dbghelp.lib wsock32.lib ws2_32.lib wpcap.l
 if (CMAKE_C_COMPILER_ID STREQUAL "MSVC")
     set_property(DIRECTORY .. PROPERTY VS_STARTUP_PROJECT Route20)
     add_compile_definitions(Route20 PRIVATE _CRT_SECURE_NO_WARNINGS)
-    target_compile_options(Route20 PRIVATE /WX- /Wall /wd4100 /wd4200 /wd4127 /wd4206 /wd4706 /wd5045 /external:W1)
+    target_compile_options(Route20 PRIVATE /WX /Wall /wd4100 /wd4200 /wd4127 /wd4206 /wd4706 /wd5045 /wd4061 /external:W1)
     add_custom_command(
         TARGET Route20
         POST_BUILD

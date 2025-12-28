@@ -287,7 +287,7 @@ void QueuePacket(circuit_t *circuit, packet_t *packet)
     ProcessPacket(circuit, packet);
 }
 
-void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *))
+void ProcessEvents(circuit_t circuits[], int circuitCount, void (*process)(circuit_t *, packet_t *))
 {
     int i;
 

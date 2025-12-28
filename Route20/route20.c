@@ -250,7 +250,7 @@ void DeregisterEventHandler(unsigned int waitHandle)
 void MainLoop(void)
 {
     Log(LogGeneral, LogInfo, "Main loop start\n");
-    srand(time(0));
+    srand((int)time(0));
 
     ProcessEvents(Circuits, numCircuits, ProcessPacket);
 
@@ -756,7 +756,7 @@ static char *ReadDdcmpConfig(FILE *f, ConfigReadMode mode, int *ans)
     char  *value;
     char   addressPresent = 0;
     char   hostName[80];
-    uint16 port;
+    uint16 port = 0;
     int    cost = 5;
     int    connectPoll = 30;
 

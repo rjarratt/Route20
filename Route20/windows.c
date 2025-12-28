@@ -269,7 +269,7 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
 		{
 			time(&now);
 			strftime(buf, 80, "%Y-%m-%d %H:%M:%S", localtime(&now));
-			fprintf(logFile, buf);
+			fprintf(logFile, "%s", buf);
             fprintf(logFile, "\t");
             if (!runningAsService)
             {
@@ -282,8 +282,8 @@ void VLog(LogSource source, LogLevel level, char *format, va_list argptr)
 
 		n = vsprintf(buf, format, argptr);
 		onNewLine = buf[n-1] == '\n';
-		fprintf(logFile, buf);
-        if (!runningAsService) printf(buf);
+		fprintf(logFile, "%s", buf);
+        if (!runningAsService) printf("%s", buf);
 		fflush(logFile);
 	}
 }
@@ -294,11 +294,11 @@ void QueuePacket(circuit_t *circuit, packet_t *packet)
     ProcessPacket(circuit, packet);
 }
 
-void ProcessEvents(circuit_t circuits[], int numCircuits, void (*process)(circuit_t *, packet_t *))
+void ProcessEvents(circuit_t circuits[], int circuitCount, void (*process)(circuit_t *, packet_t *))
 {
 	int i;
 	HANDLE handles[MAXIMUM_WAIT_OBJECTS];
-	//Log(LogInfo, "Process events %d\n", numCircuits);
+	//Log(LogInfo, "Process events %d\n", circuitCount);
 
 	while (!stop)
 	{
@@ -374,7 +374,7 @@ static VOID SvcInstall(void)
 
 	if( !GetModuleFileName( NULL, szPath, MAX_PATH ) )
 	{
-		printf("Cannot install service (%d)\n", GetLastError());
+		printf("Cannot install service (%ld)\n", GetLastError());
 		return;
 	}
 
@@ -387,7 +387,7 @@ static VOID SvcInstall(void)
 
 	if (NULL == schSCManager) 
 	{
-		printf("OpenSCManager failed (%d)\n", GetLastError());
+		printf("OpenSCManager failed (%ld)\n", GetLastError());
 		return;
 	}
 
@@ -410,7 +410,7 @@ static VOID SvcInstall(void)
 
 	if (schService == NULL) 
 	{
-		printf("CreateService failed (%d)\n", GetLastError()); 
+		printf("CreateService failed (%ld)\n", GetLastError()); 
 		CloseServiceHandle(schSCManager);
 		return;
 	}
@@ -450,7 +450,9 @@ static VOID WINAPI SvcMain( DWORD dwArgc, LPTSTR *lpszArgv )
 
 static void OpenLog(void)
 {
-	logFile = fopen("%TEMP%\Route20.log", "w+");
+	char path[MAX_PATH];
+	sprintf(path, "%s\\%s", getenv("TEMP"), "route20.log");
+	logFile = fopen(path, "w+");
 }
 
 static void CloseLog(void)

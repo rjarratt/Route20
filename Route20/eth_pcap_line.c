@@ -268,7 +268,7 @@ int EthPcapLineWritePacket(line_t* line, packet_t* packet)
     while (pcap_sendpacket(pcapContext->pcap, (const u_char*)data, len) != 0 && retries <= PCAP_ERROR_RETRY)
     {
         pcapErr = pcap_geterr(pcapContext->pcap);
-        if (strcpy(pcapErr, "Bad file descriptor") == 0)
+        if (strcmp(pcapErr, "Bad file descriptor") == 0)
         {
             retries = PCAP_ERROR_RETRY + 1;
             break;
@@ -453,7 +453,7 @@ static int eth_checkname(char* name, struct eth_list* list, int count)
     int i;
     for (i = 0; i < count && !found; i++)
     {
-        if (stricmp(name, list[i].name) == 0)
+        if (_stricmp(name, list[i].name) == 0)
         {
             found = 1;
         }

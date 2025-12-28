@@ -29,6 +29,7 @@
 #if !defined(BASICTYPES_H)
 
 typedef unsigned char byte;
+typedef short int     int16;
 typedef unsigned short int     uint16;
 
 typedef enum
