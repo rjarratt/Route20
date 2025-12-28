@@ -86,8 +86,17 @@ int DnsOpen(char *serverName)
 	ans = OpenUdpSocket(&DnsSocket, 0);
 	if (ans)
 	{
-		memcpy(&DnsServer, GetSocketAddressFromName(serverName, 53), sizeof(DnsServer));
-		RegisterEventHandler(DnsSocket.waitHandle, "DNS socket", NULL, DnsProcessResponse);
+		sockaddr_t* addr = GetSocketAddressFromName(serverName, 53);
+		ans = addr != NULL;
+		if (ans)
+		{
+			memcpy(&DnsServer, addr, sizeof(DnsServer));
+			RegisterEventHandler(DnsSocket.waitHandle, "DNS socket", NULL, DnsProcessResponse);
+		}
+		else
+		{
+			Log(LogDns, LogError, "Cannot resolve DNS server name %s. Proceeding without DNS updates.\n", serverName);
+        }
 	}
 
 	return ans;
